@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'signUpScreen.dart';
+import '../constants/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,9 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2D5016), // Deep forest green
-              Color(0xFF4A7C2C), // Medium green
-              Color(0xFF6B9E3E), // Fresh leaf green
+              AppColors.deepForestGreen, // Deep forest green
+              AppColors.mediumGreen, // Medium green
+              AppColors.freshLeafGreen, // Fresh leaf green
             ],
           ),
         ),
@@ -103,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D5016),
+                              color: AppColors.deepForestGreen,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -124,24 +125,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: InputDecoration(
                               labelText: 'Email',
                               prefixIcon: Icon(Icons.email_outlined,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -158,13 +159,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon: Icon(Icons.lock_outline,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _isPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  color: Colors.grey[600],
+                                  color: AppColors.textSecondaryGrey,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -174,21 +175,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -208,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Text(
                                 'Forgot Password?',
                                 style: TextStyle(
-                                  color: Color(0xFF4A7C2C),
+                                  color: AppColors.mediumGreen,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -223,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF4A7C2C),
+                              backgroundColor: AppColors.mediumGreen,
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -261,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Text(
                                   'Sign Up',
                                   style: TextStyle(
-                                    color: Color(0xFF4A7C2C),
+                                    color: AppColors.mediumGreen,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

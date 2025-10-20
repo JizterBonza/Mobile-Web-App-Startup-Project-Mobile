@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/constants.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -39,9 +40,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF2D5016), // Deep forest green
-              Color(0xFF4A7C2C), // Medium green
-              Color(0xFF6B9E3E), // Fresh leaf green
+              AppColors.deepForestGreen, // Deep forest green
+              AppColors.mediumGreen, // Medium green
+              AppColors.freshLeafGreen, // Fresh leaf green
             ],
           ),
         ),
@@ -75,13 +76,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           Container(
                             padding: EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Color(0xFF4A7C2C).withOpacity(0.1),
+                              color: AppColors.mediumGreen.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.agriculture,
                               size: 50,
-                              color: Color(0xFF4A7C2C),
+                              color: AppColors.mediumGreen,
                             ),
                           ),
                           SizedBox(height: 20),
@@ -90,7 +91,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D5016),
+                              color: AppColors.deepForestGreen,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -111,24 +112,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             decoration: InputDecoration(
                               labelText: 'Full Name',
                               prefixIcon: Icon(Icons.person_outline,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -145,24 +146,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             decoration: InputDecoration(
                               labelText: 'Email',
                               prefixIcon: Icon(Icons.email_outlined,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -182,24 +183,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             decoration: InputDecoration(
                               labelText: 'Phone Number',
                               prefixIcon: Icon(Icons.phone_outlined,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -216,13 +217,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon: Icon(Icons.lock_outline,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _isPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  color: Colors.grey[600],
+                                  color: AppColors.textSecondaryGrey,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -232,21 +233,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -266,13 +267,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             decoration: InputDecoration(
                               labelText: 'Confirm Password',
                               prefixIcon: Icon(Icons.lock_outline,
-                                  color: Color(0xFF4A7C2C)),
+                                  color: AppColors.mediumGreen),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _isConfirmPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  color: Colors.grey[600],
+                                  color: AppColors.textSecondaryGrey,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -283,21 +284,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.grey[300]!),
+                                borderSide: BorderSide(
+                                    color: AppColors.inputBorderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                    color: Color(0xFF4A7C2C), width: 2),
+                                    color: AppColors.mediumGreen, width: 2),
                               ),
                               filled: true,
-                              fillColor: Colors.grey[50],
+                              fillColor: AppColors.lightGreyBackground,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -323,7 +324,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       _agreedToTerms = value ?? false;
                                     });
                                   },
-                                  activeColor: Color(0xFF4A7C2C),
+                                  activeColor: AppColors.mediumGreen,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(4),
                                   ),
@@ -348,7 +349,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         'Terms & Conditions',
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4A7C2C),
+                                          color: AppColors.mediumGreen,
                                           fontWeight: FontWeight.w600,
                                           decoration: TextDecoration.underline,
                                         ),
@@ -378,7 +379,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF4A7C2C),
+                              backgroundColor: AppColors.mediumGreen,
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -411,7 +412,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 child: Text(
                                   'Login',
                                   style: TextStyle(
-                                    color: Color(0xFF4A7C2C),
+                                    color: AppColors.mediumGreen,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
