@@ -80,7 +80,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              Icons.agriculture,
+                              Icons.create,
                               size: 50,
                               color: AppColors.mediumGreen,
                             ),
