@@ -1,26 +1,88 @@
 import 'package:flutter/material.dart';
-import 'signUpScreen.dart';
-import 'forgotPasswordScreen.dart';
 import '../constants/constants.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleForgotPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Simulate API call
+      await Future.delayed(Duration(seconds: 2));
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      // Show success dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: AppColors.mediumGreen,
+                  size: 28,
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Email Sent',
+                  style: TextStyle(
+                    color: AppColors.deepForestGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'We\'ve sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.',
+              style: TextStyle(
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Go back to login screen
+                },
+                child: Text(
+                  'OK',
+                  style: TextStyle(
+                    color: AppColors.mediumGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   @override
@@ -47,6 +109,19 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 children: [
                   SizedBox(height: 40),
+                  // Back button
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
                   // Logo/Icon section
                   Container(
                     padding: EdgeInsets.all(20),
@@ -55,15 +130,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.agriculture,
+                      Icons.lock_reset,
                       size: 80,
                       color: Colors.white,
                     ),
                   ),
                   SizedBox(height: 20),
-                  // Welcome text
+                  // Title text
                   Text(
-                    'AgrifyConnect',
+                    'Forgot Password?',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -71,17 +146,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       letterSpacing: 1.2,
                     ),
                   ),
-                  // SizedBox(height: 8),
-                  // Text(
-                  //   'Growing Together',
-                  //   style: TextStyle(
-                  //     fontSize: 16,
-                  //     color: Colors.white.withOpacity(0.9),
-                  //     letterSpacing: 0.5,
-                  //   ),
-                  // ),
+                  SizedBox(height: 8),
+                  Text(
+                    'No worries, we\'ll help you reset it',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white.withOpacity(0.9),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                   SizedBox(height: 20),
-                  // Login form card
+                  // Forgot password form card
                   Container(
                     padding: EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -101,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Welcome',
+                            'Reset Password',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -111,10 +186,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Login to your account',
+                            'Enter your email address and we\'ll send you a link to reset your password.',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
+                              height: 1.4,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -124,7 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              labelText: 'Email',
+                              labelText: 'Email Address',
+                              hintText: 'Enter your email address',
                               prefixIcon: Icon(Icons.email_outlined,
                                   color: AppColors.mediumGreen),
                               border: OutlineInputBorder(
@@ -147,89 +224,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
+                                return 'Please enter your email address';
+                              }
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                  .hasMatch(value)) {
+                                return 'Please enter a valid email address';
                               }
                               return null;
                             },
                           ),
-                          SizedBox(height: 20),
-                          // Password field
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: !_isPasswordVisible,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline,
-                                  color: AppColors.mediumGreen),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                  color: AppColors.textSecondaryGrey,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.inputBorderGrey),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.inputBorderGrey),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.mediumGreen, width: 2),
-                              ),
-                              filled: true,
-                              fillColor: AppColors.lightGreyBackground,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              return null;
-                            },
-                          ),
-                          SizedBox(height: 10),
-                          // Forgot password
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ForgotPasswordScreen(),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                  color: AppColors.mediumGreen,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 15),
-                          // Login button
+                          SizedBox(height: 30),
+                          // Send reset link button
                           ElevatedButton(
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                // Handle login
-                              }
-                            },
+                            onPressed:
+                                _isLoading ? null : _handleForgotPassword,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.mediumGreen,
                               foregroundColor: Colors.white,
@@ -239,35 +247,40 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               elevation: 2,
                             ),
-                            child: Text(
-                              'Login',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                            child: _isLoading
+                                ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  )
+                                : Text(
+                                    'Send Reset Link',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
                           ),
-                          SizedBox(height: 15),
-                          // Sign up link
+                          SizedBox(height: 20),
+                          // Back to login link
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                "Don't have an account? ",
+                                "Remember your password? ",
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
                               TextButton(
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => SignUpScreen(),
-                                    ),
-                                  );
+                                  Navigator.of(context).pop();
                                 },
                                 child: Text(
-                                  'Sign Up',
+                                  'Back to Login',
                                   style: TextStyle(
                                     color: AppColors.mediumGreen,
                                     fontWeight: FontWeight.bold,

@@ -73,18 +73,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Logo/Icon section
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.mediumGreen.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.create,
-                              size: 50,
-                              color: AppColors.mediumGreen,
-                            ),
-                          ),
+                          // Container(
+                          //   padding: EdgeInsets.all(16),
+                          //   decoration: BoxDecoration(
+                          //     color: AppColors.mediumGreen.withOpacity(0.1),
+                          //     shape: BoxShape.circle,
+                          //   ),
+                          //   child: Icon(
+                          //     Icons.create,
+                          //     size: 50,
+                          //     color: AppColors.mediumGreen,
+                          //   ),
+                          // ),
                           SizedBox(height: 20),
                           Text(
                             'Create Account',
