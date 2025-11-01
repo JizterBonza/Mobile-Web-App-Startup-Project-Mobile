@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/form_widgets.dart';
 import '../constants/constants.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -88,216 +89,61 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.deepForestGreen, // Deep forest green
-              AppColors.mediumGreen, // Medium green
-              AppColors.freshLeafGreen, // Fresh leaf green
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                children: [
-                  SizedBox(height: 40),
-                  // Back button
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
+      body: GradientBackground(
+        showBackButton: true,
+        child: Column(
+          children: [
+            FormHeader(
+              icon: Icons.lock_reset,
+              title: 'Forgot Password?',
+              subtitle: 'No worries, we\'ll help you reset it',
+            ),
+            FormCard(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FormSectionHeader(
+                      title: 'Reset Password',
+                      description:
+                          'Enter your email address and we\'ll send you a link to reset your password.',
+                    ),
+                    CustomTextFormField(
+                      controller: _emailController,
+                      labelText: 'Email Address',
+                      hintText: 'Enter your email address',
+                      prefixIcon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email address';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                            .hasMatch(value)) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 30),
+                    CustomElevatedButton(
+                      text: 'Send Reset Link',
+                      onPressed: _handleForgotPassword,
+                      isLoading: _isLoading,
+                    ),
+                    SizedBox(height: 20),
+                    NavigationLink(
+                      leadingText: "Remember your password? ",
+                      linkText: 'Back to Login',
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                        size: 24,
-                      ),
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  // Logo/Icon section
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.lock_reset,
-                      size: 80,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  // Title text
-                  Text(
-                    'Forgot Password?',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'No worries, we\'ll help you reset it',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white.withOpacity(0.9),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  // Forgot password form card
-                  Container(
-                    padding: EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Reset Password',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.deepForestGreen,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Enter your email address and we\'ll send you a link to reset your password.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              height: 1.4,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 30),
-                          // Email field
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Email Address',
-                              hintText: 'Enter your email address',
-                              prefixIcon: Icon(Icons.email_outlined,
-                                  color: AppColors.mediumGreen),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.inputBorderGrey),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.inputBorderGrey),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: AppColors.mediumGreen, width: 2),
-                              ),
-                              filled: true,
-                              fillColor: AppColors.lightGreyBackground,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email address';
-                              }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                  .hasMatch(value)) {
-                                return 'Please enter a valid email address';
-                              }
-                              return null;
-                            },
-                          ),
-                          SizedBox(height: 30),
-                          // Send reset link button
-                          ElevatedButton(
-                            onPressed:
-                                _isLoading ? null : _handleForgotPassword,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.mediumGreen,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white),
-                                    ),
-                                  )
-                                : Text(
-                                    'Send Reset Link',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                          ),
-                          SizedBox(height: 20),
-                          // Back to login link
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Remember your password? ",
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                child: Text(
-                                  'Back to Login',
-                                  style: TextStyle(
-                                    color: AppColors.mediumGreen,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 40),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
+            SizedBox(height: 40),
+          ],
         ),
       ),
     );
