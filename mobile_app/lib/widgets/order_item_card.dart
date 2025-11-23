@@ -239,6 +239,7 @@ class OrderItemCard extends StatelessWidget {
                       onPressed: onViewDetails,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.mediumGreen,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -254,5 +255,3 @@ class OrderItemCard extends StatelessWidget {
     );
   }
 }
-
-

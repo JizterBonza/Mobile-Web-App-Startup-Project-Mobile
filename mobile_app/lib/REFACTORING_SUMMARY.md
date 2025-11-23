@@ -206,4 +206,3 @@ The refactoring successfully:
 - ✅ Improved code readability
 
 All authentication screens now use the same reusable widgets, making the codebase much more maintainable and consistent.
-

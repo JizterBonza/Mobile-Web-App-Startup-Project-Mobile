@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import 'customerDashboardScreen.dart';
+import 'favoriteScreen.dart';
+import 'profileScreen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -9,6 +12,7 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  int _selectedIndex = 1; // Cart tab
   // Sample cart items - in real app, this would come from state management
   List<Map<String, dynamic>> _cartItems = [
     {
@@ -88,7 +92,30 @@ class _CartScreenState extends State<CartScreen> {
         iconTheme: IconThemeData(color: Colors.grey[700]),
       ),
       body: _cartItems.isEmpty ? _buildEmptyCart() : _buildCartContent(),
-      bottomNavigationBar: _cartItems.isEmpty ? null : _buildCheckoutSection(),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  PageRoute _createFadeRoute(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale:
+                Tween<double>(begin: 0.98, end: 1.0).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: Duration(milliseconds: 150),
+      reverseTransitionDuration: Duration(milliseconds: 150),
     );
   }
 
@@ -220,10 +247,13 @@ class _CartScreenState extends State<CartScreen> {
                   Map<String, dynamic> item = entry.value;
                   return _buildCartItem(item, index);
                 }),
+                SizedBox(height: 16),
               ],
             ),
           ),
         ),
+        // Checkout section
+        _buildCheckoutSection(),
       ],
     );
   }
@@ -367,6 +397,7 @@ class _CartScreenState extends State<CartScreen> {
       ),
       padding: EdgeInsets.all(16),
       child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -428,6 +459,68 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey[300]!),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Handle navigation based on selected index
+          if (index == 0) {
+            // Home
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(CustomerDashboardScreen()),
+            );
+          } else if (index == 2) {
+            // Favorites
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(FavoriteScreen()),
+            );
+          } else if (index == 3) {
+            // Profile
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(ProfileScreen()),
+            );
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColors.mediumGreen,
+        unselectedItemColor: Colors.grey[600],
+        backgroundColor: Colors.white,
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Favorites',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }
