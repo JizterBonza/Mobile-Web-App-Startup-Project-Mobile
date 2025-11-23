@@ -2,6 +2,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Url {
   static String getUrl() {
-    return dotenv.env['IP_URL'] ?? 'http://agrify-web.test';
+    return dotenv.env['IP_URL']!;
   }
 }

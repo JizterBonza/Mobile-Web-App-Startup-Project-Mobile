@@ -3,6 +3,7 @@ import 'signUpScreen.dart';
 import 'forgotPasswordScreen.dart';
 import '../widgets/form_widgets.dart';
 import '../services/api_service.dart';
+import '../utils/snackbar_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +16,46 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailOrUsernameController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingToken();
+  }
+
+  Future<void> _checkExistingToken() async {
+    try {
+      final token = await ApiService.getToken();
+
+      if (token != null && token.isNotEmpty) {
+        // Token exists, get user type and navigate to appropriate dashboard
+        final userType = await ApiService.getUserType();
+
+        if (userType != null && userType.isNotEmpty) {
+          // Wait for the widget to be mounted before navigating
+          if (mounted) {
+            final route = _getDashboardRoute(userType.toLowerCase());
+            Navigator.pushReplacementNamed(context, route);
+          }
+        }
+      }
+    } catch (e) {
+      // If there's an error checking token, just show login screen
+      print('Error checking existing token: $e');
+    }
+  }
+
+  String _getDashboardRoute(String userType) {
+    switch (userType) {
+      case 'vendor':
+        return '/vendorDashboard';
+      case 'rider':
+        return '/riderDashboard';
+      case 'customer':
+      default:
+        return '/customerDashboard';
+    }
+  }
 
   @override
   void dispose() {
@@ -31,7 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             FormHeader(
               icon: Icons.shopping_cart,
-              title: 'AgrifyConnect',
+              iconSize: 60,
+              title: 'Agrify',
               subtitle: 'Your Agricultural Marketplace',
             ),
             FormCard(
@@ -47,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     CustomTextFormField(
                       controller: _emailOrUsernameController,
                       labelText: 'Email or Username',
-                      hintText: 'Enter email or username',
                       prefixIcon: Icons.person_outline,
                       keyboardType: TextInputType.text,
                       validator: (value) {
@@ -58,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    SizedBox(height: 15),
                     PasswordField(
                       controller: _passwordController,
                       labelText: 'Password',
@@ -80,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                     ),
-                    SizedBox(height: 15),
+                    SizedBox(height: 10),
                     CustomElevatedButton(
                       text: 'Login',
                       onPressed: () async {
@@ -109,28 +150,71 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             // Handle result
                             if (result['success'] == true) {
+                              // Get user type from response data
+                              // Based on actual response structure: data['user']['user_type']
+                              String? userType;
+                              if (result['data'] is Map) {
+                                final data = result['data'] as Map;
+
+                                // Try to get user_type from various possible locations
+                                // Priority: data['user']['user_type'] (actual structure)
+                                userType = (data['user'] is Map
+                                        ? data['user']['user_type']?.toString()
+                                        : null) ??
+                                    data['user_type']?.toString() ??
+                                    (data['data'] is Map
+                                        ? data['data']['user_type']?.toString()
+                                        : null) ??
+                                    (data['data'] is Map &&
+                                            data['data']['user'] is Map
+                                        ? data['data']['user']['user_type']
+                                            ?.toString()
+                                        : null);
+
+                                // If still null, try to get from SharedPreferences (saved by ApiService)
+                                if (userType == null || userType.isEmpty) {
+                                  userType = await ApiService.getUserType();
+                                }
+
+                                // Convert to lowercase for comparison
+                                if (userType != null) {
+                                  userType = userType.toLowerCase();
+                                }
+                              }
+
+                              // Validate user type - only allow customer, vendor, or rider
+                              final validUserTypes = [
+                                'customer',
+                                //'vendor',
+                                'rider'
+                              ];
+                              if (userType == null ||
+                                  !validUserTypes.contains(userType)) {
+                                // Show error message for invalid user type
+                                SnackbarHelper.showError(
+                                  context,
+                                  'Invalid user type. Access denied.',
+                                );
+                                return;
+                              }
+
                               // Show success message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      result['message'] ?? 'Login successful!'),
-                                  backgroundColor: Colors.green[700],
-                                ),
+                              SnackbarHelper.showSuccess(
+                                context,
+                                result['message'] ?? 'Login successful!',
                               );
 
-                              // Navigate to dashboard
+                              // Navigate to appropriate dashboard based on user type
                               if (context.mounted) {
-                                Navigator.pushReplacementNamed(
-                                    context, '/customerDashboard');
+                                final route = _getDashboardRoute(userType);
+                                Navigator.pushReplacementNamed(context, route);
                               }
                             } else {
                               // Show error message
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(result['message'] ??
-                                      'Login failed. Please try again.'),
-                                  backgroundColor: Colors.red[700],
-                                ),
+                              SnackbarHelper.showError(
+                                context,
+                                result['message'] ??
+                                    'Login failed. Please try again.',
                               );
                             }
                           } catch (e) {
@@ -140,18 +224,83 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
 
                             // Show error message
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                    'An error occurred. Please try again.'),
-                                backgroundColor: Colors.red[700],
-                              ),
+                            SnackbarHelper.showError(
+                              context,
+                              'An error occurred. Please try again.',
                             );
                           }
                         }
                       },
                     ),
-                    SizedBox(height: 15),
+                    // SizedBox(height: 15),
+                    // // Divider with OR text
+                    // Row(
+                    //   children: [
+                    //     Expanded(
+                    //       child: Divider(
+                    //         color: Colors.grey[300],
+                    //         thickness: 1,
+                    //       ),
+                    //     ),
+                    //     Padding(
+                    //       padding: EdgeInsets.symmetric(horizontal: 16),
+                    //       child: Text(
+                    //         'OR',
+                    //         style: TextStyle(
+                    //           color: Colors.grey[600],
+                    //           fontWeight: FontWeight.w500,
+                    //           fontSize: 14,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     Expanded(
+                    //       child: Divider(
+                    //         color: Colors.grey[300],
+                    //         thickness: 1,
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
+                    // SizedBox(height: 15),
+                    // // Google Login Button
+                    // OutlinedButton.icon(
+                    //   onPressed: () {
+                    //     // TODO: Implement Google login functionality
+                    //   },
+                    //   icon: Image.asset(
+                    //     'assets/images/icons8-google-48.png',
+                    //     height: 24,
+                    //     width: 24,
+                    //     errorBuilder: (context, error, stackTrace) {
+                    //       // Fallback to icon if image not found
+                    //       return Icon(
+                    //         Icons.g_mobiledata,
+                    //         size: 24,
+                    //         color: Colors.red[700],
+                    //       );
+                    //     },
+                    //   ),
+                    //   label: Text(
+                    //     'Login with Google',
+                    //     style: TextStyle(
+                    //       fontSize: 16,
+                    //       fontWeight: FontWeight.w600,
+                    //       color: Colors.grey[800],
+                    //     ),
+                    //   ),
+                    //   style: OutlinedButton.styleFrom(
+                    //     padding: EdgeInsets.symmetric(vertical: 16),
+                    //     side: BorderSide(
+                    //       color: Colors.grey[300]!,
+                    //       width: 1.5,
+                    //     ),
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(12),
+                    //     ),
+                    //     backgroundColor: Colors.white,
+                    //   ),
+                    // ),
+                    // SizedBox(height: 15),
                     NavigationLink(
                       leadingText: "Don't have an account? ",
                       linkText: 'Sign Up',

@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import '../services/api_service.dart';
 import 'loginScreen.dart';
+import 'customerDashboardScreen.dart';
+import 'riderDashboardScreen.dart';
+import 'cartScreen.dart';
+import 'favoriteScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool hideBottomNavigation;
+
+  const ProfileScreen({super.key, this.hideBottomNavigation = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  int _selectedIndex = 3; // Profile tab
+  String? _userType;
   // Sample user data - in real app, this would come from state management or API
   final Map<String, dynamic> _userData = {
     'name': 'John Doe',
@@ -18,6 +26,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'phone': '+63 912 345 6789',
     'address': '123 Farm Street, Manila, Philippines',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserType();
+  }
+
+  Future<void> _loadUserType() async {
+    try {
+      final userType = await ApiService.getUserType();
+      if (mounted) {
+        setState(() {
+          _userType = userType?.toLowerCase();
+        });
+      }
+    } catch (e) {
+      print('Error loading user type: $e');
+    }
+  }
 
   final List<Map<String, dynamic>> _menuItems = [
     {
@@ -41,9 +68,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'subtitle': 'Manage notification settings',
     },
     {
-      'title': 'Privacy & Security',
+      'title': 'Change Password',
       'icon': Icons.lock_outline,
-      'subtitle': 'Account security settings',
+      'subtitle': 'Manage your password',
     },
     {
       'title': 'Help & Support',
@@ -56,19 +83,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          'Profile',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[900],
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[700]),
-      ),
+      appBar: widget.hideBottomNavigation
+          ? null
+          : AppBar(
+              title: Text(
+                'Profile',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[900],
+                ),
+              ),
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: IconThemeData(color: Colors.grey[700]),
+            ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
@@ -92,6 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+      bottomNavigationBar:
+          widget.hideBottomNavigation ? null : _buildBottomNavigationBar(),
     );
   }
 
@@ -482,6 +513,147 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  PageRoute _createFadeRoute(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale:
+                Tween<double>(begin: 0.98, end: 1.0).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: Duration(milliseconds: 150),
+      reverseTransitionDuration: Duration(milliseconds: 150),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey[300]!),
+        ),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+
+          // Handle navigation based on selected index and user type
+          if (_userType == 'rider') {
+            // Rider navigation
+            if (index == 0) {
+              // Home
+              Navigator.pushReplacement(
+                context,
+                _createFadeRoute(RiderDashboardScreen()),
+              );
+            } else if (index == 1) {
+              // Deliveries - switch to deliveries tab in rider dashboard
+              Navigator.pushReplacement(
+                context,
+                _createFadeRoute(RiderDashboardScreen()),
+              );
+            } else if (index == 2) {
+              // History - switch to history tab in rider dashboard
+              Navigator.pushReplacement(
+                context,
+                _createFadeRoute(RiderDashboardScreen()),
+              );
+            }
+            // index == 3 is Profile, stay on current screen
+          } else {
+            // Customer navigation
+            if (index == 0) {
+              // Home
+              Navigator.pushReplacement(
+                context,
+                _createFadeRoute(CustomerDashboardScreen()),
+              );
+            } else if (index == 1) {
+              // Cart
+              Navigator.push(
+                context,
+                _createFadeRoute(CartScreen()),
+              ).then((_) {
+                // Keep profile selected when returning
+                setState(() {
+                  _selectedIndex = 3;
+                });
+              });
+            } else if (index == 2) {
+              // Favorites
+              Navigator.pushReplacement(
+                context,
+                _createFadeRoute(FavoriteScreen()),
+              );
+            }
+            // index == 3 is Profile, stay on current screen
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColors.mediumGreen,
+        unselectedItemColor: Colors.grey[600],
+        backgroundColor: Colors.white,
+        items: _userType == 'rider'
+            ? [
+                // Rider navigation
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.local_shipping_outlined),
+                  activeIcon: Icon(Icons.local_shipping),
+                  label: 'Deliveries',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_outlined),
+                  activeIcon: Icon(Icons.history),
+                  label: 'History',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ]
+            : [
+                // Customer navigation
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.shopping_cart),
+                  label: 'Cart',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.favorite),
+                  label: 'Favorites',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
       ),
     );
   }
