@@ -31,10 +31,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCategories();
-    _loadFeaturedProducts();
-    _loadRecentOrders();
-    _loadUserName();
+    // Defer loading until after the build phase completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCategories();
+      _loadFeaturedProducts();
+      _loadRecentOrders();
+      _loadUserName();
+    });
   }
 
   Future<void> _loadCategories({bool useCache = true}) async {
@@ -538,7 +541,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                         Navigator.push(
                           context,
                           _createFadeRoute(
-                              ProductDetailScreen(product: product)),
+                              ProductDetailScreen(productId: product['id'])),
                         );
                       },
                       child: Padding(

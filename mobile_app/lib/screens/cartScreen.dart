@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import '../services/cart_services.dart';
+import '../services/api_service.dart';
+import '../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import 'favoriteScreen.dart';
 import 'profileScreen.dart';
@@ -14,33 +17,76 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   int _selectedIndex = 1; // Cart tab
   // Sample cart items - in real app, this would come from state management
-  List<Map<String, dynamic>> _cartItems = [
-    {
-      'id': '1',
-      'name': 'Organic Fertilizer',
-      'price': 24.99,
-      'quantity': 2,
-      'image': null,
-    },
-    {
-      'id': '2',
-      'name': 'Garden Spade',
-      'price': 18.50,
-      'quantity': 1,
-      'image': null,
-    },
-    {
-      'id': '3',
-      'name': 'Watering Can',
-      'price': 15.99,
-      'quantity': 3,
-      'image': null,
-    },
-  ];
+  // List<Map<String, dynamic>> _cartItems = [
+  //   {
+  //     'id': '1',
+  //     'name': 'Organic Fertilizer',
+  //     'price': 24.99,
+  //     'quantity': 2,
+  //     'image': null,
+  //   },
+  //   {
+  //     'id': '2',
+  //     'name': 'Garden Spade',
+  //     'price': 18.50,
+  //     'quantity': 1,
+  //     'image': null,
+  //   },
+  //   {
+  //     'id': '3',
+  //     'name': 'Watering Can',
+  //     'price': 15.99,
+  //     'quantity': 3,
+  //     'image': null,
+  //   },
+  // ];
+
+  List<Map<String, dynamic>> _cartItems = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // Get effective price - use item_price if different from price_snapshot
+  double _getEffectivePrice(Map<String, dynamic> item) {
+    final priceSnapshot = double.parse(item['price_snapshot'].toString());
+    final itemPrice = double.parse(item['item_price'].toString());
+    return priceSnapshot != itemPrice ? itemPrice : priceSnapshot;
+  }
+
+  // Check if item quantity exceeds available stock
+  bool _isQuantityValid(Map<String, dynamic> item) {
+    final quantity = item['quantity'] as int;
+    final itemQuantity = int.parse(item['item_quantity'].toString());
+    return quantity <= itemQuantity;
+  }
+
+  // Check if item is out of stock
+  bool _isOutOfStock(Map<String, dynamic> item) {
+    final itemQuantity = int.parse(item['item_quantity'].toString());
+    return itemQuantity <= 0;
+  }
+
+  // Check if remove button should be disabled
+  bool _shouldDisableRemove(Map<String, dynamic> item) {
+    final quantity = item['quantity'] as int;
+    return quantity <= 1 || _isOutOfStock(item);
+  }
+
+  // Check if add button should be disabled
+  bool _shouldDisableAdd(Map<String, dynamic> item) {
+    final quantity = item['quantity'] as int;
+    final itemQuantity = int.parse(item['item_quantity'].toString());
+    return quantity >= itemQuantity || _isOutOfStock(item);
+  }
 
   double get _subtotal {
-    return _cartItems.fold(
-        0.0, (sum, item) => sum + (item['price'] * item['quantity']));
+    return _cartItems.fold(0.0, (sum, item) {
+      // Only include items with valid quantity (quantity <= item_quantity)
+      if (!_isQuantityValid(item)) {
+        return sum;
+      }
+      final effectivePrice = _getEffectivePrice(item);
+      return sum + (effectivePrice * (item['quantity'] as int));
+    });
   }
 
   double get _tax {
@@ -61,17 +107,145 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  void _removeItem(int index) {
-    setState(() {
-      _cartItems.removeAt(index);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Item removed from cart'),
-        backgroundColor: Colors.grey[800],
-        duration: Duration(seconds: 2),
+  Future<void> _clearAllItems() async {
+    if (_cartItems.isEmpty) return;
+
+    // Show confirmation dialog
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Clear Cart'),
+        content: Text(
+            'Are you sure you want to remove all ${_cartItems.length} item(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+            ),
+            child: Text('Clear All'),
+          ),
+        ],
       ),
     );
+
+    if (shouldClear != true) return;
+
+    // Get all cart item IDs
+    final cartItemIds =
+        _cartItems.map((item) => item['id'].toString()).toList();
+
+    // Show loading indicator
+    SnackbarHelper.showLoading(context, 'Removing all items...');
+
+    try {
+      final result = await CartService().clearAllCartItems(cartItemIds);
+
+      SnackbarHelper.hide(context);
+
+      if (result['success'] == true) {
+        // Clear local state only if API call succeeds
+        setState(() {
+          _cartItems.clear();
+        });
+
+        SnackbarHelper.showSuccess(
+          context,
+          result['message'] ?? 'All items removed from cart',
+          duration: Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Failed to clear cart',
+        );
+      }
+    } catch (e) {
+      SnackbarHelper.hide(context);
+      SnackbarHelper.showError(
+        context,
+        'Error clearing cart: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> _removeItem(int index) async {
+    if (index < 0 || index >= _cartItems.length) return;
+
+    final item = _cartItems[index];
+    final cartItemId = item['id'].toString();
+
+    // Show loading indicator
+    SnackbarHelper.showLoading(context, 'Removing item...');
+
+    try {
+      final result = await CartService().removeCartItem(cartItemId);
+
+      SnackbarHelper.hide(context);
+
+      if (result['success'] == true) {
+        // Remove from local state only if API call succeeds
+        setState(() {
+          _cartItems.removeAt(index);
+        });
+
+        SnackbarHelper.showSuccess(
+          context,
+          result['message'] ?? 'Item removed from cart',
+          duration: Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Failed to remove item',
+        );
+      }
+    } catch (e) {
+      SnackbarHelper.hide(context);
+      SnackbarHelper.showError(
+        context,
+        'Error removing item: ${e.toString()}',
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCartItems();
+  }
+
+  Future<void> _loadCartItems() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'User not logged in';
+        });
+        return;
+      }
+
+      final cartItems = await CartService().fetchCartItemsFromAPI(userId);
+      setState(() {
+        _cartItems = cartItems;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load cart items: ${e.toString()}';
+      });
+    }
   }
 
   @override
@@ -91,7 +265,13 @@ class _CartScreenState extends State<CartScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[700]),
       ),
-      body: _cartItems.isEmpty ? _buildEmptyCart() : _buildCartContent(),
+      body: _isLoading
+          ? _buildLoadingState()
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _cartItems.isEmpty
+                  ? _buildEmptyCart()
+                  : _buildCartContent(),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -201,34 +381,11 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text('Clear Cart'),
-                            content: Text(
-                                'Are you sure you want to remove all items?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _cartItems.clear();
-                                  });
-                                  Navigator.pop(context);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[700],
-                                ),
-                                child: Text('Clear'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      onPressed: _cartItems.isEmpty
+                          ? null
+                          : () {
+                              _clearAllItems();
+                            },
                       child: Text(
                         'Clear All',
                         style: TextStyle(
@@ -259,13 +416,17 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCartItem(Map<String, dynamic> item, int index) {
+    final isValidQuantity = _isQuantityValid(item);
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(
+          color: isValidQuantity ? Colors.grey[300]! : Colors.red[300]!,
+          width: isValidQuantity ? 1 : 2,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +456,7 @@ class _CartScreenState extends State<CartScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['name'],
+                  item['item_name'] ?? 'Unknown Item',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -305,14 +466,51 @@ class _CartScreenState extends State<CartScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 8),
-                Text(
-                  '₱${item['price'].toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.mediumGreen,
+                if (double.parse(item['price_snapshot'].toString()) !=
+                    double.parse(item['item_price'].toString()))
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Price at add to cart: ₱${double.parse(item['price_snapshot'].toString()).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Current price: ₱${double.parse(item['item_price'].toString()).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.mediumGreen,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    '₱${_getEffectivePrice(item).toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.mediumGreen,
+                    ),
                   ),
-                ),
+                if (!_isQuantityValid(item))
+                  Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Quantity exceeds available stock (${item['item_quantity']} available)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red[700],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
                 SizedBox(height: 12),
 
                 // Quantity controls
@@ -331,10 +529,15 @@ class _CartScreenState extends State<CartScreen> {
                             icon: Icon(Icons.remove, size: 18),
                             padding: EdgeInsets.all(4),
                             constraints: BoxConstraints(),
-                            onPressed: () {
-                              _updateQuantity(index, item['quantity'] - 1);
-                            },
-                            color: Colors.grey[700],
+                            onPressed: _shouldDisableRemove(item)
+                                ? null
+                                : () {
+                                    _updateQuantity(
+                                        index, (item['quantity'] as int) - 1);
+                                  },
+                            color: _shouldDisableRemove(item)
+                                ? Colors.grey[400]
+                                : Colors.grey[700],
                           ),
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 12),
@@ -351,21 +554,30 @@ class _CartScreenState extends State<CartScreen> {
                             icon: Icon(Icons.add, size: 18),
                             padding: EdgeInsets.all(4),
                             constraints: BoxConstraints(),
-                            onPressed: () {
-                              _updateQuantity(index, item['quantity'] + 1);
-                            },
-                            color: AppColors.mediumGreen,
+                            onPressed: _shouldDisableAdd(item)
+                                ? null
+                                : () {
+                                    _updateQuantity(
+                                        index, (item['quantity'] as int) + 1);
+                                  },
+                            color: _shouldDisableAdd(item)
+                                ? Colors.grey[400]
+                                : AppColors.mediumGreen,
                           ),
                         ],
                       ),
                     ),
                     Spacer(),
                     Text(
-                      '₱${(item['price'] * item['quantity']).toStringAsFixed(2)}',
+                      _isQuantityValid(item)
+                          ? '₱${(_getEffectivePrice(item) * (item['quantity'] as int)).toStringAsFixed(2)}'
+                          : '',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey[900],
+                        color: _isQuantityValid(item)
+                            ? Colors.grey[900]
+                            : Colors.red[400],
                       ),
                     ),
                   ],
@@ -433,11 +645,9 @@ class _CartScreenState extends State<CartScreen> {
             ElevatedButton(
               onPressed: () {
                 // Handle checkout
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Checkout functionality coming soon!'),
-                    backgroundColor: AppColors.mediumGreen,
-                  ),
+                SnackbarHelper.showInfo(
+                  context,
+                  'Checkout functionality coming soon!',
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -546,6 +756,72 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Loading cart items...',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Colors.red[400],
+          ),
+          SizedBox(height: 16),
+          Text(
+            _errorMessage ?? 'An error occurred',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[900],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              _loadCartItems();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.mediumGreen,
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Retry',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -74,6 +74,43 @@ class SnackbarHelper {
     );
   }
 
+  /// Show a loading snackbar with spinner
+  static void showLoading(
+    BuildContext context,
+    String message, {
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.grey[800],
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Hide the current snackbar
+  static void hide(BuildContext context) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  }
+
   /// Show a custom snackbar with full control
   static void showCustom(
     BuildContext context, {
