@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/constants.dart';
+import '../provider/provider.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final Map<String, dynamic>? product;
+  final dynamic productId;
 
   const ProductDetailScreen({
     super.key,
-    this.product,
+    required this.productId,
   });
 
   @override
@@ -17,48 +19,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _selectedImageIndex = 0;
   int _quantity = 1;
   bool _isFavorite = false;
+  bool _showAllReviews = false;
+  late double _averageRating;
 
-  // Static sample data
+  // Static sample data for images
   final List<String> _sampleImages = [
     'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800',
     'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800',
     'https://images.unsplash.com/photo-1516253593875-bd7ba052fbc5?w=800',
   ];
 
-  final List<Map<String, dynamic>> _sampleReviews = [
-    {
-      'userName': 'Juan Dela Cruz',
-      'rating': 5.0,
-      'date': '2024-01-15',
-      'comment':
-          'Excellent quality seeds! Germination rate was very high. Highly recommend this product.',
-      'verified': true,
-    },
-    {
-      'userName': 'Maria Santos',
-      'rating': 4.5,
-      'date': '2024-01-10',
-      'comment':
-          'Good product, fast delivery. The seeds grew well in my garden. Will order again.',
-      'verified': true,
-    },
-    {
-      'userName': 'Pedro Garcia',
-      'rating': 5.0,
-      'date': '2024-01-05',
-      'comment':
-          'Amazing! My plants are thriving. The quality exceeded my expectations.',
-      'verified': false,
-    },
-    {
-      'userName': 'Ana Rodriguez',
-      'rating': 4.0,
-      'date': '2023-12-28',
-      'comment':
-          'Decent product for the price. Packaging could be better, but seeds are good.',
-      'verified': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Fetch reviews when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
+      itemsProvider.fetchItemReviews(widget.productId);
+    });
+
+    _averageRating = _getAverage() as double;
+  }
 
   // Helper method to safely parse price
   double _parsePrice(dynamic price) {
@@ -73,13 +54,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // Helper method to safely parse rating
   double _parseRating(dynamic rating) {
-    if (rating == null) return 4.5;
+    if (rating == null) return 0.0;
     if (rating is num) return rating.toDouble();
     if (rating is String) {
       final parsed = double.tryParse(rating);
-      return parsed ?? 4.5;
+      return parsed ?? 0.0;
     }
-    return 4.5;
+    return 0.0;
   }
 
   // Helper method to safely parse stock quantity
@@ -93,14 +74,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return 50;
   }
 
+  // Method to Get averageRating
+  double _getAverage() {
+    final reviews = Provider.of<ItemsProvider>(context, listen: false).getReviewsList(widget.productId);
+
+    // Calculate average rating from reviews
+    double averageRating = 0.0;
+    if (reviews.isNotEmpty) {
+      final totalRating = reviews.fold<double>(
+        0.0,
+            (sum, review) => sum + (review['rating'] as num).toDouble(),
+      );
+      return averageRating = totalRating / reviews.length;
+    } else {
+      return 0.00;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Use product data if provided, otherwise use sample data
-    final productName = widget.product?['item_name'] ?? 'Premium Organic Seeds';
-    final productPrice = _parsePrice(widget.product?['item_price']);
-    final productDescription = widget.product?['item_description'] ?? '';
-    final productRating = _parseRating(widget.product?['average_rating']);
-    final productStock = _parseStock(widget.product?['item_quantity']);
+    // Get product from provider using productId
+    final itemsProvider = Provider.of<ItemsProvider>(context);
+    final product = itemsProvider.getItemById(widget.productId);
+
+    // Use product data if found, otherwise use sample data
+    final productName = product?['item_name'] ?? 'Premium Organic Seeds';
+    final productPrice = _parsePrice(product?['item_price']);
+    final productDescription = product?['item_description'] ?? '';
+    final productRating = _parseRating(product?['average_rating']);
+    final productStock = _parseStock(product?['item_quantity']);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -174,12 +176,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 4),
-                                  Text(
-                                    '(${_sampleReviews.length} reviews)',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
+                                  Builder(
+                                    builder: (context) {
+                                      final itemsProvider =
+                                          Provider.of<ItemsProvider>(context);
+                                      final reviewsList = itemsProvider
+                                          .getReviewsList(widget.productId);
+                                      final totalReviews = reviewsList.length;
+                                      return Text(
+                                        '($totalReviews reviews)',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[600],
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
@@ -472,108 +483,193 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildReviewsSection() {
-    final averageRating = _sampleReviews
-            .map((r) => r['rating'] as double)
-            .reduce((a, b) => a + b) /
-        _sampleReviews.length;
+    return Consumer<ItemsProvider>(
+      builder: (context, itemsProvider, child) {
+        final reviewsData = itemsProvider.getItemReviews(widget.productId);
+        final isLoading = itemsProvider.isReviewsLoading(widget.productId);
+        final error = itemsProvider.getReviewsError(widget.productId);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        //Here!!!
+        final reviews = itemsProvider.getReviewsList(widget.productId);
+
+        // Calculate average rating from reviews
+        double averageRating = 0.0;
+        if (reviews.isNotEmpty) {
+          final totalRating = reviews.fold<double>(
+            0.0,
+            (sum, review) => sum + (review['rating'] as num).toDouble(),
+          );
+          averageRating = totalRating / reviews.length;
+        } else if (reviewsData != null &&
+            reviewsData['average_rating'] != null) {
+          averageRating = _parseRating(reviewsData['average_rating']);
+        }
+
+        final totalReviews = reviews.length;
+        print('Total reviews1: $totalReviews');
+        // Calculate rating distribution
+        final ratingCounts = Map<int, int>.from({5: 0, 4: 0, 3: 0, 2: 0, 1: 0});
+        for (var review in reviews) {
+          final rating = (review['rating'] as num).toInt();
+          if (ratingCounts.containsKey(rating)) {
+            ratingCounts[rating] = (ratingCounts[rating] ?? 0) + 1;
+          }
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Reviews & Ratings',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                // Handle view all reviews
-              },
-              child: Text(
-                'View All',
-                style: TextStyle(
-                  color: AppColors.mediumGreen,
-                  fontWeight: FontWeight.w600,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Reviews & Ratings',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
                 ),
-              ),
+                if (reviews.length > 3)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _showAllReviews = !_showAllReviews;
+                      });
+                    },
+                    child: Text(
+                      _showAllReviews ? 'Show Less' : 'View All',
+                      style: TextStyle(
+                        color: AppColors.mediumGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-        SizedBox(height: 16),
-
-        // Rating Summary
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  Text(
-                    averageRating.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[900],
-                    ),
+            SizedBox(height: 16),
+            if (isLoading)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(
+                    color: AppColors.mediumGreen,
                   ),
-                  Row(
-                    children: List.generate(5, (index) {
-                      return Icon(
-                        index < averageRating.floor()
-                            ? Icons.star
-                            : Icons.star_border,
-                        size: 16,
-                        color: Colors.amber[600],
-                      );
-                    }),
+                ),
+              )
+            else if (error != null)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      SizedBox(height: 8),
+                      Text(
+                        'Failed to load reviews',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          itemsProvider.fetchItemReviews(widget.productId);
+                        },
+                        child: Text('Retry'),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    '${_sampleReviews.length} reviews',
+                ),
+              )
+            else if (reviews.isEmpty)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'No reviews yet',
                     style: TextStyle(
-                      fontSize: 12,
                       color: Colors.grey[600],
+                      fontSize: 16,
                     ),
                   ),
-                ],
-              ),
-              SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+              )
+            else ...[
+              // Rating Summary
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Row(
                   children: [
-                    _buildRatingBar(5, 3),
-                    _buildRatingBar(4, 1),
-                    _buildRatingBar(3, 0),
-                    _buildRatingBar(2, 0),
-                    _buildRatingBar(1, 0),
+                    Column(
+                      children: [
+                        Text(
+                          averageRating.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[900],
+                          ),
+                        ),
+                        Row(
+                          children: List.generate(5, (index) {
+                            return Icon(
+                              index < averageRating.floor()
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              size: 16,
+                              color: Colors.amber[600],
+                            );
+                          }),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '$totalReviews reviews',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: 24),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildRatingBar(
+                              5, ratingCounts[5] ?? 0, reviews.length),
+                          _buildRatingBar(
+                              4, ratingCounts[4] ?? 0, reviews.length),
+                          _buildRatingBar(
+                              3, ratingCounts[3] ?? 0, reviews.length),
+                          _buildRatingBar(
+                              2, ratingCounts[2] ?? 0, reviews.length),
+                          _buildRatingBar(
+                              1, ratingCounts[1] ?? 0, reviews.length),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-        SizedBox(height: 16),
+              SizedBox(height: 16),
 
-        // Reviews List
-        ..._sampleReviews.take(3).map((review) => _buildReviewCard(review)),
-      ],
+              // Reviews List - Show all reviews if _showAllReviews is true, otherwise show first 3
+              ...(_showAllReviews || reviews.length <= 3
+                  ? reviews.map((review) => _buildReviewCard(review))
+                  : reviews.take(3).map((review) => _buildReviewCard(review))),
+            ],
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildRatingBar(int stars, int count) {
-    final total = _sampleReviews.length;
+  Widget _buildRatingBar(int stars, int count, int total) {
     final percentage = total > 0 ? count / total : 0.0;
 
     return Padding(
@@ -610,6 +706,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildReviewCard(Map<String, dynamic> review) {
+    // Format date from API (e.g., "2025-11-24T21:24:05.000000Z")
+    String formattedDate = '';
+    if (review['created_at'] != null) {
+      try {
+        final dateTime = DateTime.parse(review['created_at']);
+        formattedDate =
+            '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+      } catch (e) {
+        formattedDate = review['created_at'].toString();
+      }
+    }
+
+    final username = review['username'] ?? 'Anonymous';
+    final rating = (review['rating'] as num).toDouble();
+    final comment = review['comment'] ?? '';
+    final verified = review['verified'] == true || review['verified'] == 'true';
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -627,7 +740,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 radius: 20,
                 backgroundColor: AppColors.mediumGreen.withOpacity(0.2),
                 child: Text(
-                  review['userName'][0].toUpperCase(),
+                  username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
                     color: AppColors.mediumGreen,
                     fontWeight: FontWeight.bold,
@@ -642,14 +755,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Row(
                       children: [
                         Text(
-                          review['userName'],
+                          username,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey[900],
                           ),
                         ),
-                        if (review['verified'] == true) ...[
+                        if (verified) ...[
                           SizedBox(width: 6),
                           Icon(
                             Icons.verified,
@@ -664,21 +777,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       children: [
                         ...List.generate(5, (index) {
                           return Icon(
-                            index < (review['rating'] as double).floor()
+                            index < rating.floor()
                                 ? Icons.star
                                 : Icons.star_border,
                             size: 14,
                             color: Colors.amber[600],
                           );
                         }),
-                        SizedBox(width: 8),
-                        Text(
-                          review['date'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        if (formattedDate.isNotEmpty) ...[
+                          SizedBox(width: 8),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],
@@ -686,15 +801,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ],
           ),
-          SizedBox(height: 12),
-          Text(
-            review['comment'],
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.grey[700],
+          if (comment.isNotEmpty) ...[
+            SizedBox(height: 12),
+            Text(
+              comment,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: Colors.grey[700],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

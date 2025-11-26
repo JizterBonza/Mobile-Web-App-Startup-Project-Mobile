@@ -16,12 +16,13 @@ class ApiEndpoints {
   static String get getCategories => '$baseUrl/api/categories';
   static String get getProducts => '$baseUrl/api/products';
   static String get getProductDetails => '$baseUrl/api/products/{id}';
-  static String get addToCart => '$baseUrl/api/cart/add';
-  static String get getCart => '$baseUrl/api/cart';
-  static String get updateCart => '$baseUrl/api/cart/update';
-  static String get deleteCart => '$baseUrl/api/cart/delete';
+  static String get addToCart => '$baseUrl/api/carts/add';
+  static String get getCart => '$baseUrl/api/carts/user/{id}';
+  static String get updateCart => '$baseUrl/api/carts/update';
+  static String get deleteCart => '$baseUrl/api/carts/delete/{id}';
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
+  static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -31,4 +32,5 @@ class ApiEndpoints {
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
   static String get cancelOrder => '$baseUrl/api/orders/{id}/cancel';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
+
 }
