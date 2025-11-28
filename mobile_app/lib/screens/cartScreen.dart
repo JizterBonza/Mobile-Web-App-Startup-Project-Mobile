@@ -44,6 +44,7 @@ class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;
   String? _errorMessage;
+  Set<String> _selectedItems = {}; // Track selected items by their ID
 
   // Get effective price - use item_price if different from price_snapshot
   double _getEffectivePrice(Map<String, dynamic> item) {
@@ -80,8 +81,9 @@ class _CartScreenState extends State<CartScreen> {
 
   double get _subtotal {
     return _cartItems.fold(0.0, (sum, item) {
-      // Only include items with valid quantity (quantity <= item_quantity)
-      if (!_isQuantityValid(item)) {
+      final itemId = item['id'].toString();
+      // Only include checked items with valid quantity (quantity <= item_quantity)
+      if (!_selectedItems.contains(itemId) || !_isQuantityValid(item)) {
         return sum;
       }
       final effectivePrice = _getEffectivePrice(item);
@@ -94,7 +96,12 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   double get _total {
-    return _subtotal + _tax;
+    //return _subtotal + _tax;
+    return _subtotal;
+  }
+
+  int get _selectedItemsCount {
+    return _selectedItems.length;
   }
 
   void _updateQuantity(int index, int newQuantity) {
@@ -103,8 +110,24 @@ class _CartScreenState extends State<CartScreen> {
     } else {
       setState(() {
         _cartItems[index]['quantity'] = newQuantity;
+        // Unselect item if quantity becomes invalid
+        final itemId = _cartItems[index]['id'].toString();
+        if (!_isQuantityValid(_cartItems[index]) &&
+            _selectedItems.contains(itemId)) {
+          _selectedItems.remove(itemId);
+        }
       });
     }
+  }
+
+  void _toggleItemSelection(String itemId) {
+    setState(() {
+      if (_selectedItems.contains(itemId)) {
+        _selectedItems.remove(itemId);
+      } else {
+        _selectedItems.add(itemId);
+      }
+    });
   }
 
   Future<void> _clearAllItems() async {
@@ -151,6 +174,7 @@ class _CartScreenState extends State<CartScreen> {
         // Clear local state only if API call succeeds
         setState(() {
           _cartItems.clear();
+          _selectedItems.clear(); // Clear selection when clearing cart
         });
 
         SnackbarHelper.showSuccess(
@@ -189,8 +213,11 @@ class _CartScreenState extends State<CartScreen> {
 
       if (result['success'] == true) {
         // Remove from local state only if API call succeeds
+        final removedItemId = item['id'].toString();
         setState(() {
           _cartItems.removeAt(index);
+          _selectedItems.remove(
+              removedItemId); // Remove from selection if it was selected
         });
 
         SnackbarHelper.showSuccess(
@@ -238,6 +265,17 @@ class _CartScreenState extends State<CartScreen> {
       final cartItems = await CartService().fetchCartItemsFromAPI(userId);
       setState(() {
         _cartItems = cartItems;
+
+        // Remove any invalid items from selection
+        final itemsToRemove = <String>[];
+        for (var item in cartItems) {
+          final itemId = item['id'].toString();
+          if (!_isQuantityValid(item) && _selectedItems.contains(itemId)) {
+            itemsToRemove.add(itemId);
+          }
+        }
+        _selectedItems.removeAll(itemsToRemove);
+
         _isLoading = false;
       });
     } catch (e) {
@@ -417,6 +455,9 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildCartItem(Map<String, dynamic> item, int index) {
     final isValidQuantity = _isQuantityValid(item);
+    final itemId = item['id'].toString();
+    final isSelected = _selectedItems.contains(itemId);
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -431,6 +472,25 @@ class _CartScreenState extends State<CartScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Checkbox
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: isValidQuantity ? isSelected : false,
+              onChanged: isValidQuantity
+                  ? (bool? value) {
+                      _toggleItemSelection(itemId);
+                    }
+                  : null,
+              activeColor: AppColors.mediumGreen,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          SizedBox(width: 4),
           // Product image placeholder
           Container(
             width: 80,
@@ -568,16 +628,20 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     Spacer(),
-                    Text(
-                      _isQuantityValid(item)
-                          ? '₱${(_getEffectivePrice(item) * (item['quantity'] as int)).toStringAsFixed(2)}'
-                          : '',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _isQuantityValid(item)
-                            ? Colors.grey[900]
-                            : Colors.red[400],
+                    Flexible(
+                      child: Text(
+                        _isQuantityValid(item)
+                            ? '₱${(_getEffectivePrice(item) * (item['quantity'] as int)).toStringAsFixed(2)}'
+                            : '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: _isQuantityValid(item)
+                              ? Colors.grey[900]
+                              : Colors.red[400],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
                       ),
                     ),
                   ],
@@ -624,10 +688,58 @@ class _CartScreenState extends State<CartScreen> {
               ),
               child: Column(
                 children: [
+                  if (_selectedItemsCount > 0)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Calculated for ${_selectedItemsCount} selected item${_selectedItemsCount == 1 ? '' : 's'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 14,
+                            color: Colors.orange[700],
+                          ),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Select items to see total',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange[700],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   _buildSummaryRow(
                       'Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
                   SizedBox(height: 8),
-                  _buildSummaryRow('Tax', '₱${_tax.toStringAsFixed(2)}'),
+                  //_buildSummaryRow('Tax', '₱${_tax.toStringAsFixed(2)}'),
                   SizedBox(height: 12),
                   Divider(height: 1),
                   SizedBox(height: 12),
@@ -643,15 +755,19 @@ class _CartScreenState extends State<CartScreen> {
 
             // Checkout button
             ElevatedButton(
-              onPressed: () {
-                // Handle checkout
-                SnackbarHelper.showInfo(
-                  context,
-                  'Checkout functionality coming soon!',
-                );
-              },
+              onPressed: _selectedItemsCount > 0
+                  ? () {
+                      // Handle checkout
+                      SnackbarHelper.showInfo(
+                        context,
+                        'Checkout functionality coming soon!',
+                      );
+                    }
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: _selectedItemsCount > 0
+                    ? AppColors.mediumGreen
+                    : Colors.grey[400],
                 padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -659,7 +775,9 @@ class _CartScreenState extends State<CartScreen> {
                 elevation: 0,
               ),
               child: Text(
-                'Proceed to Checkout',
+                _selectedItemsCount > 0
+                    ? 'Proceed to Checkout (${_selectedItemsCount} item${_selectedItemsCount == 1 ? '' : 's'})'
+                    : 'Select items to checkout',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

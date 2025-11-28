@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/constants.dart';
 import '../provider/provider.dart';
+import '../services/cart_services.dart';
+import '../services/api_service.dart';
+import '../utils/snackbar_helper.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic productId;
@@ -20,6 +23,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   bool _isFavorite = false;
   bool _showAllReviews = false;
+  bool _isAddingToCart = false;
   late double _averageRating;
 
   // Static sample data for images
@@ -76,14 +80,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // Method to Get averageRating
   double _getAverage() {
-    final reviews = Provider.of<ItemsProvider>(context, listen: false).getReviewsList(widget.productId);
+    final reviews = Provider.of<ItemsProvider>(context, listen: false)
+        .getReviewsList(widget.productId);
 
     // Calculate average rating from reviews
     double averageRating = 0.0;
     if (reviews.isNotEmpty) {
       final totalRating = reviews.fold<double>(
         0.0,
-            (sum, review) => sum + (review['rating'] as num).toDouble(),
+        (sum, review) => sum + (review['rating'] as num).toDouble(),
       );
       return averageRating = totalRating / reviews.length;
     } else {
@@ -900,6 +905,66 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Future<void> _handleAddToCart(double price) async {
+    setState(() {
+      _isAddingToCart = true;
+    });
+
+    try {
+      // Get user ID
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(
+            context,
+            'Please login to add items to cart',
+          );
+        }
+        setState(() {
+          _isAddingToCart = false;
+        });
+        return;
+      }
+
+      // Call addToCart service
+      final cartService = CartService();
+      final result = await cartService.addToCart(
+        userId: userId,
+        itemId: widget.productId.toString(),
+        price: price,
+        quantity: _quantity,
+      );
+
+      if (mounted) {
+        if (result['success'] == true) {
+          SnackbarHelper.showSuccess(
+            context,
+            result['message'] ?? 'Added $_quantity item(s) to cart',
+            duration: Duration(seconds: 2),
+          );
+        } else {
+          SnackbarHelper.showError(
+            context,
+            result['message'] ?? 'Failed to add item to cart',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error adding to cart: ${e.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAddingToCart = false;
+        });
+      }
+    }
+  }
+
   Widget _buildBottomActionBar(double price, bool inStock) {
     return Container(
       padding: EdgeInsets.all(16),
@@ -966,24 +1031,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             // Add to Cart Button
             Expanded(
               child: ElevatedButton(
-                onPressed: inStock
-                    ? () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Added $_quantity item(s) to cart',
-                            ),
-                            duration: Duration(seconds: 2),
-                            backgroundColor: AppColors.mediumGreen,
-                            action: SnackBarAction(
-                              label: 'View Cart',
-                              textColor: Colors.white,
-                              onPressed: () {
-                                // Navigate to cart
-                              },
-                            ),
-                          ),
-                        );
+                onPressed: (inStock && !_isAddingToCart)
+                    ? () async {
+                        await _handleAddToCart(price);
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
@@ -995,20 +1045,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   elevation: 2,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.shopping_cart, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Add to Cart',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                child: _isAddingToCart
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shopping_cart, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Add to Cart',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],
