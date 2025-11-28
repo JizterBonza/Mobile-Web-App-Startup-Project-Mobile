@@ -38,7 +38,7 @@ class CartService extends ApiService {
             "quantity": data['quantity'],
             "price_snapshot": data['price_snapshot'],
             "status": data['status'],
-            "added_at": data['added_at'],
+            "added_at": data['created_at'],
             "item_name": data['item']['item_name'],
             "item_price": data['item']['item_price'],
             "item_quantity": data['item']['item_quantity'],
@@ -56,6 +56,81 @@ class CartService extends ApiService {
   Future<List<Map<String, dynamic>>> fetchCartItemsFromAPI(
       String itemId) async {
     return await _fetchCartItemsFromAPI(itemId);
+  }
+
+  // Add item to cart via API
+  Future<Map<String, dynamic>> addToCart({
+    required String userId,
+    required String itemId,
+    required double price,
+    required int quantity,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login.',
+          'data': null,
+        };
+      }
+
+      final uri = Uri.parse(ApiEndpoints.addToCart);
+
+      final body = {
+        'user_id': userId,
+        'item_id': itemId,
+        'price': price,
+        'quantity': quantity,
+      };
+
+      final response = await http
+          .post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      )
+          .timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 10 seconds');
+        },
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Item added to cart',
+          'data': responseData['data'] ?? responseData,
+        };
+      } else {
+        String errorMessage = 'Failed to add item to cart';
+        if (responseData is Map && responseData.containsKey('message')) {
+          errorMessage = responseData['message'].toString();
+        } else if (responseData is Map && responseData.containsKey('errors')) {
+          final errors = responseData['errors'] as Map<String, dynamic>;
+          errorMessage = errors.values.first.toString();
+        }
+
+        return {
+          'success': false,
+          'message': errorMessage,
+          'data': responseData,
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
   }
 
   // Remove item from cart via API
