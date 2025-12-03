@@ -11,9 +11,20 @@ class OrderService extends ApiService {
     required List<Map<String, dynamic>> items,
     required String shippingAddress,
     required String paymentMethod,
-    required double totalPrice,
+    required double subtotal,
+    required double shippingFee,
+    required double totalAmount,
+    String? orderInstruction,
   }) async {
     try {
+      print('Items: $items');
+      print('Subtotal: $subtotal');
+      print('Shipping Fee: $shippingFee');
+      print('Total Amount: $totalAmount');
+      print('Shipping Address: $shippingAddress');
+      print('Payment Method: $paymentMethod');
+      print('Order Instruction: $orderInstruction');
+
       final token = await ApiService.getToken();
       if (token == null || token.isEmpty) {
         return {
@@ -23,13 +34,28 @@ class OrderService extends ApiService {
         };
       }
 
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        return {
+          'success': false,
+          'message': 'User ID not found. Please login again.',
+          'data': null,
+        };
+      }
+
+      print('User ID: $userId');
+
       final uri = Uri.parse(ApiEndpoints.createOrder);
 
       final body = {
+        'user_id': userId,
         'items': items,
+        'subtotal': subtotal,
+        'shipping_fee': shippingFee,
+        'total_amount': totalAmount,
         'shipping_address': shippingAddress,
+        'order_instruction': orderInstruction ?? '',
         'payment_method': paymentMethod,
-        'total_price': totalPrice,
       };
 
       final response = await http

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import '../services/favorite_services.dart';
+import '../services/api_service.dart';
+import '../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import 'cartScreen.dart';
 import 'profileScreen.dart';
+import 'productDetailScreen.dart';
 
 class FavoriteScreen extends StatefulWidget {
   const FavoriteScreen({super.key});
@@ -13,70 +17,86 @@ class FavoriteScreen extends StatefulWidget {
 
 class _FavoriteScreenState extends State<FavoriteScreen> {
   int _selectedIndex = 2; // Favorites tab
-  // Sample favorite products - in real app, this would come from state management or API
-  List<Map<String, dynamic>> _favoriteProducts = [
-    {
-      'id': '1',
-      'name': 'Organic Fertilizer',
-      'price': 24.99,
-      'rating': 4.6,
-      'category': 'Fertilizers',
-      'vendor': 'Green Farm Supplies',
-      'inStock': true,
-    },
-    {
-      'id': '2',
-      'name': 'Garden Spade',
-      'price': 18.50,
-      'rating': 4.9,
-      'category': 'Tools',
-      'vendor': 'Farm Tools Co.',
-      'inStock': true,
-    },
-    {
-      'id': '3',
-      'name': 'Watering Can',
-      'price': 15.99,
-      'rating': 4.7,
-      'category': 'Tools',
-      'vendor': 'Garden Essentials',
-      'inStock': true,
-    },
-    {
-      'id': '4',
-      'name': 'Premium Seeds Pack',
-      'price': 32.50,
-      'rating': 4.8,
-      'category': 'Seeds',
-      'vendor': 'Seed Masters',
-      'inStock': false,
-    },
-  ];
-
+  List<Map<String, dynamic>> _favoriteProducts = [];
   bool _isGridView = false;
+  bool _isLoading = true;
+  String? _errorMessage;
+  final FavoriteService _favoriteService = FavoriteService();
 
-  void _removeFavorite(int index) {
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
     setState(() {
-      final removedProduct = _favoriteProducts[index];
-      _favoriteProducts.removeAt(index);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${removedProduct['name']} removed from favorites'),
-          backgroundColor: Colors.grey[800],
-          duration: Duration(seconds: 2),
-          action: SnackBarAction(
-            label: 'Undo',
-            textColor: Colors.white,
-            onPressed: () {
-              setState(() {
-                _favoriteProducts.insert(index, removedProduct);
-              });
-            },
-          ),
-        ),
-      );
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'User not logged in';
+        });
+        return;
+      }
+
+      final favorites = await _favoriteService.fetchFavoritesFromAPI(userId);
+      setState(() {
+        _favoriteProducts = favorites;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load favorites: ${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _removeFavorite(int index) async {
+    if (index < 0 || index >= _favoriteProducts.length) return;
+
+    final product = _favoriteProducts[index];
+    final favoriteId = product['id'].toString();
+    final productName = product['name'] ?? product['item_name'] ?? 'Item';
+
+    // Show loading indicator
+    SnackbarHelper.showLoading(context, 'Removing from favorites...');
+
+    try {
+      final result = await _favoriteService.removeFromFavorites(favoriteId);
+
+      SnackbarHelper.hide(context);
+
+      if (result['success'] == true) {
+        // Remove from local state only if API call succeeds
+        setState(() {
+          _favoriteProducts.removeAt(index);
+        });
+
+        SnackbarHelper.showSuccess(
+          context,
+          result['message'] ?? '$productName removed from favorites',
+          duration: Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Failed to remove from favorites',
+        );
+      }
+    } catch (e) {
+      SnackbarHelper.hide(context);
+      SnackbarHelper.showError(
+        context,
+        'Error removing favorite: ${e.toString()}',
+      );
+    }
   }
 
   void _toggleFavorite(int index) {
@@ -100,7 +120,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[700]),
         actions: [
-          if (_favoriteProducts.isNotEmpty)
+          if (_favoriteProducts.isNotEmpty && !_isLoading)
             IconButton(
               icon: Icon(
                 _isGridView ? Icons.view_list : Icons.grid_view,
@@ -113,13 +133,25 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
               },
               tooltip: _isGridView ? 'List View' : 'Grid View',
             ),
+          IconButton(
+            icon: Icon(
+              Icons.refresh,
+              color: Colors.grey[700],
+            ),
+            onPressed: _loadFavorites,
+            tooltip: 'Refresh',
+          ),
         ],
       ),
-      body: _favoriteProducts.isEmpty
-          ? _buildEmptyState()
-          : _isGridView
-              ? _buildGridView()
-              : _buildListView(),
+      body: _isLoading
+          ? _buildLoadingState()
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _favoriteProducts.isEmpty
+                  ? _buildEmptyState()
+                  : _isGridView
+                      ? _buildGridView()
+                      : _buildListView(),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -214,6 +246,78 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     );
   }
 
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Loading favorites...',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red[300],
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Error loading favorites',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Unknown error',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadFavorites,
+              icon: Icon(Icons.refresh, size: 18),
+              label: Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.mediumGreen,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -252,7 +356,14 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.pop(context);
+              // Navigate to customer dashboard instead of popping
+              // This prevents errors when there's no previous route
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CustomerDashboardScreen(),
+                ),
+              );
             },
             icon: Icon(Icons.shopping_bag_outlined, size: 18),
             label: Text('Browse Products'),
@@ -317,24 +428,28 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
-            // Handle product tap - navigate to product details
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Viewing ${product['name']}'),
-                backgroundColor: AppColors.mediumGreen,
-                duration: Duration(seconds: 1),
-              ),
-            );
+            // Navigate to product detail screen
+            final itemId = product['item_id'] ?? product['id'];
+            if (itemId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductDetailScreen(
+                    productId: itemId,
+                  ),
+                ),
+              );
+            }
           },
           child: Padding(
-            padding: EdgeInsets.all(isGrid ? 12 : 16),
+            padding: EdgeInsets.all(isGrid ? 8 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Product image placeholder
                 Container(
-                  height: isGrid ? 120 : 140,
+                  height: isGrid ? 100 : 140,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: AppColors.mediumGreen.withOpacity(0.1),
@@ -349,20 +464,20 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         child: Icon(
                           Icons.shopping_bag_outlined,
                           color: AppColors.mediumGreen,
-                          size: isGrid ? 32 : 40,
+                          size: isGrid ? 28 : 40,
                         ),
                       ),
                       // Favorite button
                       Positioned(
-                        top: 8,
-                        right: 8,
+                        top: 6,
+                        right: 6,
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () => _toggleFavorite(index),
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: EdgeInsets.all(6),
+                              padding: EdgeInsets.all(isGrid ? 4 : 6),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 shape: BoxShape.circle,
@@ -377,7 +492,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                               child: Icon(
                                 Icons.favorite,
                                 color: Colors.red[600],
-                                size: 18,
+                                size: isGrid ? 14 : 18,
                               ),
                             ),
                           ),
@@ -386,13 +501,13 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       // Out of stock badge
                       if (product['inStock'] == false)
                         Positioned(
-                          bottom: 8,
-                          left: 8,
-                          right: 8,
+                          bottom: 6,
+                          left: 6,
+                          right: 6,
                           child: Container(
                             padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: 6,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.orange[700],
@@ -401,7 +516,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                             child: Text(
                               'Out of Stock',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: isGrid ? 8 : 10,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -412,49 +527,55 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: isGrid ? 6 : 12),
                 // Product name
-                Text(
-                  product['name'],
-                  style: TextStyle(
-                    fontSize: isGrid ? 12 : 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[900],
+                Flexible(
+                  child: Text(
+                    product['name']?.toString() ??
+                        product['item_name']?.toString() ??
+                        'Unknown Product',
+                    style: TextStyle(
+                      fontSize: isGrid ? 11 : 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[900],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: isGrid ? 2 : 4),
                 // Category
                 Text(
-                  product['category'],
+                  product['category']?.toString() ?? '',
                   style: TextStyle(
-                    fontSize: isGrid ? 10 : 11,
+                    fontSize: isGrid ? 9 : 11,
                     color: Colors.grey[600],
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: isGrid ? 4 : 6),
                 // Rating
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.star,
-                      size: isGrid ? 12 : 14,
+                      size: isGrid ? 10 : 14,
                       color: Colors.amber[600],
                     ),
-                    SizedBox(width: 4),
+                    SizedBox(width: 2),
                     Text(
-                      '${product['rating']}',
+                      '${(product['rating'] ?? 0.0) is num ? (product['rating'] as num).toStringAsFixed(1) : '0.0'}',
                       style: TextStyle(
-                        fontSize: isGrid ? 11 : 12,
+                        fontSize: isGrid ? 10 : 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[700],
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: isGrid ? 4 : 8),
                 // Price and vendor
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -463,19 +584,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '₱${(product['price'] as num).toStringAsFixed(2)}',
+                            '₱${(product['price'] ?? 0.0) is num ? (product['price'] as num).toStringAsFixed(2) : '0.00'}',
                             style: TextStyle(
-                              fontSize: isGrid ? 14 : 16,
+                              fontSize: isGrid ? 12 : 16,
                               fontWeight: FontWeight.bold,
                               color: AppColors.mediumGreen,
                             ),
                           ),
-                          if (!isGrid) ...[
+                          if (!isGrid &&
+                              (product['vendor']?.toString().isNotEmpty ??
+                                  false)) ...[
                             SizedBox(height: 2),
                             Text(
-                              product['vendor'],
+                              product['vendor']?.toString() ?? '',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.grey[500],
@@ -505,7 +629,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                               },
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: EdgeInsets.all(8),
+                          padding: EdgeInsets.all(isGrid ? 6 : 8),
                           decoration: BoxDecoration(
                             color: product['inStock'] == false
                                 ? Colors.grey[300]
@@ -514,7 +638,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           ),
                           child: Icon(
                             Icons.add_shopping_cart,
-                            size: isGrid ? 16 : 18,
+                            size: isGrid ? 14 : 18,
                             color: product['inStock'] == false
                                 ? Colors.grey[500]
                                 : AppColors.mediumGreen,

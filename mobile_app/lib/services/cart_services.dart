@@ -35,6 +35,8 @@ class CartService extends ApiService {
             "id": data['id'],
             "user_id": data['user_id'],
             "item_id": data['item_id'],
+            "shop_id": data['item']['shop_id'],
+            "shop_name": data['item']['shop_name'],
             "quantity": data['quantity'],
             "price_snapshot": data['price_snapshot'],
             "status": data['status'],

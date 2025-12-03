@@ -6,6 +6,8 @@ import 'customerDashboardScreen.dart';
 import 'riderDashboardScreen.dart';
 import 'cartScreen.dart';
 import 'favoriteScreen.dart';
+import 'editProfileScreen.dart';
+import 'changePasswordScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool hideBottomNavigation;
@@ -19,30 +21,43 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 3; // Profile tab
   String? _userType;
-  // Sample user data - in real app, this would come from state management or API
-  final Map<String, dynamic> _userData = {
-    'name': 'John Doe',
-    'email': 'john.doe@example.com',
-    'phone': '+63 912 345 6789',
-    'address': '123 Farm Street, Manila, Philippines',
-  };
+  String? _userName;
+  String? _userEmail;
+  String? _userPhone;
+  String? _userAddress;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUserType();
+    _loadUserData();
   }
 
-  Future<void> _loadUserType() async {
+  Future<void> _loadUserData() async {
     try {
       final userType = await ApiService.getUserType();
+      final userName = await ApiService.getUserName();
+      final userEmail = await ApiService.getUserEmail();
+      final userPhone = await ApiService.getUserMobileNumber();
+      final userAddress = await ApiService.getUserAddress();
+
       if (mounted) {
         setState(() {
           _userType = userType?.toLowerCase();
+          _userName = userName ?? 'User';
+          _userEmail = userEmail ?? 'No email';
+          _userPhone = userPhone ?? 'No phone number';
+          _userAddress = userAddress ?? 'No address';
+          _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading user type: $e');
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -156,32 +171,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           SizedBox(height: 16),
-          Text(
-            _userData['name'],
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[900],
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            _userData['email'],
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
+          _isLoading
+              ? CircularProgressIndicator()
+              : Column(
+                  children: [
+                    Text(
+                      _userName ?? 'User',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _userEmail ?? 'No email',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
           SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () {
-              // Handle edit profile
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Edit profile functionality coming soon!'),
-                  backgroundColor: AppColors.mediumGreen,
+            onPressed: () async {
+              // Navigate to edit profile screen
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProfileScreen(),
                 ),
               );
+
+              // Reload user data if profile was updated
+              if (result == true) {
+                _loadUserData();
+              }
             },
             icon: Icon(Icons.edit, size: 18),
             label: Text('Edit Profile'),
@@ -219,16 +245,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[300]!),
           ),
-          child: Column(
-            children: [
-              _buildInfoRow(Icons.email_outlined, 'Email', _userData['email']),
-              _buildDivider(),
-              _buildInfoRow(Icons.phone_outlined, 'Phone', _userData['phone']),
-              _buildDivider(),
-              _buildInfoRow(
-                  Icons.location_on_outlined, 'Address', _userData['address']),
-            ],
-          ),
+          child: _isLoading
+              ? Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : Column(
+                  children: [
+                    _buildInfoRow(Icons.email_outlined, 'Email',
+                        _userEmail ?? 'No email'),
+                    _buildDivider(),
+                    _buildInfoRow(Icons.phone_outlined, 'Phone',
+                        _userPhone ?? 'No phone number'),
+                    _buildDivider(),
+                    _buildInfoRow(Icons.location_on_outlined, 'Address',
+                        _userAddress ?? 'No address'),
+                  ],
+                ),
         ),
       ],
     );
@@ -334,12 +369,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           // Handle menu item tap
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${item['title']} functionality coming soon!'),
-              backgroundColor: AppColors.mediumGreen,
-            ),
-          );
+          if (item['title'] == 'Change Password') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChangePasswordScreen(),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${item['title']} functionality coming soon!'),
+                backgroundColor: AppColors.mediumGreen,
+              ),
+            );
+          }
         },
         child: Padding(
           padding: EdgeInsets.all(16),

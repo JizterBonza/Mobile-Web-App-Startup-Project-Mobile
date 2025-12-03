@@ -1,6 +1,6 @@
 import 'url.dart';
 
-/// API Endpoints for the application
+/// API Endpoints
 class ApiEndpoints {
   // Base URL - loaded from .env file via Url class
   static String get baseUrl => Url.getUrl();
@@ -11,6 +11,8 @@ class ApiEndpoints {
   static String get logout => '$baseUrl/api/logout';
   static String get forgotPassword => '$baseUrl/api/forgot-password';
   static String get resetPassword => '$baseUrl/api/reset-password';
+  static String get updateProfile => '$baseUrl/api/profile/update';
+  static String get changePassword => '$baseUrl/api/profile/change-password';
 
   // Customer endpoints
   static String get getCategories => '$baseUrl/api/categories';
@@ -33,4 +35,9 @@ class ApiEndpoints {
   static String get cancelOrder => '$baseUrl/api/orders/{id}/cancel';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
 
+  // Favorite endpoints
+  static String get getFavorites => '$baseUrl/api/favorites';
+  static String get getFavoritesByUserId => '$baseUrl/api/favorites/user/{id}';
+  static String get addToFavorites => '$baseUrl/api/favorites/add';
+  static String get removeFromFavorites => '$baseUrl/api/favorites/delete/{id}';
 }
