@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/constants.dart';
 import '../provider/provider.dart';
 import '../services/cart_services.dart';
+import '../services/favorite_services.dart';
 import '../services/api_service.dart';
 import '../utils/snackbar_helper.dart';
 
@@ -24,7 +25,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _isFavorite = false;
   bool _showAllReviews = false;
   bool _isAddingToCart = false;
+  bool _isTogglingFavorite = false;
+  String? _favoriteId; // Store favorite record ID for removal
   late double _averageRating;
+  final FavoriteService _favoriteService = FavoriteService();
 
   // Static sample data for images
   final List<String> _sampleImages = [
@@ -40,9 +44,155 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
       itemsProvider.fetchItemReviews(widget.productId);
+      _checkFavoriteStatus();
     });
 
     _averageRating = _getAverage() as double;
+  }
+
+  // Check if item is already in favorites
+  Future<void> _checkFavoriteStatus() async {
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        return;
+      }
+
+      final isFavorite = await _favoriteService.isItemFavorite(
+        userId,
+        widget.productId.toString(),
+      );
+
+      if (isFavorite) {
+        // Fetch favorites to get the favorite record ID
+        final favorites = await _favoriteService.fetchFavoritesFromAPI(userId);
+        final favorite = favorites.firstWhere(
+          (fav) => fav['item_id'].toString() == widget.productId.toString(),
+          orElse: () => {},
+        );
+        if (favorite.isNotEmpty) {
+          setState(() {
+            _isFavorite = true;
+            _favoriteId = favorite['id'].toString();
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - user might not be logged in or network error
+      print('Error checking favorite status: $e');
+    }
+  }
+
+  // Toggle favorite status via API
+  Future<void> _toggleFavorite() async {
+    if (_isTogglingFavorite) return;
+
+    setState(() {
+      _isTogglingFavorite = true;
+    });
+
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(
+            context,
+            'Please login to add items to favorites',
+          );
+        }
+        setState(() {
+          _isTogglingFavorite = false;
+        });
+        return;
+      }
+
+      if (_isFavorite) {
+        // Remove from favorites
+        if (_favoriteId == null) {
+          // Need to fetch favorites to get the favorite ID
+          final favorites =
+              await _favoriteService.fetchFavoritesFromAPI(userId);
+          final favorite = favorites.firstWhere(
+            (fav) => fav['item_id'].toString() == widget.productId.toString(),
+            orElse: () => {},
+          );
+          if (favorite.isEmpty) {
+            setState(() {
+              _isFavorite = false;
+              _isTogglingFavorite = false;
+            });
+            return;
+          }
+          _favoriteId = favorite['id'].toString();
+        }
+
+        final result = await _favoriteService.removeFromFavorites(_favoriteId!);
+        if (mounted) {
+          if (result['success'] == true) {
+            setState(() {
+              _isFavorite = false;
+              _favoriteId = null;
+            });
+            SnackbarHelper.showSuccess(
+              context,
+              result['message'] ?? 'Removed from favorites',
+              duration: Duration(seconds: 1),
+            );
+          } else {
+            SnackbarHelper.showError(
+              context,
+              result['message'] ?? 'Failed to remove from favorites',
+            );
+          }
+        }
+      } else {
+        // Add to favorites
+        final result = await _favoriteService.addToFavorites(
+          userId: userId,
+          itemId: widget.productId.toString(),
+        );
+        if (mounted) {
+          if (result['success'] == true) {
+            // Fetch favorites to get the favorite record ID
+            final favorites =
+                await _favoriteService.fetchFavoritesFromAPI(userId);
+            final favorite = favorites.firstWhere(
+              (fav) => fav['item_id'].toString() == widget.productId.toString(),
+              orElse: () => {},
+            );
+            setState(() {
+              _isFavorite = true;
+              if (favorite.isNotEmpty) {
+                _favoriteId = favorite['id'].toString();
+              }
+            });
+            SnackbarHelper.showSuccess(
+              context,
+              result['message'] ?? 'Added to favorites',
+              duration: Duration(seconds: 1),
+            );
+          } else {
+            SnackbarHelper.showError(
+              context,
+              result['message'] ?? 'Failed to add to favorites',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error updating favorite: ${e.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTogglingFavorite = false;
+        });
+      }
+    }
   }
 
   // Helper method to safely parse price
@@ -320,26 +470,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           Spacer(),
           IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.red : Colors.grey[800],
-            ),
-            onPressed: () {
-              setState(() {
-                _isFavorite = !_isFavorite;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _isFavorite
-                        ? 'Added to favorites'
-                        : 'Removed from favorites',
+            icon: _isTogglingFavorite
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _isFavorite ? Colors.red : Colors.grey[800]!,
+                      ),
+                    ),
+                  )
+                : Icon(
+                    _isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: _isFavorite ? Colors.red : Colors.grey[800],
                   ),
-                  duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.mediumGreen,
-                ),
-              );
-            },
+            onPressed: _isTogglingFavorite ? null : _toggleFavorite,
           ),
           IconButton(
             icon: Icon(Icons.share, color: Colors.grey[800]),
@@ -511,7 +657,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         }
 
         final totalReviews = reviews.length;
-        print('Total reviews1: $totalReviews');
+
         // Calculate rating distribution
         final ratingCounts = Map<int, int>.from({5: 0, 4: 0, 3: 0, 2: 0, 1: 0});
         for (var review in reviews) {

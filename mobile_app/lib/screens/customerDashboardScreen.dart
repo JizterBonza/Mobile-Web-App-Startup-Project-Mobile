@@ -44,6 +44,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     final categoryProvider =
         Provider.of<CategoryProvider>(context, listen: false);
 
+    if (!mounted) return;
     setState(() {
       _isLoadingCategories = true;
       _categoryError = null;
@@ -51,6 +52,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     await categoryProvider.fetchCategories(useCache: useCache);
 
+    if (!mounted) return;
     setState(() {
       _categories = categoryProvider.categories;
       _isLoadingCategories = categoryProvider.isLoading;
@@ -105,12 +107,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Future<void> _loadFeaturedProducts({bool useCache = true}) async {
     final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
 
+    if (!mounted) return;
     setState(() {
       _isLoadingProducts = true;
     });
 
     await itemsProvider.fetchItems(useCache: useCache);
 
+    if (!mounted) return;
     // Take first 4 items as featured products
     setState(() {
       _featuredProducts = itemsProvider.items.take(4).toList();
@@ -155,6 +159,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Future<void> _loadRecentOrders({bool useCache = true}) async {
     final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
 
+    if (!mounted) return;
     setState(() {
       _isLoadingOrders = true;
       _orderError = null;
@@ -162,6 +167,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     await ordersProvider.fetchOrders(useCache: useCache);
 
+    if (!mounted) return;
     // Take only the most recent 3 orders
     final recentOrders = ordersProvider.orders.take(3).toList();
 
@@ -862,9 +868,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               _createFadeRoute(CartScreen()),
             ).then((_) {
               // Reset to home when returning from cart
-              setState(() {
-                _selectedIndex = 0;
-              });
+              if (mounted) {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+              }
             });
           } else if (index == 2) {
             // Favorites

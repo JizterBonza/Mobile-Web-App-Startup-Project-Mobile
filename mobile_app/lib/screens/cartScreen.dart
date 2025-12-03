@@ -6,6 +6,7 @@ import '../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import 'favoriteScreen.dart';
 import 'profileScreen.dart';
+import 'checkOutScreen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -46,6 +47,31 @@ class _CartScreenState extends State<CartScreen> {
   String? _errorMessage;
   Set<String> _selectedItems = {}; // Track selected items by their ID
 
+  // Group items by shop_id
+  Map<String, List<Map<String, dynamic>>> _groupItemsByShop() {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (var item in _cartItems) {
+      final shopId = item['shop_id']?.toString() ?? 'unknown';
+      if (!grouped.containsKey(shopId)) {
+        grouped[shopId] = [];
+      }
+      grouped[shopId]!.add(item);
+    }
+    return grouped;
+  }
+
+  // Get shop name (if available) or use shop_id
+  String _getShopName(String shopId) {
+    // Try to find shop name from items, or use shop_id
+    final shopItems = _cartItems
+        .where((item) => item['shop_id']?.toString() == shopId)
+        .toList();
+    if (shopItems.isNotEmpty && shopItems.first['shop_name'] != null) {
+      return shopItems.first['shop_name'].toString();
+    }
+    return 'Shop $shopId';
+  }
+
   // Get effective price - use item_price if different from price_snapshot
   double _getEffectivePrice(Map<String, dynamic> item) {
     final priceSnapshot = double.parse(item['price_snapshot'].toString());
@@ -77,6 +103,43 @@ class _CartScreenState extends State<CartScreen> {
     final quantity = item['quantity'] as int;
     final itemQuantity = int.parse(item['item_quantity'].toString());
     return quantity >= itemQuantity || _isOutOfStock(item);
+  }
+
+  // Get subtotal for a specific shop
+  double _getShopSubtotal(String shopId) {
+    final shopItems = _cartItems
+        .where((item) => item['shop_id']?.toString() == shopId)
+        .toList();
+    return shopItems.fold(0.0, (sum, item) {
+      final itemId = item['id'].toString();
+      if (!_selectedItems.contains(itemId) || !_isQuantityValid(item)) {
+        return sum;
+      }
+      final effectivePrice = _getEffectivePrice(item);
+      return sum + (effectivePrice * (item['quantity'] as int));
+    });
+  }
+
+  // Get selected items count for a specific shop
+  int _getShopSelectedItemsCount(String shopId) {
+    final shopItems = _cartItems
+        .where((item) => item['shop_id']?.toString() == shopId)
+        .toList();
+    return shopItems.where((item) {
+      final itemId = item['id'].toString();
+      return _selectedItems.contains(itemId) && _isQuantityValid(item);
+    }).length;
+  }
+
+  // Get selected items for a specific shop
+  List<Map<String, dynamic>> _getShopSelectedItems(String shopId) {
+    final shopItems = _cartItems
+        .where((item) => item['shop_id']?.toString() == shopId)
+        .toList();
+    return shopItems.where((item) {
+      final itemId = item['id'].toString();
+      return _selectedItems.contains(itemId) && _isQuantityValid(item);
+    }).toList();
   }
 
   double get _subtotal {
@@ -374,7 +437,14 @@ class _CartScreenState extends State<CartScreen> {
           SizedBox(height: 32),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              // Navigate to customer dashboard instead of popping
+              // This prevents errors when there's no previous route
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CustomerDashboardScreen(),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.mediumGreen,
@@ -398,6 +468,8 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCartContent() {
+    final groupedItems = _groupItemsByShop();
+
     return Column(
       children: [
         Expanded(
@@ -436,20 +508,256 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 SizedBox(height: 16),
 
-                // Cart items list
-                ..._cartItems.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  Map<String, dynamic> item = entry.value;
-                  return _buildCartItem(item, index);
+                // Grouped cart items by shop
+                ...groupedItems.entries.map((entry) {
+                  final shopId = entry.key;
+                  final shopItems = entry.value;
+                  return _buildShopGroup(shopId, shopItems);
                 }),
                 SizedBox(height: 16),
               ],
             ),
           ),
         ),
-        // Checkout section
-        _buildCheckoutSection(),
       ],
+    );
+  }
+
+  Widget _buildShopGroup(String shopId, List<Map<String, dynamic>> shopItems) {
+    final shopName = _getShopName(shopId);
+    final shopSubtotal = _getShopSubtotal(shopId);
+    final shopSelectedCount = _getShopSelectedItemsCount(shopId);
+    final shopSelectedItems = _getShopSelectedItems(shopId);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Shop header
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.mediumGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.store,
+                  color: AppColors.mediumGreen,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    shopName,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[900],
+                    ),
+                  ),
+                ),
+                Text(
+                  '${shopItems.length} ${shopItems.length == 1 ? 'item' : 'items'}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Shop items
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                ...shopItems.asMap().entries.map((entry) {
+                  int globalIndex = _cartItems
+                      .indexWhere((item) => item['id'] == entry.value['id']);
+                  return _buildCartItem(entry.value, globalIndex);
+                }),
+              ],
+            ),
+          ),
+
+          // Shop checkout section
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+              border: Border(
+                top: BorderSide(color: Colors.grey[300]!),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Shop summary
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    children: [
+                      if (shopSelectedCount > 0)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 14,
+                                color: Colors.grey[600],
+                              ),
+                              SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Calculated for $shopSelectedCount selected item${shopSelectedCount == 1 ? '' : 's'}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 14,
+                                color: Colors.orange[700],
+                              ),
+                              SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Select items to see total',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange[700],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Subtotal',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          Text(
+                            '₱${shopSubtotal.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.mediumGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12),
+
+                // Shop checkout button
+                ElevatedButton(
+                  onPressed: shopSelectedCount > 0
+                      ? () {
+                          if (shopSelectedItems.isEmpty) {
+                            SnackbarHelper.showError(
+                              context,
+                              'Please select valid items to checkout',
+                            );
+                            return;
+                          }
+
+                          // Navigate to checkout screen with shop-specific items
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CheckOutScreen(
+                                selectedCartItems: shopSelectedItems,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: shopSelectedCount > 0
+                        ? AppColors.mediumGreen
+                        : Colors.grey[400],
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_checkout,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        shopSelectedCount > 0
+                            ? 'Checkout from ${shopName} (${shopSelectedCount} item${shopSelectedCount == 1 ? '' : 's'})'
+                            : 'Select items to checkout',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -659,134 +967,6 @@ class _CartScreenState extends State<CartScreen> {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCheckoutSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      padding: EdgeInsets.all(16),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Order summary
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Column(
-                children: [
-                  if (_selectedItemsCount > 0)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Calculated for ${_selectedItemsCount} selected item${_selectedItemsCount == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: Colors.orange[700],
-                          ),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Select items to see total',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange[700],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  _buildSummaryRow(
-                      'Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
-                  SizedBox(height: 8),
-                  //_buildSummaryRow('Tax', '₱${_tax.toStringAsFixed(2)}'),
-                  SizedBox(height: 12),
-                  Divider(height: 1),
-                  SizedBox(height: 12),
-                  _buildSummaryRow(
-                    'Total',
-                    '₱${_total.toStringAsFixed(2)}',
-                    isTotal: true,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Checkout button
-            ElevatedButton(
-              onPressed: _selectedItemsCount > 0
-                  ? () {
-                      // Handle checkout
-                      SnackbarHelper.showInfo(
-                        context,
-                        'Checkout functionality coming soon!',
-                      );
-                    }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedItemsCount > 0
-                    ? AppColors.mediumGreen
-                    : Colors.grey[400],
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: Text(
-                _selectedItemsCount > 0
-                    ? 'Proceed to Checkout (${_selectedItemsCount} item${_selectedItemsCount == 1 ? '' : 's'})'
-                    : 'Select items to checkout',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
