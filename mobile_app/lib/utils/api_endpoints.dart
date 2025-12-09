@@ -40,4 +40,13 @@ class ApiEndpoints {
   static String get getFavoritesByUserId => '$baseUrl/api/favorites/user/{id}';
   static String get addToFavorites => '$baseUrl/api/favorites/add';
   static String get removeFromFavorites => '$baseUrl/api/favorites/delete/{id}';
+
+  // Address endpoints
+  static String get getAddresses => '$baseUrl/api/addresses';
+  static String get getAddressesByUserId => '$baseUrl/api/addresses/user/{id}';
+  static String get addAddress => '$baseUrl/api/addresses';
+  static String get updateAddress => '$baseUrl/api/addresses/{id}';
+  static String get deleteAddress => '$baseUrl/api/addresses/{id}';
+  static String get setDefaultAddress =>
+      '$baseUrl/api/addresses/{id}/set-default';
 }
