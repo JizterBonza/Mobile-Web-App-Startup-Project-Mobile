@@ -129,6 +129,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     // Format items for order creation with all required fields
     final orderItems = widget.selectedCartItems.map((cartItem) {
       return {
+        'cart_id': cartItem['id'] as int,
         'item_id': cartItem['item_id'].toString(),
         'shop_id': cartItem['shop_id'].toString(),
         'quantity': cartItem['quantity'] as int,

@@ -8,6 +8,7 @@ import 'cartScreen.dart';
 import 'favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
+import 'shippingAddressScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool hideBottomNavigation;
@@ -374,6 +375,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => ChangePasswordScreen(),
+              ),
+            );
+          } else if (item['title'] == 'Shipping Address') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ShippingAddressScreen(),
               ),
             );
           } else {
