@@ -214,19 +214,21 @@ class ApiService {
                           : null))
                   : null);
           // Extract shipping_address from user_detail
-          userAddress = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['shipping_address']
-                      ?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user'] is Map &&
-                          responseData['data']['user']['user_detail'] is Map
-                      ? responseData['data']['user']['user_detail']
-                              ['shipping_address']
-                          ?.toString()
-                      : null)
-                  : null);
+          // userAddress = (responseData['user'] is Map &&
+          //             responseData['user']['user_detail'] is Map
+          //         ? responseData['user']['user_detail']['shipping_address']
+          //             ?.toString()
+          //         : null) ??
+          //     (responseData['data'] is Map
+          //         ? (responseData['data']['user'] is Map &&
+          //                 responseData['data']['user']['user_detail'] is Map
+          //             ? responseData['data']['user']['user_detail']
+          //                     ['shipping_address']
+          //                 ?.toString()
+          //             : null)
+          //         : null);
+          userAddress = responseData['default_address']?.toString() ?? null;
+
           // Extract first_name from user_detail
           firstName = (responseData['user'] is Map &&
                       responseData['user']['user_detail'] is Map
