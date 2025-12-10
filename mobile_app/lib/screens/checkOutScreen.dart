@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/constants.dart';
+import '../models/addressModel.dart';
+import '../provider/address_provider.dart';
 import '../services/order_service.dart';
-import '../services/api_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
+import 'editAddressScreen.dart';
 
 class CheckOutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedCartItems;
@@ -19,14 +22,15 @@ class CheckOutScreen extends StatefulWidget {
 
 class _CheckOutScreenState extends State<CheckOutScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _shippingAddressController = TextEditingController();
   final _orderInstructionController = TextEditingController();
 
   String? _selectedPaymentMethod;
   bool _isLoading = false;
   bool _isLoadingProfile = true;
-  String? _userName;
-  String? _userPhone;
+
+  // Address selection
+  List<AddressModel> _addresses = [];
+  AddressModel? _selectedAddress;
 
   final List<String> _paymentMethods = [
     'Cash on Delivery',
@@ -43,22 +47,23 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
   @override
   void dispose() {
-    _shippingAddressController.dispose();
     _orderInstructionController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
     try {
-      final userName = await ApiService.getUserName();
-      final userPhone = await ApiService.getUserMobileNumber();
-      final userAddress = await ApiService.getUserAddress();
+      // Fetch addresses from provider
+      if (mounted) {
+        final addressProvider = context.read<AddressProvider>();
+        await addressProvider.fetchAddresses();
+        _addresses = addressProvider.addresses;
+        _selectedAddress = addressProvider.defaultAddress ??
+            (_addresses.isNotEmpty ? _addresses.first : null);
+      }
 
       if (mounted) {
         setState(() {
-          _userName = userName ?? 'User';
-          _userPhone = userPhone ?? '';
-          _shippingAddressController.text = userAddress ?? '';
           _isLoadingProfile = false;
         });
       }
@@ -114,10 +119,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return;
     }
 
-    if (_shippingAddressController.text.trim().isEmpty) {
+    if (_selectedAddress == null) {
       SnackbarHelper.showError(
         context,
-        'Please enter a shipping address',
+        'Please select a shipping address',
       );
       return;
     }
@@ -147,7 +152,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         subtotal: _subtotal,
         shippingFee: _shippingFee,
         totalAmount: _total,
-        shippingAddress: _shippingAddressController.text.trim(),
+        shippingAddress: _selectedAddress!.fullAddress,
+        shippingAddressId: _selectedAddress!.id,
         orderInstruction: _orderInstructionController.text.trim().isEmpty
             ? null
             : _orderInstructionController.text.trim(),
@@ -426,80 +432,340 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                'Shipping Address',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
+              Expanded(
+                child: Text(
+                  'Shipping Address',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
+                ),
+              ),
+              // Add new address button
+              TextButton.icon(
+                onPressed: _navigateToAddAddress,
+                icon: Icon(Icons.add, size: 18),
+                label: Text('Add New'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.mediumGreen,
+                  padding: EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
             ],
           ),
           SizedBox(height: 16),
-          TextFormField(
-            controller: _shippingAddressController,
-            decoration: InputDecoration(
-              hintText: 'Enter your shipping address',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.mediumGreen, width: 2),
-              ),
-              filled: true,
-              fillColor: Colors.grey[50],
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            maxLines: 3,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter a shipping address';
-              }
-              return null;
-            },
-          ),
-          if (_userName != null || _userPhone != null)
-            Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Row(
-                children: [
-                  Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 8),
-                  Text(
-                    _userName ?? 'User',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (_userPhone != null && _userPhone!.isNotEmpty) ...[
-                    SizedBox(width: 16),
-                    Icon(Icons.phone_outlined,
-                        size: 16, color: Colors.grey[600]),
-                    SizedBox(width: 8),
-                    Text(
-                      _userPhone!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          // Address selection
+          _addresses.isEmpty ? _buildNoAddressState() : _buildAddressDropdown(),
         ],
       ),
     );
+  }
+
+  Widget _buildNoAddressState() {
+    return GestureDetector(
+      onTap: _navigateToAddAddress,
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.mediumGreen.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.mediumGreen.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.mediumGreen.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.add_location_alt_outlined,
+                color: AppColors.mediumGreen,
+                size: 24,
+              ),
+            ),
+            SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add Shipping Address',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.mediumGreen,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Tap to add your delivery location',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            Spacer(),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: AppColors.mediumGreen,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Address dropdown
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<AddressModel>(
+              value: _selectedAddress,
+              isExpanded: true,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              borderRadius: BorderRadius.circular(8),
+              icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+              items: _addresses.map((address) {
+                return DropdownMenuItem<AddressModel>(
+                  value: address,
+                  child: _buildAddressDropdownItem(address),
+                );
+              }).toList(),
+              onChanged: (AddressModel? newValue) {
+                setState(() {
+                  _selectedAddress = newValue;
+                });
+              },
+              selectedItemBuilder: (BuildContext context) {
+                return _addresses.map((address) {
+                  return _buildSelectedAddressDisplay(address);
+                }).toList();
+              },
+            ),
+          ),
+        ),
+        // Selected address details
+        if (_selectedAddress != null) ...[
+          SizedBox(height: 12),
+          _buildSelectedAddressCard(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAddressDropdownItem(AddressModel address) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.mediumGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              _getLabelIcon(address.label),
+              color: AppColors.mediumGreen,
+              size: 16,
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      address.label,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                    if (address.isDefault) ...[
+                      SizedBox(width: 8),
+                      Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.mediumGreen,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Default',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: 2),
+                Text(
+                  address.fullAddress,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedAddressDisplay(AddressModel address) {
+    return Row(
+      children: [
+        Icon(
+          _getLabelIcon(address.label),
+          color: AppColors.mediumGreen,
+          size: 18,
+        ),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            address.label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[900],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedAddressCard() {
+    final address = _selectedAddress!;
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.mediumGreen.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.mediumGreen.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Recipient info
+          Row(
+            children: [
+              Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  address.recipientName,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[900],
+                  ),
+                ),
+              ),
+              if (address.phone.isNotEmpty) ...[
+                Icon(Icons.phone_outlined, size: 14, color: Colors.grey[600]),
+                SizedBox(width: 4),
+                Text(
+                  address.phone,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: 8),
+          // Full address
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on_outlined,
+                  size: 16, color: Colors.grey[600]),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  address.fullAddress,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getLabelIcon(String label) {
+    switch (label.toLowerCase()) {
+      case 'home':
+        return Icons.home_outlined;
+      case 'office':
+      case 'work':
+        return Icons.business_outlined;
+      case 'parents house':
+        return Icons.family_restroom_outlined;
+      default:
+        return Icons.location_on_outlined;
+    }
+  }
+
+  Future<void> _navigateToAddAddress() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditAddressScreen(),
+      ),
+    );
+
+    // If address was added successfully, refresh addresses
+    if (result != null && mounted) {
+      final addressProvider = context.read<AddressProvider>();
+      await addressProvider.fetchAddresses();
+
+      setState(() {
+        _addresses = addressProvider.addresses;
+        // Select the newly added address or default
+        _selectedAddress = addressProvider.defaultAddress ??
+            (_addresses.isNotEmpty ? _addresses.first : null);
+      });
+    }
   }
 
   Widget _buildPaymentMethodSection() {
