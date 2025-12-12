@@ -32,7 +32,7 @@ class ApiEndpoints {
   static String get getOrderById => '$baseUrl/api/orders/{id}';
   static String get getOrdersByUserId => '$baseUrl/api/orders/user/{user_id}';
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
-  static String get cancelOrder => '$baseUrl/api/orders/{id}/cancel';
+  static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
 
   // Favorite endpoints

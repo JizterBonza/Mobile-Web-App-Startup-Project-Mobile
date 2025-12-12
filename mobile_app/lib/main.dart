@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/loginScreen.dart';
-import 'screens/customerDashboardScreen.dart';
-import 'screens/vendorDashboardScreen.dart';
-import 'screens/riderDashboardScreen.dart';
+import 'screens/common/loginScreen.dart';
+import 'screens/customer/customerDashboardScreen.dart';
+import 'screens/vendor/vendorDashboardScreen.dart';
+import 'screens/rider/riderDashboardScreen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'provider/provider.dart';
 

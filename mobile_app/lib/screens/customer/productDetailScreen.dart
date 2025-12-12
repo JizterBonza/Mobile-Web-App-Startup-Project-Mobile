@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../provider/provider.dart';
-import '../services/cart_services.dart';
-import '../services/favorite_services.dart';
-import '../services/api_service.dart';
-import '../utils/snackbar_helper.dart';
+import '../../constants/constants.dart';
+import '../../provider/provider.dart';
+import '../../services/cart_services.dart';
+import '../../services/favorite_services.dart';
+import '../../services/api_service.dart';
+import '../../utils/snackbar_helper.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic productId;

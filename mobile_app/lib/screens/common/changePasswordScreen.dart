@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../constants/constants.dart';
-import '../services/api_service.dart';
-import '../widgets/form_widgets.dart';
+import '../../constants/constants.dart';
+import '../../services/api_service.dart';
+import '../../widgets/form_widgets.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});

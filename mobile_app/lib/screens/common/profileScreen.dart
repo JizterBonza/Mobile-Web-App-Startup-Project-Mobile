@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../models/addressModel.dart';
-import '../provider/address_provider.dart';
-import '../services/api_service.dart';
+import '../../constants/constants.dart';
+import '../../models/addressModel.dart';
+import '../../provider/address_provider.dart';
+import '../../services/api_service.dart';
 import 'loginScreen.dart';
-import 'customerDashboardScreen.dart';
-import 'riderDashboardScreen.dart';
-import 'cartScreen.dart';
-import 'favoriteScreen.dart';
+import '../customer/customerDashboardScreen.dart';
+import '../rider/riderDashboardScreen.dart';
+import '../customer/cartScreen.dart';
+import '../customer/favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
-import 'shippingAddressScreen.dart';
+import 'myOrderScreen.dart';
+import '../customer/shippingAddressScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool hideBottomNavigation;
@@ -386,7 +387,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           // Handle menu item tap
-          if (item['title'] == 'Change Password') {
+          if (item['title'] == 'My Orders') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MyOrderScreen(),
+              ),
+            );
+          } else if (item['title'] == 'Change Password') {
             Navigator.push(
               context,
               MaterialPageRoute(

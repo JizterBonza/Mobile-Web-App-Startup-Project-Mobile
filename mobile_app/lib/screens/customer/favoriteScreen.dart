@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../constants/constants.dart';
-import '../services/favorite_services.dart';
-import '../services/api_service.dart';
-import '../utils/snackbar_helper.dart';
+import '../../constants/constants.dart';
+import '../../services/favorite_services.dart';
+import '../../services/api_service.dart';
+import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import 'cartScreen.dart';
-import 'profileScreen.dart';
+import '../common/profileScreen.dart';
 import 'productDetailScreen.dart';
 
 class FavoriteScreen extends StatefulWidget {

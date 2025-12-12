@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../constants/constants.dart';
-import 'profileScreen.dart';
-import '../widgets/stat_card.dart';
-import '../widgets/quick_action_button.dart';
-import '../widgets/order_item_card.dart';
-import '../widgets/product_inventory_item.dart';
-import '../widgets/dashboard_header.dart';
+import '../../constants/constants.dart';
+import '../common/profileScreen.dart';
+import '../../widgets/stat_card.dart';
+import '../../widgets/quick_action_button.dart';
+import '../../widgets/order_item_card.dart';
+import '../../widgets/product_inventory_item.dart';
+import '../../widgets/dashboard_header.dart';
 
 class VendorDashboardScreen extends StatefulWidget {
   const VendorDashboardScreen({super.key});

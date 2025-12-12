@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../provider/address_provider.dart';
-import 'editAddressScreen.dart';
+import '../../constants/constants.dart';
+import '../../provider/address_provider.dart';
+import '../common/editAddressScreen.dart';
 
 class ShippingAddressScreen extends StatefulWidget {
   final bool isSelectionMode;

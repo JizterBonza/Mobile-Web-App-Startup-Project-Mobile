@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../services/api_service.dart';
-import '../provider/provider.dart';
+import '../../constants/constants.dart';
+import '../../services/api_service.dart';
+import '../../provider/provider.dart';
 import 'cartScreen.dart';
-import 'profileScreen.dart';
+import '../common/profileScreen.dart';
+import '../common/myOrderScreen.dart';
 import 'favoriteScreen.dart';
 import 'productDetailScreen.dart';
 
@@ -664,7 +665,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             else
               TextButton(
                 onPressed: () {
-                  // Handle view all orders
+                  Navigator.push(
+                    context,
+                    _createFadeRoute(MyOrderScreen()),
+                  );
                 },
                 child: Text(
                   'View All',

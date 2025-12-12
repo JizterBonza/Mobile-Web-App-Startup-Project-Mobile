@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../models/addressModel.dart';
-import '../provider/address_provider.dart';
-import '../services/api_service.dart';
-import '../widgets/form_widgets.dart';
+import '../../constants/constants.dart';
+import '../../models/addressModel.dart';
+import '../../provider/address_provider.dart';
+import '../../services/api_service.dart';
+import '../../widgets/form_widgets.dart';
 import 'editAddressScreen.dart';
 
 class EditProfileScreen extends StatefulWidget {

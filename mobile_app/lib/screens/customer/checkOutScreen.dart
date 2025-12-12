@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../models/addressModel.dart';
-import '../provider/address_provider.dart';
-import '../services/order_service.dart';
-import '../utils/snackbar_helper.dart';
+import '../../constants/constants.dart';
+import '../../models/addressModel.dart';
+import '../../provider/address_provider.dart';
+import '../../services/order_service.dart';
+import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
-import 'editAddressScreen.dart';
+import '../common/editAddressScreen.dart';
 
 class CheckOutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedCartItems;

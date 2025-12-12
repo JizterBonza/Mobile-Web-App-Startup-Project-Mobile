@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'signUpScreen.dart';
 import 'forgotPasswordScreen.dart';
-import '../widgets/form_widgets.dart';
-import '../services/api_service.dart';
-import '../utils/snackbar_helper.dart';
+import '../../widgets/form_widgets.dart';
+import '../../services/api_service.dart';
+import '../../utils/snackbar_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

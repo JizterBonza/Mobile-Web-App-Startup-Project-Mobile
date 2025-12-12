@@ -336,7 +336,7 @@ class OrderService extends ApiService {
         ApiEndpoints.cancelOrder.replaceAll('{id}', orderId),
       );
 
-      final response = await http.post(
+      final response = await http.delete(
         uri,
         headers: {
           'Content-Type': 'application/json',
