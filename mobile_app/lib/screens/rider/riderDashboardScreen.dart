@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../services/order_service.dart';
-import '../services/api_service.dart';
-import '../provider/provider.dart';
-import '../widgets/dashboard_header.dart';
-import '../widgets/order_item_card.dart';
-import '../widgets/rider_statistics_grid.dart';
-import '../widgets/rider_quick_actions.dart';
-import '../widgets/active_deliveries_section.dart';
-import '../widgets/view_header.dart';
-import '../widgets/empty_state_widget.dart';
-import '../widgets/order_details_dialog.dart';
-import '../widgets/update_status_dialog.dart';
-import 'profileScreen.dart';
+import '../../constants/constants.dart';
+import '../../services/order_service.dart';
+import '../../services/api_service.dart';
+import '../../provider/provider.dart';
+import '../../widgets/dashboard_header.dart';
+import '../../widgets/order_item_card.dart';
+import '../../widgets/rider_statistics_grid.dart';
+import '../../widgets/rider_quick_actions.dart';
+import '../../widgets/active_deliveries_section.dart';
+import '../../widgets/view_header.dart';
+import '../../widgets/empty_state_widget.dart';
+import '../../widgets/order_details_dialog.dart';
+import '../../widgets/update_status_dialog.dart';
+import '../common/profileScreen.dart';
 import 'riderDeliveryScreen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {

@@ -32,7 +32,7 @@ class ApiEndpoints {
   static String get getOrderById => '$baseUrl/api/orders/{id}';
   static String get getOrdersByUserId => '$baseUrl/api/orders/user/{user_id}';
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
-  static String get cancelOrder => '$baseUrl/api/orders/{id}/cancel';
+  static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
 
   // Favorite endpoints
@@ -49,4 +49,18 @@ class ApiEndpoints {
   static String get deleteAddress => '$baseUrl/api/addresses/{id}';
   static String get setDefaultAddress =>
       '$baseUrl/api/addresses/{id}/set-default';
+
+  // Notification endpoints
+  static String get getNotifications => '$baseUrl/api/notifications';
+  static String get getNotificationsByCategory =>
+      '$baseUrl/api/notifications/by-category';
+  static String get getUnreadNotificationCount =>
+      '$baseUrl/api/notifications/unread-count';
+  static String get markNotificationAsRead =>
+      '$baseUrl/api/notifications/{id}/read';
+  static String get markAllNotificationsAsRead =>
+      '$baseUrl/api/notifications/read-all';
+  static String get deleteNotification => '$baseUrl/api/notifications/{id}';
+  static String get clearReadNotifications =>
+      '$baseUrl/api/notifications/clear-read';
 }

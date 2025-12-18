@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants/constants.dart';
-import '../provider/provider.dart';
-import '../services/order_service.dart';
-import '../widgets/order_item_card.dart';
-import '../utils/snackbar_helper.dart';
+import '../../constants/constants.dart';
+import '../../provider/provider.dart';
+import '../../services/order_service.dart';
+import '../../widgets/order_item_card.dart';
+import '../../utils/snackbar_helper.dart';
 
 class RiderDeliveryScreen extends StatefulWidget {
   const RiderDeliveryScreen({super.key});

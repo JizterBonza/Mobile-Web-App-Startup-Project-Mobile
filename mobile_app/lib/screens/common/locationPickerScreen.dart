@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import '../constants/constants.dart';
+import '../../constants/constants.dart';
 
 class LocationPickerScreen extends StatefulWidget {
   /// Initial location to display on the map

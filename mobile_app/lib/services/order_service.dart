@@ -10,6 +10,7 @@ class OrderService extends ApiService {
   Future<Map<String, dynamic>> createOrder({
     required List<Map<String, dynamic>> items,
     required String shippingAddress,
+    required int? shippingAddressId,
     required String paymentMethod,
     required double subtotal,
     required double shippingFee,
@@ -17,6 +18,7 @@ class OrderService extends ApiService {
     String? orderInstruction,
   }) async {
     try {
+      print('shippingAddressId: $shippingAddressId');
       final token = await ApiService.getToken();
       if (token == null || token.isEmpty) {
         return {
@@ -44,6 +46,7 @@ class OrderService extends ApiService {
         'shipping_fee': shippingFee,
         'total_amount': totalAmount,
         'shipping_address': shippingAddress,
+        'shipping_address_id': shippingAddressId,
         'order_instruction': orderInstruction ?? '',
         'payment_method': paymentMethod,
       };
@@ -333,7 +336,7 @@ class OrderService extends ApiService {
         ApiEndpoints.cancelOrder.replaceAll('{id}', orderId),
       );
 
-      final response = await http.post(
+      final response = await http.delete(
         uri,
         headers: {
           'Content-Type': 'application/json',

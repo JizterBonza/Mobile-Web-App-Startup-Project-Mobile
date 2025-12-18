@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import '../constants/constants.dart';
-import '../services/api_service.dart';
+import 'package:provider/provider.dart';
+import '../../constants/constants.dart';
+import '../../models/addressModel.dart';
+import '../../provider/address_provider.dart';
+import '../../services/api_service.dart';
 import 'loginScreen.dart';
-import 'customerDashboardScreen.dart';
-import 'riderDashboardScreen.dart';
-import 'cartScreen.dart';
-import 'favoriteScreen.dart';
+import '../customer/customerDashboardScreen.dart';
+import '../rider/riderDashboardScreen.dart';
+import '../customer/cartScreen.dart';
+import '../customer/favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
-import 'shippingAddressScreen.dart';
+import 'myOrderScreen.dart';
+import 'notificationScreen.dart';
+import '../customer/shippingAddressScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool hideBottomNavigation;
@@ -26,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _userEmail;
   String? _userPhone;
   String? _userAddress;
+  AddressModel? _defaultAddress;
   bool _isLoading = true;
 
   @override
@@ -42,13 +48,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userPhone = await ApiService.getUserMobileNumber();
       final userAddress = await ApiService.getUserAddress();
 
+      // Fetch addresses from provider
+      if (mounted) {
+        final addressProvider = context.read<AddressProvider>();
+        await addressProvider.fetchAddresses();
+        _defaultAddress = addressProvider.defaultAddress;
+      }
+
       if (mounted) {
         setState(() {
           _userType = userType?.toLowerCase();
           _userName = userName ?? 'User';
           _userEmail = userEmail ?? 'No email';
           _userPhone = userPhone ?? 'No phone number';
-          _userAddress = userAddress ?? 'No address';
+          // Use default address from provider if available
+          if (_defaultAddress != null) {
+            _userAddress = _defaultAddress!.fullAddress;
+          } else {
+            _userAddress = userAddress ?? 'No address';
+          }
           _isLoading = false;
         });
       }
@@ -370,7 +388,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           // Handle menu item tap
-          if (item['title'] == 'Change Password') {
+          if (item['title'] == 'My Orders') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MyOrderScreen(),
+              ),
+            );
+          } else if (item['title'] == 'Change Password') {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -382,6 +407,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => ShippingAddressScreen(),
+              ),
+            );
+          } else if (item['title'] == 'Notifications') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NotificationScreen(),
               ),
             );
           } else {
