@@ -49,4 +49,18 @@ class ApiEndpoints {
   static String get deleteAddress => '$baseUrl/api/addresses/{id}';
   static String get setDefaultAddress =>
       '$baseUrl/api/addresses/{id}/set-default';
+
+  // Notification endpoints
+  static String get getNotifications => '$baseUrl/api/notifications';
+  static String get getNotificationsByCategory =>
+      '$baseUrl/api/notifications/by-category';
+  static String get getUnreadNotificationCount =>
+      '$baseUrl/api/notifications/unread-count';
+  static String get markNotificationAsRead =>
+      '$baseUrl/api/notifications/{id}/read';
+  static String get markAllNotificationsAsRead =>
+      '$baseUrl/api/notifications/read-all';
+  static String get deleteNotification => '$baseUrl/api/notifications/{id}';
+  static String get clearReadNotifications =>
+      '$baseUrl/api/notifications/clear-read';
 }

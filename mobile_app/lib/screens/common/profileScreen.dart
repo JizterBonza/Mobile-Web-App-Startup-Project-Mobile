@@ -12,6 +12,7 @@ import '../customer/favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
 import 'myOrderScreen.dart';
+import 'notificationScreen.dart';
 import '../customer/shippingAddressScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -406,6 +407,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => ShippingAddressScreen(),
+              ),
+            );
+          } else if (item['title'] == 'Notifications') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NotificationScreen(),
               ),
             );
           } else {
