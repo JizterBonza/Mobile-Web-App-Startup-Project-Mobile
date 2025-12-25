@@ -128,4 +128,105 @@ class ItemsService extends ApiService {
   Future<Map<String, dynamic>> fetchItemReviews(String itemId) async {
     return await _fetchItemReviewsFromAPI(itemId);
   }
+
+  /// Fetch items by category from API
+  Future<List<Map<String, dynamic>>> fetchItemsByCategory(
+      dynamic categoryId) async {
+    final uri = Uri.parse(ApiEndpoints.getItemsByCategory).replace(
+      queryParameters: {
+        'category': categoryId.toString(),
+      },
+    );
+
+    print('Fetching items by category from URL: $uri');
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${await ApiService.getToken()}',
+      },
+    ).timeout(
+      Duration(seconds: 15),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 15 seconds');
+      },
+    );
+
+    print('Category items API response status: ${response.statusCode}');
+    print('Category items API response body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['success'] == true && data['data'] != null) {
+        return (data['data'] as List).map((item) {
+          return {
+            "id": item['id'],
+            "shop_id": item['shop_id'],
+            "item_name": item['item_name'],
+            "item_description": item['item_description'],
+            "item_price": item['item_price'],
+            "item_quantity": item['item_quantity'],
+            "category": item['category'],
+            "item_images": item['item_images'],
+            "item_status": item['item_status'],
+            "average_rating": item['average_rating'],
+          };
+        }).toList();
+      }
+    } else {
+      throw Exception(
+          'Failed to load items by category: ${response.statusCode}');
+    }
+    return [];
+  }
+
+  /// Search items from API with query
+  Future<List<Map<String, dynamic>>> searchItems(String query,
+      {int limit = 20}) async {
+    final uri = Uri.parse(ApiEndpoints.getSearchItem).replace(
+      queryParameters: {
+        'q': query.trim(),
+        'limit': limit.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${await ApiService.getToken()}',
+      },
+    ).timeout(
+      Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Search request timed out after 10 seconds');
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['data'] != null) {
+        return (data['data'] as List).map((item) {
+          return {
+            "id": item['id'],
+            "shop_id": item['shop_id'],
+            "item_name": item['item_name'],
+            "item_description": item['item_description'],
+            "item_price": item['item_price'],
+            "item_quantity": item['item_quantity'],
+            "category": item['category'],
+            "item_images": item['item_images'],
+            "item_status": item['item_status'],
+            "average_rating": item['average_rating'],
+          };
+        }).toList();
+      }
+    } else {
+      throw Exception('Search failed: ${response.statusCode}');
+    }
+    return [];
+  }
 }

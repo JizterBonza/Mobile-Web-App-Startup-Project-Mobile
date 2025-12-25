@@ -25,6 +25,8 @@ class ApiEndpoints {
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
   static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
+  static String get getSearchItem => '$baseUrl/api/items/search';
+  static String get getItemsByCategory => '$baseUrl/api/items';
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -49,6 +51,12 @@ class ApiEndpoints {
   static String get deleteAddress => '$baseUrl/api/addresses/{id}';
   static String get setDefaultAddress =>
       '$baseUrl/api/addresses/{id}/set-default';
+
+  // Shop endpoints
+  static String get getShops => '$baseUrl/api/shops';
+  static String get getShopById => '$baseUrl/api/shops/{id}';
+  static String get getShopItems => '$baseUrl/api/shops/{id}/items';
+  static String get getShopReviews => '$baseUrl/api/shops/{id}/reviews';
 
   // Notification endpoints
   static String get getNotifications => '$baseUrl/api/notifications';

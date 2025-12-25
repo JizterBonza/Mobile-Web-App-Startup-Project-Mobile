@@ -427,12 +427,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           SizedBox(height: 24),
 
                           // Reviews Section
-                          _buildReviewsSection(),
-                          SizedBox(height: 24),
+                          // _buildReviewsSection(),
+                          // SizedBox(height: 24),
 
                           // Related Products (Sample)
-                          _buildRelatedProducts(),
-                          SizedBox(height: 100), // Space for bottom button
+                          // _buildRelatedProducts(),
+                          // SizedBox(height: 100), // Space for bottom button
                         ],
                       ),
                     ),
