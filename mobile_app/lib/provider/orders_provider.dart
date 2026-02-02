@@ -29,12 +29,11 @@ class OrdersProvider with ChangeNotifier {
     try {
       final result = await _orderService.fetchOrders(status: status);
       final orders = result['orders'] as List<Map<String, dynamic>>;
-      if (orders.isNotEmpty) {
-        _orders = orders;
-        _count = result['count'] as int;
-        _fromCache = false;
-        _error = null;
-      }
+      // Always update with API result (even if empty), only use cache on failure
+      _orders = orders;
+      _count = result['count'] as int;
+      _fromCache = false;
+      _error = null;
     } catch (e) {
       if (useCache && _orders.isNotEmpty) {
         // Use cached data if available
@@ -82,5 +81,40 @@ class OrdersProvider with ChangeNotifier {
     _orders.removeWhere((order) => order['id'] == orderId);
     _count = _orders.length;
     notifyListeners();
+  }
+
+  /// Fetch orders assigned to the current rider
+  Future<void> fetchRiderOrders({
+    String? status,
+    bool useCache = true,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _orderService.fetchOrdersByRiderId(status: status);
+      final orders = result['orders'] as List<Map<String, dynamic>>;
+      _orders = orders;
+      _count = result['count'] as int;
+      _fromCache = false;
+      _error = null;
+    } catch (e) {
+      if (useCache && _orders.isNotEmpty) {
+        // Use cached data if available
+        _fromCache = true;
+        _error = null;
+        print('Using cached rider orders due to connection error: $e');
+      } else {
+        _error = e.toString();
+        if (_orders.isEmpty) {
+          _orders = [];
+          _count = 0;
+        }
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

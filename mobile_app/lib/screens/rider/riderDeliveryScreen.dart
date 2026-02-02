@@ -18,219 +18,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
   bool _isLoading = true;
   String? _error;
   String _selectedFilter = 'all'; // 'all', 'pending', 'processing'
-  bool _useStaticSamples = false; // Toggle to use static samples
-
-  // Static sample orders for demonstration
-  final List<Map<String, dynamic>> _staticSampleOrders = [
-    {
-      'id': '1',
-      'order_id': '1',
-      'order_code': 'ORD-2024-001',
-      'user_id': '1',
-      'order_status': 'pending',
-      'ordered_at':
-          DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
-      'subtotal': '1250.00',
-      'shipping_fee': '50.00',
-      'total_amount': '1300.00',
-      'shipping_address':
-          '123 Main Street, Barangay San Antonio, Quezon City, Metro Manila',
-      'drop_location_lat': 14.6760,
-      'drop_location_long': 121.0437,
-      'order_instruction':
-          'Please ring the doorbell twice. Leave package at the gate if no answer.',
-      'payment_method': 'Cash on Delivery',
-      'payment_status': 'pending',
-      'user': {
-        'id': '1',
-        'first_name': 'Maria',
-        'last_name': 'Garcia',
-        'mobile_number': '+63 912 345 6789',
-        'email': 'maria.garcia@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Organic Fertilizer 5kg',
-          'quantity': 2,
-          'item_price': '450.00',
-        },
-        {
-          'item_name': 'Garden Spade',
-          'quantity': 1,
-          'item_price': '350.00',
-        },
-      ],
-    },
-    {
-      'id': '2',
-      'order_id': '2',
-      'order_code': 'ORD-2024-002',
-      'user_id': '2',
-      'order_status': 'processing',
-      'ordered_at':
-          DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 30)).toIso8601String(),
-      'subtotal': '890.50',
-      'shipping_fee': '45.00',
-      'total_amount': '935.50',
-      'shipping_address':
-          '456 Oak Avenue, Barangay Poblacion, Makati City, Metro Manila',
-      'drop_location_lat': 14.5547,
-      'drop_location_long': 121.0244,
-      'order_instruction':
-          'Call before delivery. Customer prefers morning delivery.',
-      'payment_method': 'GCash',
-      'payment_status': 'paid',
-      'user': {
-        'id': '2',
-        'first_name': 'Juan',
-        'last_name': 'dela Cruz',
-        'mobile_number': '+63 912 345 6790',
-        'email': 'juan.delacruz@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Tomato Seeds Pack',
-          'quantity': 3,
-          'item_price': '150.00',
-        },
-        {
-          'item_name': 'Potting Soil 10kg',
-          'quantity': 2,
-          'item_price': '220.25',
-        },
-      ],
-    },
-    {
-      'id': '3',
-      'order_id': '3',
-      'order_code': 'ORD-2024-003',
-      'user_id': '3',
-      'order_status': 'pending',
-      'ordered_at':
-          DateTime.now().subtract(Duration(minutes: 45)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 45)).toIso8601String(),
-      'subtotal': '2100.00',
-      'shipping_fee': '75.00',
-      'total_amount': '2175.00',
-      'shipping_address':
-          '789 Pine Road, Barangay Kapitolyo, Pasig City, Metro Manila',
-      'drop_location_lat': 14.5764,
-      'drop_location_long': 121.0851,
-      'order_instruction': 'Fragile items. Handle with care.',
-      'payment_method': 'Cash on Delivery',
-      'payment_status': 'pending',
-      'user': {
-        'id': '3',
-        'first_name': 'Anna',
-        'last_name': 'Santos',
-        'mobile_number': '+63 912 345 6791',
-        'email': 'anna.santos@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Watering Can Large',
-          'quantity': 2,
-          'item_price': '350.00',
-        },
-        {
-          'item_name': 'Garden Rake',
-          'quantity': 1,
-          'item_price': '450.00',
-        },
-        {
-          'item_name': 'Garden Hoe',
-          'quantity': 2,
-          'item_price': '550.00',
-        },
-      ],
-    },
-    {
-      'id': '4',
-      'order_id': '4',
-      'order_code': 'ORD-2024-004',
-      'user_id': '4',
-      'order_status': 'processing',
-      'ordered_at':
-          DateTime.now().subtract(Duration(minutes: 20)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 15)).toIso8601String(),
-      'subtotal': '750.25',
-      'shipping_fee': '40.00',
-      'total_amount': '790.25',
-      'shipping_address':
-          '321 Elm Street, Barangay San Isidro, Taguig City, Metro Manila',
-      'drop_location_lat': 14.5176,
-      'drop_location_long': 121.0509,
-      'order_instruction': null,
-      'payment_method': 'Bank Transfer',
-      'payment_status': 'paid',
-      'user': {
-        'id': '4',
-        'first_name': 'Carlos',
-        'last_name': 'Rodriguez',
-        'mobile_number': '+63 912 345 6792',
-        'email': 'carlos.rodriguez@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Pepper Seeds Pack',
-          'quantity': 2,
-          'item_price': '150.00',
-        },
-        {
-          'item_name': 'Garden Gloves',
-          'quantity': 3,
-          'item_price': '150.08',
-        },
-      ],
-    },
-    {
-      'id': '5',
-      'order_id': '5',
-      'order_code': 'ORD-2024-005',
-      'user_id': '5',
-      'order_status': 'pending',
-      'ordered_at':
-          DateTime.now().subtract(Duration(minutes: 10)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 10)).toIso8601String(),
-      'subtotal': '1850.75',
-      'shipping_fee': '60.00',
-      'total_amount': '1910.75',
-      'shipping_address':
-          '654 Maple Drive, Barangay Central, Mandaluyong City, Metro Manila',
-      'drop_location_lat': 14.5832,
-      'drop_location_long': 121.0405,
-      'order_instruction':
-          'Delivery to back gate. Security guard will receive.',
-      'payment_method': 'Cash on Delivery',
-      'payment_status': 'pending',
-      'user': {
-        'id': '5',
-        'first_name': 'Lisa',
-        'last_name': 'Tan',
-        'mobile_number': '+63 912 345 6793',
-        'email': 'lisa.tan@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Premium Garden Tools Set',
-          'quantity': 1,
-          'item_price': '1200.00',
-        },
-        {
-          'item_name': 'Organic Compost 20kg',
-          'quantity': 1,
-          'item_price': '650.75',
-        },
-      ],
-    },
-  ];
 
   @override
   void initState() {
@@ -244,7 +31,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
       _error = null;
     });
 
-    // Use static samples if enabled or if API fails
     try {
       // Fetch orders with pending or processing status (available for assignment)
       final ordersProvider =
@@ -258,27 +44,15 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
         return status == 'pending' || status == 'processing';
       }).toList();
 
-      // If no orders from API, use static samples
-      if (availableOrders.isEmpty) {
-        setState(() {
-          _availableOrders = List.from(_staticSampleOrders);
-          _isLoading = false;
-          _useStaticSamples = true;
-        });
-      } else {
-        setState(() {
-          _availableOrders = availableOrders;
-          _isLoading = false;
-          _useStaticSamples = false;
-        });
-      }
-    } catch (e) {
-      // On error, use static samples for demonstration
       setState(() {
-        _availableOrders = List.from(_staticSampleOrders);
+        _availableOrders = availableOrders;
         _isLoading = false;
-        _error = null; // Don't show error when using samples
-        _useStaticSamples = true;
+      });
+    } catch (e) {
+      setState(() {
+        _availableOrders = [];
+        _isLoading = false;
+        _error = e.toString();
       });
     }
   }
@@ -316,32 +90,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
               'Address: ${order['shipping_address'] ?? 'N/A'}',
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
-            if (_useStaticSamples) ...[
-              SizedBox(height: 8),
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange[100],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 16, color: Colors.orange[700]),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'Demo mode: Using sample data',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.orange[700],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
         actions: [
@@ -362,30 +110,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
     );
 
     if (confirmed != true) return;
-
-    // If using static samples, just simulate the acceptance
-    if (_useStaticSamples) {
-      // Simulate loading
-      await Future.delayed(Duration(milliseconds: 800));
-
-      // Remove the accepted order from the list
-      setState(() {
-        _availableOrders.removeWhere((o) =>
-            (o['order_id']?.toString() ?? o['id']?.toString()) == orderId);
-      });
-
-      SnackbarHelper.showSuccess(
-        context,
-        'Delivery accepted successfully! (Demo mode)',
-      );
-
-      // Navigate back after a short delay
-      await Future.delayed(Duration(milliseconds: 500));
-      if (context.mounted) {
-        Navigator.pop(context);
-      }
-      return;
-    }
 
     // Show loading
     showDialog(
@@ -632,24 +356,6 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                                if (!_useStaticSamples) ...[
-                                  SizedBox(height: 24),
-                                  OutlinedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _availableOrders =
-                                            List.from(_staticSampleOrders);
-                                        _useStaticSamples = true;
-                                      });
-                                    },
-                                    icon: Icon(Icons.visibility),
-                                    label: Text('Load Sample Data'),
-                                    style: OutlinedButton.styleFrom(
-                                      side: BorderSide(
-                                          color: AppColors.mediumGreen),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                           )

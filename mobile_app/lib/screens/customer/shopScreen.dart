@@ -439,6 +439,32 @@ class _ShopScreenState extends State<ShopScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+
+                  // Contact Number
+                  if (_shopDetails?['contact_number'] != null &&
+                      _shopDetails!['contact_number'].toString().isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.phone,
+                            size: 16,
+                            color: AppColors.mediumGreen,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            _shopDetails!['contact_number'].toString(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),

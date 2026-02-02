@@ -14,7 +14,10 @@ import '../../widgets/empty_state_widget.dart';
 import '../../widgets/order_details_dialog.dart';
 import '../../widgets/update_status_dialog.dart';
 import '../common/profileScreen.dart';
-import 'riderDeliveryScreen.dart';
+import 'riderPickupMap.dart';
+import 'riderDeliveryMap.dart';
+import 'riderAllDeliveriesScreen.dart';
+import 'riderEarningsScreen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -30,131 +33,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   bool _isLoadingOrders = true;
   String? _orderError;
   String? _userName;
-  bool _useSampleActiveDeliveries = false;
-
-  // Sample active deliveries for home view
-  final List<Map<String, dynamic>> _sampleActiveDeliveries = [
-    {
-      'id': '1',
-      'order_id': '1',
-      'order_code': 'ORD-2024-101',
-      'user_id': '1',
-      'order_status': 'in-transit',
-      'ordered_at':
-          DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 30)).toIso8601String(),
-      'subtotal': '1250.00',
-      'shipping_fee': '50.00',
-      'total_amount': '1300.00',
-      'shipping_address':
-          '123 Main Street, Barangay San Antonio, Quezon City, Metro Manila',
-      'drop_location_lat': 14.6760,
-      'drop_location_long': 121.0437,
-      'order_instruction': 'Please ring the doorbell twice.',
-      'payment_method': 'Cash on Delivery',
-      'payment_status': 'pending',
-      'user': {
-        'id': '1',
-        'first_name': 'Maria',
-        'last_name': 'Garcia',
-        'mobile_number': '+63 912 345 6789',
-        'email': 'maria.garcia@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Organic Fertilizer 5kg',
-          'quantity': 2,
-          'item_price': '450.00',
-        },
-        {
-          'item_name': 'Garden Spade',
-          'quantity': 1,
-          'item_price': '350.00',
-        },
-      ],
-    },
-    {
-      'id': '2',
-      'order_id': '2',
-      'order_code': 'ORD-2024-102',
-      'user_id': '2',
-      'order_status': 'processing',
-      'ordered_at':
-          DateTime.now().subtract(Duration(minutes: 45)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(minutes: 20)).toIso8601String(),
-      'subtotal': '890.50',
-      'shipping_fee': '45.00',
-      'total_amount': '935.50',
-      'shipping_address':
-          '456 Oak Avenue, Barangay Poblacion, Makati City, Metro Manila',
-      'drop_location_lat': 14.5547,
-      'drop_location_long': 121.0244,
-      'order_instruction': 'Call before delivery.',
-      'payment_method': 'GCash',
-      'payment_status': 'paid',
-      'user': {
-        'id': '2',
-        'first_name': 'Juan',
-        'last_name': 'dela Cruz',
-        'mobile_number': '+63 912 345 6790',
-        'email': 'juan.delacruz@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Tomato Seeds Pack',
-          'quantity': 3,
-          'item_price': '150.00',
-        },
-        {
-          'item_name': 'Potting Soil 10kg',
-          'quantity': 2,
-          'item_price': '220.25',
-        },
-      ],
-    },
-    {
-      'id': '3',
-      'order_id': '3',
-      'order_code': 'ORD-2024-103',
-      'user_id': '3',
-      'order_status': 'in-transit',
-      'ordered_at':
-          DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
-      'updated_at':
-          DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
-      'subtotal': '2100.00',
-      'shipping_fee': '75.00',
-      'total_amount': '2175.00',
-      'shipping_address':
-          '789 Pine Road, Barangay Kapitolyo, Pasig City, Metro Manila',
-      'drop_location_lat': 14.5764,
-      'drop_location_long': 121.0851,
-      'order_instruction': 'Fragile items. Handle with care.',
-      'payment_method': 'Cash on Delivery',
-      'payment_status': 'pending',
-      'user': {
-        'id': '3',
-        'first_name': 'Anna',
-        'last_name': 'Santos',
-        'mobile_number': '+63 912 345 6791',
-        'email': 'anna.santos@example.com',
-      },
-      'order_items': [
-        {
-          'item_name': 'Watering Can Large',
-          'quantity': 2,
-          'item_price': '350.00',
-        },
-        {
-          'item_name': 'Garden Rake',
-          'quantity': 1,
-          'item_price': '450.00',
-        },
-      ],
-    },
-  ];
 
   @override
   void initState() {
@@ -180,7 +58,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
     final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
 
-    await ordersProvider.fetchOrders(useCache: useCache);
+    // Use fetchRiderOrders to get orders assigned to this rider
+    await ordersProvider.fetchRiderOrders(useCache: useCache);
 
     setState(() {
       _allOrders = ordersProvider.orders;
@@ -189,14 +68,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       if (ordersProvider.fromCache && _allOrders.isNotEmpty) {
         _orderError = 'Using cached data (connection lost)';
       }
-      // Use sample active deliveries if no real active deliveries
-      final hasActiveDeliveries = _allOrders.any((order) {
-        final status = order['order_status']?.toString().toLowerCase() ?? '';
-        return status == 'in-transit' ||
-            status == 'in transit' ||
-            status == 'processing';
-      });
-      _useSampleActiveDeliveries = !hasActiveDeliveries;
     });
   }
 
@@ -229,21 +100,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   List<Map<String, dynamic>> get _activeDeliveries {
-    final realActiveDeliveries = _allOrders
+    // Active deliveries exclude delivered orders
+    return _allOrders
         .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'in-transit' ||
-            order['order_status']?.toString().toLowerCase() == 'in transit' ||
-            order['order_status']?.toString().toLowerCase() == 'processing')
+            order['order_status']?.toString().toLowerCase() != 'delivered')
         .toList();
-
-    // If no real active deliveries and not loading, use sample data
-    if (realActiveDeliveries.isEmpty &&
-        !_isLoadingOrders &&
-        _useSampleActiveDeliveries) {
-      return _sampleActiveDeliveries;
-    }
-
-    return realActiveDeliveries;
   }
 
   List<Map<String, dynamic>> get _completedDeliveries {
@@ -325,40 +186,29 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return dateString;
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return AppColors.mediumGreen;
-      case 'in transit':
-      case 'in-transit':
-        return Colors.orange[600]!;
-      case 'pending':
-        return Colors.grey[600]!;
-      case 'processing':
-        return Colors.blue[600]!;
-      case 'cancelled':
-      case 'canceled':
-        return Colors.red[600]!;
-      default:
-        return Colors.grey[500]!;
-    }
-  }
-
   Map<String, dynamic> _convertOrderToCardFormat(Map<String, dynamic> order) {
     final user = order['user'] as Map<String, dynamic>?;
-    final customerName = user != null
-        ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
-        : 'Unknown Customer';
+    // Use recipient_name from address if available, fallback to user name
+    final recipientName = order['recipient_name']?.toString().isNotEmpty == true
+        ? order['recipient_name'].toString()
+        : (user != null
+            ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
+            : 'Unknown Customer');
+    // Use recipient_contact from address if available, fallback to user mobile
+    final recipientContact =
+        order['recipient_contact']?.toString().isNotEmpty == true
+            ? order['recipient_contact'].toString()
+            : (user?['mobile_number']?.toString() ?? '');
 
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
-      'customer': customerName,
+      'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
       'status': order['order_status']?.toString() ?? 'Pending',
       'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
       'total':
           double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
       'items': (order['order_items'] as List?)?.length ?? 0,
-      'phone': user?['mobile_number']?.toString() ?? '',
+      'phone': recipientContact,
       'address': order['shipping_address']?.toString() ?? '',
       'order_id': order['order_id']?.toString() ?? order['id']?.toString(),
     };
@@ -379,8 +229,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     switch (_selectedIndex) {
       case 0:
         return _buildHomeView();
-      case 1:
-        return _buildDeliveriesView();
       case 2:
         return _buildHistoryView();
       case 3:
@@ -440,29 +288,30 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return RiderStatisticsGrid(
       stats: stats,
       formatPrice: _formatPrice,
+      onEarningsTap: () {
+        Navigator.push(
+          context,
+          _createFadeRoute(const RiderEarningsScreen()),
+        ).then((_) {
+          _loadOrders(useCache: false);
+        });
+      },
     );
   }
 
   Widget _buildQuickActions() {
     return RiderQuickActions(
-      onNewDelivery: () {
+      onPickupMap: () {
         Navigator.push(
           context,
-          _createFadeRoute(RiderDeliveryScreen()),
-        ).then((_) {
-          // Refresh orders when returning
-          _loadOrders(useCache: false);
-        });
+          _createFadeRoute(const RiderPickupMapScreen()),
+        );
       },
-      onViewAll: () {
-        setState(() {
-          _selectedIndex = 1; // Switch to Deliveries tab
-        });
-      },
-      onHistory: () {
-        setState(() {
-          _selectedIndex = 2; // Switch to History tab
-        });
+      onDeliveryMap: () {
+        Navigator.push(
+          context,
+          _createFadeRoute(const RiderDeliveryMapScreen()),
+        );
       },
     );
   }
@@ -472,17 +321,9 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       deliveries: deliveries,
       isLoading: _isLoadingOrders,
       error: _orderError,
-      useSampleData: _useSampleActiveDeliveries,
       onRetry: () => _loadOrders(useCache: false),
       onViewAll: () {
-        setState(() {
-          _selectedIndex = 1; // Switch to Deliveries tab
-        });
-      },
-      onLoadSampleData: () {
-        setState(() {
-          _useSampleActiveDeliveries = true;
-        });
+        _navigateToDeliveries();
       },
       onUpdateStatus: (order) => _showUpdateStatusDialog(order),
       onViewDetails: (order) => _showOrderDetails(order),
@@ -490,65 +331,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildDeliveriesView() {
-    final allDeliveries = _allOrders;
-
-    return Column(
-      children: [
-        ViewHeader(
-          title: 'All Deliveries',
-          onBack: () {
-            setState(() {
-              _selectedIndex = 0;
-            });
-          },
-          trailing: _orderError != null
-              ? IconButton(
-                  icon: Icon(Icons.refresh, color: AppColors.mediumGreen),
-                  onPressed: () => _loadOrders(useCache: false),
-                  tooltip: 'Retry',
-                )
-              : null,
-        ),
-        Expanded(
-          child: _isLoadingOrders
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.mediumGreen,
-                  ),
-                )
-              : allDeliveries.isEmpty
-                  ? EmptyStateWidget(
-                      icon: Icons.inbox_outlined,
-                      message: 'No deliveries found',
-                      subtitle: _orderError,
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _onRefresh,
-                      color: AppColors.mediumGreen,
-                      child: ListView.builder(
-                        padding: EdgeInsets.all(16),
-                        itemCount: allDeliveries.length,
-                        itemBuilder: (context, index) {
-                          final order = allDeliveries[index];
-                          final cardData = _convertOrderToCardFormat(order);
-
-                          return OrderItemCard(
-                            order: cardData,
-                            showDetails: true,
-                            onUpdateStatus: () {
-                              _showUpdateStatusDialog(order);
-                            },
-                            onViewDetails: () {
-                              _showOrderDetails(order);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-        ),
-      ],
-    );
+  void _navigateToDeliveries() {
+    Navigator.push(
+      context,
+      _createFadeRoute(const RiderAllDeliveriesScreen()),
+    ).then((result) {
+      // Refresh orders when returning
+      _loadOrders(useCache: false);
+      // If a tab index was returned, switch to that tab
+      if (result != null && result is int) {
+        setState(() {
+          _selectedIndex = result;
+        });
+      }
+    });
   }
 
   Widget _buildHistoryView() {
@@ -559,8 +355,9 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         ViewHeader(
           title: 'Delivery History',
           onBack: () {
+            _loadOrders(useCache: false);
             setState(() {
-              _selectedIndex = 0;
+              _selectedIndex = 0; // Switch to Home tab
             });
           },
         ),
@@ -610,6 +407,15 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
+          if (index == 1) {
+            // Navigate to Deliveries screen
+            _navigateToDeliveries();
+            return;
+          }
+          // Reload API data when switching to Home or History tabs
+          if (index != _selectedIndex && index != 3) {
+            _loadOrders(useCache: false);
+          }
           setState(() {
             _selectedIndex = index;
           });

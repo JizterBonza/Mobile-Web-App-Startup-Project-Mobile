@@ -73,8 +73,8 @@ class _LoginScreenState extends State<LoginScreen> {
             FormHeader(
               icon: Icons.shopping_cart,
               iconSize: 60,
-              title: 'Agrify',
-              subtitle: 'Your Agricultural Marketplace',
+              title: 'Klasmeyt',
+              subtitle: 'Tropa mo sa laban',
             ),
             FormCard(
               child: Form(

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../constants/constants.dart';
+import '../../utils/status_utils.dart' as status_utils;
 
 /// Helper functions for order-related formatting and styling
 class OrderHelpers {
@@ -50,43 +50,13 @@ class OrderHelpers {
     return '₱0.00';
   }
 
-  static Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return AppColors.mediumGreen;
-      case 'in transit':
-      case 'in-transit':
-        return Colors.orange[600]!;
-      case 'pending':
-        return Colors.amber[700]!;
-      case 'processing':
-        return Colors.blue[600]!;
-      case 'cancelled':
-      case 'canceled':
-        return Colors.red[600]!;
-      default:
-        return Colors.grey[500]!;
-    }
-  }
+  /// Delegates to centralized status_utils.getStatusColor
+  static Color getStatusColor(String status) =>
+      status_utils.getStatusColor(status);
 
-  static IconData getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return Icons.check_circle;
-      case 'in transit':
-      case 'in-transit':
-        return Icons.local_shipping;
-      case 'pending':
-        return Icons.schedule;
-      case 'processing':
-        return Icons.sync;
-      case 'cancelled':
-      case 'canceled':
-        return Icons.cancel;
-      default:
-        return Icons.receipt_long;
-    }
-  }
+  /// Delegates to centralized status_utils.getStatusIcon
+  static IconData getStatusIcon(String status) =>
+      status_utils.getStatusIcon(status);
 
   static String capitalizeFirst(String text) {
     if (text.isEmpty) return text;

@@ -16,9 +16,17 @@ class OrderDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = order['user'] as Map<String, dynamic>?;
-    final customerName = user != null
-        ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
-        : 'Unknown Customer';
+    // Use recipient_name from address if available, fallback to user name
+    final recipientName = order['recipient_name']?.toString().isNotEmpty == true
+        ? order['recipient_name'].toString()
+        : (user != null
+            ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
+            : 'Unknown Customer');
+    // Use recipient_contact from address if available, fallback to user mobile
+    final recipientContact =
+        order['recipient_contact']?.toString().isNotEmpty == true
+            ? order['recipient_contact'].toString()
+            : (user?['mobile_number']?.toString() ?? 'N/A');
     final orderItems = order['order_items'] as List? ?? [];
 
     return AlertDialog(
@@ -32,7 +40,9 @@ class OrderDetailsDialog extends StatelessWidget {
               label: 'Order Code',
               value: order['order_code']?.toString() ?? 'N/A',
             ),
-            DetailRow(label: 'Customer', value: customerName),
+            DetailRow(
+                label: 'Recipient',
+                value: recipientName.isNotEmpty ? recipientName : 'Unknown'),
             DetailRow(
               label: 'Status',
               value: order['order_status']?.toString() ?? 'Pending',
@@ -46,8 +56,8 @@ class OrderDetailsDialog extends StatelessWidget {
               value: order['shipping_address']?.toString() ?? 'N/A',
             ),
             DetailRow(
-              label: 'Phone',
-              value: user?['mobile_number']?.toString() ?? 'N/A',
+              label: 'Contact',
+              value: recipientContact,
             ),
             SizedBox(height: 8),
             Divider(),
@@ -57,11 +67,14 @@ class OrderDetailsDialog extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            ...orderItems.take(3).map((item) {
+            ...orderItems.take(3).map((orderItem) {
+              final itemDetails = orderItem['item'] as Map<String, dynamic>?;
+              final itemName = itemDetails?['item_name'] ?? 'Unknown';
+              final quantity = orderItem['quantity'] ?? 1;
               return Padding(
                 padding: EdgeInsets.only(bottom: 4),
                 child: Text(
-                  '• ${item['item_name'] ?? 'Unknown'} x${item['quantity'] ?? 1}',
+                  '• $itemName x$quantity',
                   style: TextStyle(fontSize: 12),
                 ),
               );

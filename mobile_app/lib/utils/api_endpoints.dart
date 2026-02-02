@@ -36,6 +36,8 @@ class ApiEndpoints {
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
   static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
+  static String get getOrdersByRiderId =>
+      '$baseUrl/api/orders/rider/{rider_id}';
 
   // Favorite endpoints
   static String get getFavorites => '$baseUrl/api/favorites';
@@ -57,6 +59,12 @@ class ApiEndpoints {
   static String get getShopById => '$baseUrl/api/shops/{id}';
   static String get getShopItems => '$baseUrl/api/shops/{id}/items';
   static String get getShopReviews => '$baseUrl/api/shops/{id}/reviews';
+
+  // Review endpoints
+  static String get submitReview => '$baseUrl/api/shops/{id}/reviews';
+
+  // Delivery Method endpoints
+  static String get getDeliveryMethods => '$baseUrl/api/delivery-methods';
 
   // Notification endpoints
   static String get getNotifications => '$baseUrl/api/notifications';

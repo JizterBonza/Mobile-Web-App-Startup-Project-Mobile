@@ -34,7 +34,7 @@ class ShopsService extends ApiService {
         return (data['data'] as List).map((shop) {
           return {
             "id": shop['id'],
-            "user_id": shop['user_id'],
+            "agrivet_id": shop['agrivet_id'],
             "shop_name": shop['shop_name'],
             "shop_description": shop['shop_description'],
             "shop_address": shop['shop_address'],
@@ -125,7 +125,7 @@ class ShopsService extends ApiService {
 
         final result = {
           "id": shop['id'],
-          "user_id": shop['user_id'],
+          "agrivet_id": shop['agrivet_id'],
           "shop_name": shop['shop_name'],
           "shop_description": shop['shop_description'],
           "shop_address": shop['shop_address'],
@@ -293,5 +293,108 @@ class ShopsService extends ApiService {
       throw Exception('Failed to load shop reviews: ${response.statusCode}');
     }
     return {};
+  }
+
+  /// Submit a review for a shop's item/order
+  ///
+  /// Parameters:
+  /// - [shopId]: Required - The ID of the shop being reviewed
+  /// - [userId]: Required - The ID of the user submitting the review
+  /// - [rating]: Required - Rating value between 1 and 5
+  /// - [itemId]: Optional - The ID of the item being reviewed
+  /// - [orderId]: Optional - The ID of the order being reviewed
+  /// - [reviewText]: Optional - Review text (max 1000 characters)
+  /// - [reviewImages]: Optional - List of image URLs/paths (max 255 chars each)
+  ///
+  /// Returns a Map with 'success' boolean and 'message' or 'data'
+  Future<Map<String, dynamic>> submitReview({
+    required String shopId,
+    required int userId,
+    required int rating,
+    int? itemId,
+    int? orderId,
+    String? reviewText,
+    List<String>? reviewImages,
+  }) async {
+    try {
+      final url = ApiEndpoints.submitReview.replaceAll('{id}', shopId);
+
+      // Build request body
+      final Map<String, dynamic> body = {
+        'user_id': userId,
+        'rating': rating,
+      };
+
+      // Add optional fields if provided
+      if (itemId != null) {
+        body['item_id'] = itemId;
+      }
+      if (orderId != null) {
+        body['order_id'] = orderId;
+      }
+      if (reviewText != null && reviewText.isNotEmpty) {
+        body['review_text'] = reviewText;
+      }
+      if (reviewImages != null && reviewImages.isNotEmpty) {
+        body['review_images'] = reviewImages;
+      }
+
+      final response = await http
+          .post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await ApiService.getToken()}',
+        },
+        body: jsonEncode(body),
+      )
+          .timeout(
+        Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 15 seconds');
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Review submitted successfully',
+          'data': responseData['data'],
+        };
+      } else if (response.statusCode == 422) {
+        // Validation error
+        final errors = responseData['errors'] ?? responseData['message'];
+        String errorMessage = 'Validation failed';
+        if (errors is Map) {
+          errorMessage = errors.values.first is List
+              ? errors.values.first[0]
+              : errors.values.first.toString();
+        } else if (errors is String) {
+          errorMessage = errors;
+        }
+        return {
+          'success': false,
+          'message': errorMessage,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Failed to submit review',
+        };
+      }
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Request timed out. Please try again.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'An error occurred: ${e.toString()}',
+      };
+    }
   }
 }

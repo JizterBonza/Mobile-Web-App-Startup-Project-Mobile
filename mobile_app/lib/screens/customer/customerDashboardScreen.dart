@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
+import '../../utils/status_utils.dart';
 import 'cartScreen.dart';
 import '../common/profileScreen.dart';
 import '../common/myOrderScreen.dart';
@@ -146,10 +147,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       // Fallback to default categories if both API and cache failed
       if (_categories.isEmpty && _categoryError != null) {
         _categories = [
-          {'name': 'Seeds', 'icon': Icons.eco},
-          {'name': 'Fertilizers', 'icon': Icons.science},
+          {'name': 'Health', 'icon': Icons.health_and_safety},
+          {'name': 'Feeds', 'icon': Icons.feed},
           {'name': 'Tools', 'icon': Icons.build},
-          {'name': 'Equipment', 'icon': Icons.agriculture},
+          {'name': 'Accessories', 'icon': Icons.access_time},
         ];
       }
     });
@@ -324,15 +325,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     _buildCategoriesSection(),
                     SizedBox(height: 24),
 
-                    // Featured products
-                    _buildFeaturedProducts(),
-                    SizedBox(height: 24),
-
                     // Category items (shown when a category is selected)
                     _buildCategoryItems(),
 
                     // Suggested stores
                     _buildSuggestedStores(),
+                    SizedBox(height: 24),
+
+                    // Featured products
+                    _buildFeaturedProducts(),
                     SizedBox(height: 24),
 
                     // Recent orders
@@ -365,7 +366,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
             ),
             Text(
-              'Welcome to Agrify, $_userName!',
+              'Welcome Klasmeyt $_userName!',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -598,34 +599,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ),
         SizedBox(height: 16),
         if (_isLoadingCategories)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5,
+          SizedBox(
+            height: 100,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.mediumGreen,
+              ),
             ),
-            itemCount: 4,
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.mediumGreen,
-                  ),
-                ),
-              );
-            },
           )
         else if (_categories.isEmpty)
           Container(
+            height: 100,
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -634,17 +618,18 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
             child: Center(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.category_outlined,
-                    size: 48,
+                    size: 32,
                     color: Colors.grey[400],
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: 4),
                   Text(
                     'No categories available',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       color: Colors.grey[600],
                     ),
                   ),
@@ -653,88 +638,97 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5,
-            ),
-            itemCount: _categories.length,
-            itemBuilder: (context, index) {
-              final category = _categories[index];
-              final itemsProvider = Provider.of<ItemsProvider>(context);
-              final isSelected =
-                  itemsProvider.selectedCategoryId == category['id'];
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final itemsProvider = Provider.of<ItemsProvider>(context);
+                final isSelected =
+                    itemsProvider.selectedCategoryId == category['id'];
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.mediumGreen.withOpacity(0.1)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                        isSelected ? AppColors.mediumGreen : Colors.grey[300]!,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+                return Container(
+                  width: 90,
+                  margin: EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.mediumGreen.withOpacity(0.15)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      // Handle category tap - fetch items for this category
-                      final categoryId = category['id'];
-                      final categoryName = category['name'] ?? 'Category';
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.mediumGreen
+                          : Colors.grey[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        // Handle category tap - fetch items for this category
+                        final categoryId = category['id'];
+                        final categoryName = category['name'] ?? 'Category';
 
-                      if (itemsProvider.selectedCategoryId == categoryId) {
-                        // Deselect if same category is tapped
-                        itemsProvider.clearCategorySelection();
-                        setState(() {
-                          _selectedCategoryName = null;
-                        });
-                      } else {
-                        // Select and fetch items for this category
-                        setState(() {
-                          _selectedCategoryName = categoryName;
-                        });
-                        itemsProvider.fetchItemsByCategory(categoryId);
-                      }
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            category['icon'] ?? Icons.broken_image,
-                            size: 32,
-                            color: AppColors.mediumGreen,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            category['name'] ?? '',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? AppColors.mediumGreen
-                                  : Colors.grey[800],
+                        if (itemsProvider.selectedCategoryId == categoryId) {
+                          // Deselect if same category is tapped
+                          itemsProvider.clearCategorySelection();
+                          setState(() {
+                            _selectedCategoryName = null;
+                          });
+                        } else {
+                          // Select and fetch items for this category
+                          setState(() {
+                            _selectedCategoryName = categoryName;
+                          });
+                          itemsProvider.fetchItemsByCategory(categoryId);
+                        }
+                      },
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 40,
+                              width: 40,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.mediumGreen.withOpacity(0.2)
+                                    : AppColors.mediumGreen.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                category['icon'] ?? Icons.category,
+                                size: 22,
+                                color: AppColors.mediumGreen,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            SizedBox(height: 8),
+                            Text(
+                              category['name'] ?? '',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.mediumGreen
+                                    : Colors.grey[800],
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
       ],
     );
@@ -1599,7 +1593,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color:
-                                  _getStatusColor(orderStatus).withOpacity(0.1),
+                                  getStatusColor(orderStatus).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -1607,7 +1601,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: _getStatusColor(orderStatus),
+                                color: getStatusColor(orderStatus),
                               ),
                             ),
                           ),
@@ -1728,24 +1722,5 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ],
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return AppColors.mediumGreen;
-      case 'in transit':
-      case 'in-transit':
-        return Colors.orange[600]!;
-      case 'pending':
-        return Colors.grey[600]!;
-      case 'processing':
-        return Colors.blue[600]!;
-      case 'cancelled':
-      case 'canceled':
-        return Colors.red[600]!;
-      default:
-        return Colors.grey[500]!;
-    }
   }
 }

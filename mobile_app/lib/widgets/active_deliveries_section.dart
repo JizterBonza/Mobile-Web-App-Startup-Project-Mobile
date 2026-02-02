@@ -6,10 +6,8 @@ class ActiveDeliveriesSection extends StatelessWidget {
   final List<Map<String, dynamic>> deliveries;
   final bool isLoading;
   final String? error;
-  final bool useSampleData;
   final VoidCallback? onRetry;
   final VoidCallback? onViewAll;
-  final VoidCallback? onLoadSampleData;
   final Function(Map<String, dynamic>) onUpdateStatus;
   final Function(Map<String, dynamic>) onViewDetails;
   final Map<String, dynamic> Function(Map<String, dynamic>)
@@ -20,10 +18,8 @@ class ActiveDeliveriesSection extends StatelessWidget {
     required this.deliveries,
     required this.isLoading,
     this.error,
-    this.useSampleData = false,
     this.onRetry,
     this.onViewAll,
-    this.onLoadSampleData,
     required this.onUpdateStatus,
     required this.onViewDetails,
     required this.convertOrderToCardFormat,
@@ -45,24 +41,27 @@ class ActiveDeliveriesSection extends StatelessWidget {
                 color: Colors.grey[900],
               ),
             ),
-            if (error != null)
-              IconButton(
-                icon:
-                    Icon(Icons.refresh, size: 20, color: AppColors.mediumGreen),
-                onPressed: onRetry,
-                tooltip: 'Retry',
-              )
-            else if (deliveries.length > 3)
-              TextButton(
-                onPressed: onViewAll,
-                child: Text(
-                  'View All',
-                  style: TextStyle(
-                    color: AppColors.mediumGreen,
-                    fontWeight: FontWeight.w600,
+            Row(
+              children: [
+                if (error != null)
+                  IconButton(
+                    icon: Icon(Icons.refresh,
+                        size: 20, color: AppColors.mediumGreen),
+                    onPressed: onRetry,
+                    tooltip: 'Retry',
+                  ),
+                TextButton(
+                  onPressed: onViewAll,
+                  child: Text(
+                    'View All',
+                    style: TextStyle(
+                      color: AppColors.mediumGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
+              ],
+            ),
           ],
         ),
         SizedBox(height: 16),
@@ -80,7 +79,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
               ),
             ),
           )
-        else if (deliveries.isEmpty && !useSampleData)
+        else if (deliveries.isEmpty)
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -104,17 +103,6 @@ class ActiveDeliveriesSection extends StatelessWidget {
                       color: Colors.grey[600],
                     ),
                   ),
-                  if (onLoadSampleData != null) ...[
-                    SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: onLoadSampleData,
-                      icon: Icon(Icons.visibility),
-                      label: Text('Load Sample Data'),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppColors.mediumGreen),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

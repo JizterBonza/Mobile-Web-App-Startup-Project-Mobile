@@ -5,11 +5,13 @@ import 'stat_card.dart';
 class RiderStatisticsGrid extends StatelessWidget {
   final Map<String, dynamic> stats;
   final String Function(dynamic) formatPrice;
+  final VoidCallback? onEarningsTap;
 
   const RiderStatisticsGrid({
     super.key,
     required this.stats,
     required this.formatPrice,
+    this.onEarningsTap,
   });
 
   @override
@@ -45,6 +47,7 @@ class RiderStatisticsGrid extends StatelessWidget {
           value: formatPrice(stats['earnings']),
           icon: Icons.attach_money,
           color: Colors.green[700]!,
+          onTap: onEarningsTap,
         ),
       ],
     );

@@ -4,6 +4,8 @@ import 'screens/common/loginScreen.dart';
 import 'screens/customer/customerDashboardScreen.dart';
 import 'screens/vendor/vendorDashboardScreen.dart';
 import 'screens/rider/riderDashboardScreen.dart';
+import 'screens/rider/riderPickupMap.dart';
+import 'screens/rider/riderDeliveryMap.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'provider/provider.dart';
 
@@ -39,6 +41,8 @@ class MyApp extends StatelessWidget {
           '/customerDashboard': (context) => const CustomerDashboardScreen(),
           '/vendorDashboard': (context) => const VendorDashboardScreen(),
           '/riderDashboard': (context) => const RiderDashboardScreen(),
+          '/riderPickupMap': (context) => const RiderPickupMapScreen(),
+          '/riderDeliveryMap': (context) => const RiderDeliveryMapScreen(),
         },
       ),
     );
