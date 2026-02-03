@@ -6,13 +6,12 @@
     
     <application
         android:label="Klasmeyt"
-        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
         <!-- Google Maps API Key - Replace with your actual key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAhjw-iRdVNVgvj3I-ZWszLaC5j6aa61Q8" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
