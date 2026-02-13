@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
 import '../../provider/provider.dart';
@@ -7,6 +10,7 @@ import '../../widgets/order_item_card.dart';
 import '../../widgets/view_header.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/order_details_dialog.dart';
+import 'delivery_photo_preview_screen.dart';
 
 class RiderAllDeliveriesScreen extends StatefulWidget {
   const RiderAllDeliveriesScreen({super.key});
@@ -195,12 +199,39 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
   }
 
   void _showOrderDetails(Map<String, dynamic> order) {
+    // Get order ID
+    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
+
+    // Check if order is delivered and retrieve photo from Hive
+    String? deliveryPhotoPath;
+    final status = order['order_status']?.toString().toLowerCase() ?? '';
+
+    if (status == 'delivered' && orderId != null) {
+      try {
+        final box = Hive.box('delivery_photos');
+        // Search for photo with matching orderId
+        for (int i = 0; i < box.length; i++) {
+          final photoData = box.getAt(i);
+          if (photoData is Map && photoData['orderId'] == orderId) {
+            final imagePath = photoData['imagePath']?.toString();
+            if (imagePath != null && File(imagePath).existsSync()) {
+              deliveryPhotoPath = imagePath;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        print('Error retrieving delivery photo: $e');
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) => OrderDetailsDialog(
         order: order,
         formatOrderDate: _formatOrderDate,
         formatPrice: _formatPrice,
+        deliveryPhotoPath: deliveryPhotoPath,
       ),
     );
   }
@@ -219,7 +250,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     _updateOrderStatus(orderId, 'In-Transit');
   }
 
-  void _handleDelivered(Map<String, dynamic> order) {
+  Future<void> _handleDelivered(Map<String, dynamic> order) async {
     final orderId = order['order_id']?.toString() ?? order['id']?.toString();
     if (orderId == null || orderId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -230,7 +261,69 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       );
       return;
     }
-    _updateOrderStatus(orderId, 'Delivered');
+
+    final ImagePicker picker = ImagePicker();
+    bool photoConfirmed = false;
+
+    // Loop until user confirms photo or cancels
+    while (!photoConfirmed && mounted) {
+      XFile? imageFile;
+
+      // Capture image from camera
+      try {
+        imageFile = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85,
+        );
+
+        if (imageFile == null) {
+          // User cancelled camera
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Delivery photo is required'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accessing camera: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Navigate to preview screen
+      if (!mounted) return;
+
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DeliveryPhotoPreviewScreen(
+            imageFile: imageFile!,
+            order: order,
+            orderId: orderId,
+          ),
+        ),
+      );
+
+      // If photo was confirmed and saved successfully, exit loop and reload orders
+      if (result == true) {
+        photoConfirmed = true;
+        if (mounted) {
+          await _loadOrders(useCache: false);
+        }
+        break;
+      }
+      // If result is false, user wants to retake - loop will continue
+      // If result is null, user closed preview - exit
+      if (result == null) {
+        return;
+      }
+    }
   }
 
   void _onNavTap(int index) {

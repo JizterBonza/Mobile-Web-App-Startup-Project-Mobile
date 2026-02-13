@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
-import '../../services/order_service.dart';
 import '../../services/directions_service.dart';
+import 'delivery_photo_preview_screen.dart';
 
 class RiderDeliveryMapScreen extends StatefulWidget {
   const RiderDeliveryMapScreen({super.key});
@@ -19,7 +20,6 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   GoogleMapController? _mapController;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
-  final OrderService _orderService = OrderService();
 
   // Default center for the map (Davao Region, Philippines based on sample data)
   static const LatLng _defaultCenter = LatLng(7.3775, 125.8199);
@@ -604,45 +604,66 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     final orderId = order['id']?.toString();
     if (orderId == null) return;
 
-    setState(() {
-      _isUpdatingStatus = true;
-    });
+    final ImagePicker picker = ImagePicker();
+    bool photoConfirmed = false;
 
-    try {
-      final result = await _orderService.updateOrderStatus(
-        orderId: orderId,
-        status: 'delivered',
-      );
+    // Loop until user confirms photo or cancels
+    while (!photoConfirmed && mounted) {
+      XFile? imageFile;
 
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Order marked as delivered'),
-            backgroundColor: AppColors.statusDelivered,
-          ),
+      // Capture image from camera
+      try {
+        imageFile = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85,
         );
-        // Reload orders to reflect the change
-        await _loadOrders();
-      } else {
+
+        if (imageFile == null) {
+          // User cancelled camera
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Delivery photo is required'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to update order'),
+            content: Text('Error accessing camera: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
+        return;
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
+
+      // Navigate to preview screen
+      if (!mounted) return;
+
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DeliveryPhotoPreviewScreen(
+            imageFile: imageFile!,
+            order: order,
+            orderId: orderId,
+          ),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUpdatingStatus = false;
-        });
+
+      // If photo was confirmed and saved successfully, exit loop and reload orders
+      if (result == true) {
+        photoConfirmed = true;
+        if (mounted) {
+          await _loadOrders();
+        }
+        break;
+      }
+      // If result is false, user wants to retake - loop will continue
+      // If result is null, user closed preview - exit
+      if (result == null) {
+        return;
       }
     }
   }

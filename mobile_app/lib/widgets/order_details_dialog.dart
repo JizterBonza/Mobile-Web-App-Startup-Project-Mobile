@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'detail_row.dart';
 
@@ -5,12 +6,14 @@ class OrderDetailsDialog extends StatelessWidget {
   final Map<String, dynamic> order;
   final String Function(String) formatOrderDate;
   final String Function(dynamic) formatPrice;
+  final String? deliveryPhotoPath;
 
   const OrderDetailsDialog({
     super.key,
     required this.order,
     required this.formatOrderDate,
     required this.formatPrice,
+    this.deliveryPhotoPath,
   });
 
   @override
@@ -59,6 +62,71 @@ class OrderDetailsDialog extends StatelessWidget {
               label: 'Contact',
               value: recipientContact,
             ),
+            // Show delivery photo if available and order is delivered
+            if (deliveryPhotoPath != null &&
+                deliveryPhotoPath!.isNotEmpty &&
+                File(deliveryPhotoPath!).existsSync()) ...[
+              SizedBox(height: 16),
+              Divider(),
+              SizedBox(height: 8),
+              Text(
+                'Delivery Photo',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _showFullImage(context, deliveryPhotoPath!),
+                child: Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(deliveryPhotoPath!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.broken_image, color: Colors.grey[400]),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Image not found',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Tap to view full image',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             SizedBox(height: 8),
             Divider(),
             SizedBox(height: 8),
@@ -109,6 +177,54 @@ class OrderDetailsDialog extends StatelessWidget {
           child: Text('Close'),
         ),
       ],
+    );
+  }
+
+  void _showFullImage(BuildContext context, String imagePath) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            Center(
+              child: Image.file(
+                File(imagePath),
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    padding: EdgeInsets.all(20),
+                    color: Colors.grey[200],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                        SizedBox(height: 8),
+                        Text(
+                          'Image not found',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: Icon(Icons.close, color: Colors.white),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

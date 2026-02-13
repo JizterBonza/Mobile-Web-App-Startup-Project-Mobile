@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
 import '../../services/api_service.dart';
@@ -508,12 +510,39 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   void _showOrderDetails(Map<String, dynamic> order) {
+    // Get order ID
+    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
+    
+    // Check if order is delivered and retrieve photo from Hive
+    String? deliveryPhotoPath;
+    final status = order['order_status']?.toString().toLowerCase() ?? '';
+    
+    if (status == 'delivered' && orderId != null) {
+      try {
+        final box = Hive.box('delivery_photos');
+        // Search for photo with matching orderId
+        for (int i = 0; i < box.length; i++) {
+          final photoData = box.getAt(i);
+          if (photoData is Map && photoData['orderId'] == orderId) {
+            final imagePath = photoData['imagePath']?.toString();
+            if (imagePath != null && File(imagePath).existsSync()) {
+              deliveryPhotoPath = imagePath;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        print('Error retrieving delivery photo: $e');
+      }
+    }
+    
     showDialog(
       context: context,
       builder: (context) => OrderDetailsDialog(
         order: order,
         formatOrderDate: _formatOrderDate,
         formatPrice: _formatPrice,
+        deliveryPhotoPath: deliveryPhotoPath,
       ),
     );
   }

@@ -7,10 +7,23 @@ import 'screens/rider/riderDashboardScreen.dart';
 import 'screens/rider/riderPickupMap.dart';
 import 'screens/rider/riderDeliveryMap.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'provider/provider.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+
+  // Initialize Hive
+  await Hive.initFlutter();
+
+  // Register Hive adapters
+  // Note: Run 'flutter pub run build_runner build' to generate the adapter
+  // Hive.registerAdapter(DeliveryPhotoModelAdapter());
+
+  // Open delivery photos box (using Map for now until adapter is generated)
+  await Hive.openBox('delivery_photos');
+
   runApp(const MyApp());
 }
 
