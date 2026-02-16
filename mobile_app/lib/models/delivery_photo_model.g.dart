@@ -23,13 +23,14 @@ class DeliveryPhotoModelAdapter extends TypeAdapter<DeliveryPhotoModel> {
       latitude: fields[3] as double,
       longitude: fields[4] as double,
       address: fields[5] as String?,
+      status: fields[6] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, DeliveryPhotoModel obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.orderId)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class DeliveryPhotoModelAdapter extends TypeAdapter<DeliveryPhotoModel> {
       ..writeByte(4)
       ..write(obj.longitude)
       ..writeByte(5)
-      ..write(obj.address);
+      ..write(obj.address)
+      ..writeByte(6)
+      ..write(obj.status);
   }
 
   @override

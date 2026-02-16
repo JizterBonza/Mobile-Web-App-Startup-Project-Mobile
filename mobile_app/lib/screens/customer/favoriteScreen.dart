@@ -4,7 +4,9 @@ import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
-import 'cartScreen.dart';
+// TEMPORARILY COMMENTED OUT - Using CartScreenV2 instead
+// import 'cartScreen.dart';
+import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import 'productDetailScreen.dart';
 
@@ -203,9 +205,19 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             );
           } else if (index == 1) {
             // Cart
+            // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
+            // Navigator.push(
+            //   context,
+            //   _createFadeRoute(CartScreen()),
+            // ).then((_) {
+            //   // Keep favorites selected when returning
+            //   setState(() {
+            //     _selectedIndex = 2;
+            //   });
+            // });
             Navigator.push(
               context,
-              _createFadeRoute(CartScreen()),
+              _createFadeRoute(CartScreenV2()),
             ).then((_) {
               // Keep favorites selected when returning
               setState(() {

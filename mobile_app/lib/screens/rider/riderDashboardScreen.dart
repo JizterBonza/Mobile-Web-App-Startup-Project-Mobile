@@ -512,11 +512,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   void _showOrderDetails(Map<String, dynamic> order) {
     // Get order ID
     final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-    
+
     // Check if order is delivered and retrieve photo from Hive
     String? deliveryPhotoPath;
     final status = order['order_status']?.toString().toLowerCase() ?? '';
-    
+
     if (status == 'delivered' && orderId != null) {
       try {
         final box = Hive.box('delivery_photos');
@@ -535,7 +535,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         print('Error retrieving delivery photo: $e');
       }
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => OrderDetailsDialog(

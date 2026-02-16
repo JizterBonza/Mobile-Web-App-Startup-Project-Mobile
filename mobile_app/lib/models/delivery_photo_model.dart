@@ -11,6 +11,7 @@ class DeliveryPhotoModel {
     required this.latitude,
     required this.longitude,
     this.address,
+    this.status = 'pending', // 'pending', 'uploaded', 'failed'
   });
 
   @HiveField(0)
@@ -30,7 +31,7 @@ class DeliveryPhotoModel {
 
   @HiveField(5)
   final String? address;
+
+  @HiveField(6)
+  String status; // Track upload status: 'pending', 'uploaded', 'failed'
 }
-
-
-

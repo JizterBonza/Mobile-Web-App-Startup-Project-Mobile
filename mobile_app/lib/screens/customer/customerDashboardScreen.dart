@@ -5,7 +5,9 @@ import '../../constants/constants.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
 import '../../utils/status_utils.dart';
-import 'cartScreen.dart';
+// TEMPORARILY COMMENTED OUT - Using CartScreenV2 instead
+// import 'cartScreen.dart';
+import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import '../common/myOrderScreen.dart';
 import 'favoriteScreen.dart';
@@ -1673,9 +1675,21 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           // Handle navigation based on selected index
           if (index == 1) {
             // Cart
+            // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
+            // Navigator.push(
+            //   context,
+            //   _createFadeRoute(CartScreen()),
+            // ).then((_) {
+            //   // Reset to home when returning from cart
+            //   if (mounted) {
+            //     setState(() {
+            //       _selectedIndex = 0;
+            //     });
+            //   }
+            // });
             Navigator.push(
               context,
-              _createFadeRoute(CartScreen()),
+              _createFadeRoute(CartScreenV2()),
             ).then((_) {
               // Reset to home when returning from cart
               if (mounted) {

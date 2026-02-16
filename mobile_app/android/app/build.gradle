@@ -5,6 +5,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Load local.properties file
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
 android {
     namespace = "com.agrifyconnect.mobile_app"
     compileSdk = 35
@@ -30,7 +39,7 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders = [
-            GOOGLE_MAPS_API_KEY: project.properties["GOOGLE_MAPS_API_KEY"] ?: ""
+            GOOGLE_MAPS_API_KEY: localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
         ]
     }
 

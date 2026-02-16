@@ -98,7 +98,8 @@ class OrderDetailsDialog extends StatelessWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.broken_image, color: Colors.grey[400]),
+                                Icon(Icons.broken_image,
+                                    color: Colors.grey[400]),
                                 SizedBox(height: 4),
                                 Text(
                                   'Image not found',
@@ -199,7 +200,8 @@ class OrderDetailsDialog extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.broken_image, size: 48, color: Colors.grey[400]),
+                        Icon(Icons.broken_image,
+                            size: 48, color: Colors.grey[400]),
                         SizedBox(height: 8),
                         Text(
                           'Image not found',
