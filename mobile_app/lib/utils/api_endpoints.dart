@@ -25,6 +25,8 @@ class ApiEndpoints {
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
   static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
+  static String get getSearchItem => '$baseUrl/api/items/search';
+  static String get getItemsByCategory => '$baseUrl/api/items';
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -34,6 +36,8 @@ class ApiEndpoints {
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
   static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
+  static String get getOrdersByRiderId =>
+      '$baseUrl/api/orders/rider/{rider_id}';
 
   // Favorite endpoints
   static String get getFavorites => '$baseUrl/api/favorites';
@@ -49,6 +53,18 @@ class ApiEndpoints {
   static String get deleteAddress => '$baseUrl/api/addresses/{id}';
   static String get setDefaultAddress =>
       '$baseUrl/api/addresses/{id}/set-default';
+
+  // Shop endpoints
+  static String get getShops => '$baseUrl/api/shops';
+  static String get getShopById => '$baseUrl/api/shops/{id}';
+  static String get getShopItems => '$baseUrl/api/shops/{id}/items';
+  static String get getShopReviews => '$baseUrl/api/shops/{id}/reviews';
+
+  // Review endpoints
+  static String get submitReview => '$baseUrl/api/shops/{id}/reviews';
+
+  // Delivery Method endpoints
+  static String get getDeliveryMethods => '$baseUrl/api/delivery-methods';
 
   // Notification endpoints
   static String get getNotifications => '$baseUrl/api/notifications';

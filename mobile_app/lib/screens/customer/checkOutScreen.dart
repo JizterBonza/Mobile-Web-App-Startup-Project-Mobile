@@ -25,12 +25,18 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   final _orderInstructionController = TextEditingController();
 
   String? _selectedPaymentMethod;
+  int? _selectedDeliveryMethodId;
+  String? _selectedDeliveryMethodDescription;
   bool _isLoading = false;
   bool _isLoadingProfile = true;
+  bool _isLoadingDeliveryMethods = true;
 
   // Address selection
   List<AddressModel> _addresses = [];
   AddressModel? _selectedAddress;
+
+  // Delivery methods from API
+  List<Map<String, dynamic>> _deliveryMethods = [];
 
   final List<String> _paymentMethods = [
     'Cash on Delivery',
@@ -43,6 +49,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadDeliveryMethods();
   }
 
   @override
@@ -72,6 +79,41 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       if (mounted) {
         setState(() {
           _isLoadingProfile = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDeliveryMethods() async {
+    try {
+      final orderService = OrderService();
+      final result = await orderService.fetchDeliveryMethods();
+
+      if (mounted) {
+        if (result['success'] == true && result['data'] != null) {
+          final methods = (result['data'] as List)
+              .where((method) => method['status'] == true)
+              .map((method) => {
+                    'id': method['id'],
+                    'description': method['description'],
+                  })
+              .toList();
+
+          setState(() {
+            _deliveryMethods = List<Map<String, dynamic>>.from(methods);
+            _isLoadingDeliveryMethods = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingDeliveryMethods = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading delivery methods: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingDeliveryMethods = false;
         });
       }
     }
@@ -108,6 +150,14 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedDeliveryMethodId == null) {
+      SnackbarHelper.showError(
+        context,
+        'Please select a delivery method',
+      );
       return;
     }
 
@@ -157,6 +207,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         orderInstruction: _orderInstructionController.text.trim().isEmpty
             ? null
             : _orderInstructionController.text.trim(),
+        deliveryMethodId: _selectedDeliveryMethodId!,
         paymentMethod: _selectedPaymentMethod!,
       );
 
@@ -230,6 +281,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   children: [
                     // Order Items Section
                     _buildOrderItemsSection(),
+
+                    // Delivery Method Section
+                    _buildDeliveryMethodSection(),
 
                     // Shipping Address Section
                     _buildShippingAddressSection(),
@@ -404,6 +458,208 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildDeliveryMethodSection() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_shipping_outlined,
+                color: AppColors.mediumGreen,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Delivery Method',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[900],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          if (_isLoadingDeliveryMethods)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                  ),
+                ),
+              ),
+            )
+          else if (_deliveryMethods.isEmpty)
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_outlined,
+                    size: 20,
+                    color: Colors.orange[700],
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'No delivery methods available. Please try again later.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: _selectedDeliveryMethodId,
+                  isExpanded: true,
+                  hint: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Select delivery method',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  borderRadius: BorderRadius.circular(8),
+                  icon:
+                      Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
+                  items: _deliveryMethods.map((method) {
+                    final description = method['description'] as String;
+                    return DropdownMenuItem<int>(
+                      value: method['id'] as int,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getDeliveryMethodIcon(description),
+                            color: AppColors.mediumGreen,
+                            size: 20,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            description,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey[900],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (int? newValue) {
+                    setState(() {
+                      _selectedDeliveryMethodId = newValue;
+                      _selectedDeliveryMethodDescription =
+                          _deliveryMethods.firstWhere(
+                              (m) => m['id'] == newValue)['description'];
+                    });
+                  },
+                ),
+              ),
+            ),
+          if (_selectedDeliveryMethodDescription != null) ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.mediumGreen.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.mediumGreen.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.mediumGreen,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getDeliveryMethodInfo(
+                          _selectedDeliveryMethodDescription!),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _getDeliveryMethodIcon(String description) {
+    final lowerDesc = description.toLowerCase();
+    if (lowerDesc.contains('contact') || lowerDesc.contains('no contact')) {
+      return Icons.contactless_outlined;
+    } else if (lowerDesc.contains('express') || lowerDesc.contains('fast')) {
+      return Icons.flash_on_outlined;
+    } else if (lowerDesc.contains('pickup') || lowerDesc.contains('pick up')) {
+      return Icons.store_outlined;
+    }
+    return Icons.local_shipping_outlined;
+  }
+
+  String _getDeliveryMethodInfo(String description) {
+    final lowerDesc = description.toLowerCase();
+    if (lowerDesc.contains('contact') || lowerDesc.contains('no contact')) {
+      return 'Your order will be left at your address for no contact delivery.';
+    } else if (lowerDesc.contains('express') || lowerDesc.contains('fast')) {
+      return 'Your order will be delivered faster with express delivery.';
+    } else if (lowerDesc.contains('pickup') || lowerDesc.contains('pick up')) {
+      return 'Pick up your order at the designated location.';
+    }
+    return 'Your order will be delivered directly to you.';
   }
 
   Widget _buildShippingAddressSection() {
@@ -867,6 +1123,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     );
   }
 
+  bool get _isContactlessDelivery {
+    if (_selectedDeliveryMethodDescription == null) return false;
+    final lowerDesc = _selectedDeliveryMethodDescription!.toLowerCase();
+    return lowerDesc.contains('contact') || lowerDesc.contains('no contact');
+  }
+
   Widget _buildOrderInstructionsSection() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16),
@@ -893,21 +1155,71 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                'Order Instructions (Optional)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    text: 'Order Instructions ',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[900],
+                    ),
+                    children: [
+                      TextSpan(
+                        text: _isContactlessDelivery
+                            ? '(Required)'
+                            : '(Optional)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: _isContactlessDelivery
+                              ? Colors.red[600]
+                              : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
+          if (_isContactlessDelivery) ...[
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.orange[700],
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Please provide instructions for contactless delivery (e.g., where to leave the package)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(height: 16),
           TextFormField(
             controller: _orderInstructionController,
             decoration: InputDecoration(
-              hintText: 'Add any special instructions for delivery...',
+              hintText: _isContactlessDelivery
+                  ? 'E.g., Leave at the front door, behind the gate...'
+                  : 'Add any special instructions for delivery...',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: Colors.grey[300]!),
@@ -920,12 +1232,27 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: AppColors.mediumGreen, width: 2),
               ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.red[400]!, width: 1),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.red[400]!, width: 2),
+              ),
               filled: true,
               fillColor: Colors.grey[50],
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             maxLines: 3,
+            validator: (value) {
+              if (_isContactlessDelivery &&
+                  (value == null || value.trim().isEmpty)) {
+                return 'Please provide delivery instructions for contactless delivery';
+              }
+              return null;
+            },
           ),
         ],
       ),

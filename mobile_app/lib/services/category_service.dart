@@ -8,12 +8,10 @@ import 'package:flutter/material.dart';
 class CategoryService extends ApiService {
   // Map of category names to icons
   static final Map<String, IconData> categoryIcons = {
-    'Seeds': Icons.eco,
-    'Fertilizer': Icons.science,
+    'Health': Icons.health_and_safety,
+    'Feeds': Icons.category,
     'Tools': Icons.build,
-    'Equipment': Icons.agriculture,
-    'Plants': Icons.grass,
-    'Pesticides': Icons.pest_control,
+    'Accessories': Icons.shopping_cart_rounded,
   };
 
   /// Fetch categories from API
@@ -41,7 +39,7 @@ class CategoryService extends ApiService {
           return {
             'id': category['id'],
             'name': categoryName,
-            'icon': categoryIcons[categoryName] ?? Icons.broken_image,
+            'icon': categoryIcons[categoryName] ?? Icons.category,
             'description': category['category_description'],
             'image_url': category['category_image_url'],
             'status': category['status'],

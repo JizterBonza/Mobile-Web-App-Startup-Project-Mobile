@@ -49,5 +49,9 @@
 	<string>This app needs access to your location to help you set your delivery address.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to your location to help you set your delivery address.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to capture delivery photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to select delivery photos.</string>
 </dict>
 </plist>

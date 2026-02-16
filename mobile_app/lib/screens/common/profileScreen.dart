@@ -7,7 +7,9 @@ import '../../services/api_service.dart';
 import 'loginScreen.dart';
 import '../customer/customerDashboardScreen.dart';
 import '../rider/riderDashboardScreen.dart';
-import '../customer/cartScreen.dart';
+// TEMPORARILY COMMENTED OUT - Using CartScreenV2 instead
+// import '../customer/cartScreen.dart';
+import '../customer/cartScreenV2.dart';
 import '../customer/favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
@@ -672,9 +674,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             } else if (index == 1) {
               // Cart
+              // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
+              // Navigator.push(
+              //   context,
+              //   _createFadeRoute(CartScreen()),
+              // ).then((_) {
+              //   // Keep profile selected when returning
+              //   setState(() {
+              //     _selectedIndex = 3;
+              //   });
+              // });
               Navigator.push(
                 context,
-                _createFadeRoute(CartScreen()),
+                _createFadeRoute(CartScreenV2()),
               ).then((_) {
                 // Keep profile selected when returning
                 setState(() {

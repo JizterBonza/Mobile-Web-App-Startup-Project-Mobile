@@ -8,6 +8,7 @@ class OrderItemCard extends StatelessWidget {
   final bool showDetails;
   final VoidCallback? onUpdateStatus;
   final VoidCallback? onViewDetails;
+  final String? actionButtonLabel;
 
   const OrderItemCard({
     super.key,
@@ -16,6 +17,7 @@ class OrderItemCard extends StatelessWidget {
     this.showDetails = false,
     this.onUpdateStatus,
     this.onViewDetails,
+    this.actionButtonLabel,
   });
 
   @override
@@ -226,7 +228,7 @@ class OrderItemCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Update Status',
+                        actionButtonLabel ?? 'Update Status',
                         style: TextStyle(color: AppColors.mediumGreen),
                       ),
                     ),

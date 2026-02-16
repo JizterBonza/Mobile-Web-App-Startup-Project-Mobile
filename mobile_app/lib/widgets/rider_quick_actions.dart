@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import '../constants/constants.dart';
 import 'quick_action_button.dart';
 
 class RiderQuickActions extends StatelessWidget {
-  final VoidCallback onNewDelivery;
-  final VoidCallback onViewAll;
-  final VoidCallback onHistory;
+  final VoidCallback? onPickupMap;
+  final VoidCallback? onDeliveryMap;
 
   const RiderQuickActions({
     super.key,
-    required this.onNewDelivery,
-    required this.onViewAll,
-    required this.onHistory,
+    this.onPickupMap,
+    this.onDeliveryMap,
   });
 
   @override
@@ -30,32 +27,29 @@ class RiderQuickActions extends StatelessWidget {
         SizedBox(height: 16),
         Row(
           children: [
-            Expanded(
-              child: QuickActionButton(
-                label: 'New Delivery',
-                icon: Icons.add_circle_outline,
-                color: AppColors.mediumGreen,
-                onTap: onNewDelivery,
-              ),
-            ),
+            if (onPickupMap != null)
+              Expanded(
+                child: QuickActionButton(
+                  label: 'For Pickup',
+                  icon: Icons.store_mall_directory_outlined,
+                  color: Colors.teal,
+                  onTap: onPickupMap!,
+                ),
+              )
+            else
+              Expanded(child: SizedBox()),
             SizedBox(width: 12),
-            Expanded(
-              child: QuickActionButton(
-                label: 'View All',
-                icon: Icons.list_alt,
-                color: Colors.blue,
-                onTap: onViewAll,
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: QuickActionButton(
-                label: 'History',
-                icon: Icons.history,
-                color: Colors.orange,
-                onTap: onHistory,
-              ),
-            ),
+            if (onDeliveryMap != null)
+              Expanded(
+                child: QuickActionButton(
+                  label: 'For Delivery',
+                  icon: Icons.delivery_dining,
+                  color: Colors.indigo,
+                  onTap: onDeliveryMap!,
+                ),
+              )
+            else
+              Expanded(child: SizedBox()),
           ],
         ),
       ],

@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
 import '../../services/order_service.dart';
+import '../../services/shops_service.dart';
+import '../../services/api_service.dart';
+import '../../utils/status_utils.dart';
 import 'orderDetailScreen.dart';
 
 class MyOrderScreen extends StatefulWidget {
@@ -16,6 +19,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final OrderService _orderService = OrderService();
+  final ShopsService _shopsService = ShopsService();
   bool _isCancelling = false;
 
   final List<Map<String, dynamic>> _statusTabs = [
@@ -103,44 +107,6 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       print('Error formatting price: $e');
     }
     return '₱0.00';
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return AppColors.mediumGreen;
-      case 'in transit':
-      case 'in-transit':
-        return Colors.orange[600]!;
-      case 'pending':
-        return Colors.amber[700]!;
-      case 'processing':
-        return Colors.blue[600]!;
-      case 'cancelled':
-      case 'canceled':
-        return Colors.red[600]!;
-      default:
-        return Colors.grey[500]!;
-    }
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
-      case 'delivered':
-        return Icons.check_circle;
-      case 'in transit':
-      case 'in-transit':
-        return Icons.local_shipping;
-      case 'pending':
-        return Icons.schedule;
-      case 'processing':
-        return Icons.sync;
-      case 'cancelled':
-      case 'canceled':
-        return Icons.cancel;
-      default:
-        return Icons.receipt_long;
-    }
   }
 
   Future<void> _cancelOrder(String orderId) async {
@@ -244,6 +210,227 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     } finally {
       if (mounted) setState(() => _isCancelling = false);
     }
+  }
+
+  void _showRateOrderDialog(String orderId, String shopId, List orderItems) {
+    int selectedRating = 0;
+    bool isSubmitting = false;
+    final TextEditingController reviewController = TextEditingController();
+
+    // Get item ID from first order item if available
+    int? itemId;
+    if (orderItems.isNotEmpty) {
+      final firstItem = orderItems.first;
+      final nestedItem = firstItem['item'] as Map<String, dynamic>?;
+      itemId = nestedItem?['id'] ?? firstItem['item_id'] ?? firstItem['id'];
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.star_rounded, color: Colors.amber[600], size: 28),
+              SizedBox(width: 12),
+              Text('Rate Your Order'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'How was your experience with this order?',
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return GestureDetector(
+                    onTap: isSubmitting
+                        ? null
+                        : () {
+                            setDialogState(() {
+                              selectedRating = index + 1;
+                            });
+                          },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        index < selectedRating
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 40,
+                        color: Colors.amber[600],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              SizedBox(height: 8),
+              Text(
+                selectedRating == 0
+                    ? 'Tap to rate'
+                    : selectedRating == 1
+                        ? 'Poor'
+                        : selectedRating == 2
+                            ? 'Fair'
+                            : selectedRating == 3
+                                ? 'Good'
+                                : selectedRating == 4
+                                    ? 'Very Good'
+                                    : 'Excellent',
+                style: TextStyle(
+                  color: selectedRating == 0
+                      ? Colors.grey[500]
+                      : Colors.amber[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: reviewController,
+                maxLines: 3,
+                enabled: !isSubmitting,
+                decoration: InputDecoration(
+                  hintText: 'Write a review (optional)',
+                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: AppColors.mediumGreen, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  isSubmitting ? null : () => Navigator.pop(dialogContext),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: selectedRating == 0 || isSubmitting
+                  ? null
+                  : () async {
+                      setDialogState(() => isSubmitting = true);
+
+                      // Get user ID from ApiService
+                      final userIdStr = await ApiService.getUserId();
+                      final userId = int.tryParse(userIdStr ?? '');
+                      if (userId == null) {
+                        Navigator.pop(dialogContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text('Please login to submit a review'),
+                              ],
+                            ),
+                            backgroundColor: Colors.red[600],
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                        );
+                        return;
+                      }
+
+                      // Submit review to backend
+                      final result = await _shopsService.submitReview(
+                        shopId: shopId,
+                        userId: userId,
+                        rating: selectedRating,
+                        orderId: int.tryParse(orderId),
+                        itemId: itemId,
+                        reviewText: reviewController.text.trim().isEmpty
+                            ? null
+                            : reviewController.text.trim(),
+                      );
+
+                      Navigator.pop(dialogContext);
+
+                      if (result['success'] == true) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text('Thank you for your rating!'),
+                              ],
+                            ),
+                            backgroundColor: AppColors.mediumGreen,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(result['message'] ??
+                                      'Failed to submit review'),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: Colors.red[600],
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber[600],
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey[300],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: isSubmitting
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -439,7 +626,18 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         order['id']?.toString() ?? order['order_id']?.toString() ?? '';
     final orderItems = order['order_items'] as List? ?? [];
 
+    // Get shop_id from order or first order item
+    String shopId = order['shop_id']?.toString() ?? '';
+    if (shopId.isEmpty && orderItems.isNotEmpty) {
+      final firstItem = orderItems.first;
+      final nestedItem = firstItem['item'] as Map<String, dynamic>?;
+      shopId = nestedItem?['shop_id']?.toString() ??
+          firstItem['shop_id']?.toString() ??
+          '';
+    }
+
     final canCancel = orderStatus.toLowerCase() == 'pending';
+    final isDelivered = orderStatus.toLowerCase() == 'delivered';
 
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -462,7 +660,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getStatusColor(orderStatus).withOpacity(0.05),
+              color: getStatusColor(orderStatus).withOpacity(0.05),
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
@@ -494,16 +692,16 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(orderStatus).withOpacity(0.15),
+                    color: getStatusColor(orderStatus).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _getStatusIcon(orderStatus),
+                        getStatusIcon(orderStatus),
                         size: 14,
-                        color: _getStatusColor(orderStatus),
+                        color: getStatusColor(orderStatus),
                       ),
                       SizedBox(width: 6),
                       Text(
@@ -511,7 +709,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: _getStatusColor(orderStatus),
+                          color: getStatusColor(orderStatus),
                         ),
                       ),
                     ],
@@ -679,6 +877,28 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                               ),
                       ),
                     SizedBox(width: 8),
+                    if (isDelivered)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          _showRateOrderDialog(orderId, shopId, orderItems);
+                        },
+                        icon: Icon(Icons.star_rounded, size: 18),
+                        label: Text(
+                          'Rate',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber[600],
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    if (isDelivered) SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () async {
                         final result = await Navigator.push(
