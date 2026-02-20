@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/api_endpoints.dart';
+import 'order_status_service.dart';
 
 class ApiService {
   // SharedPreferences key for storing auth token
@@ -567,8 +569,31 @@ class ApiService {
 
   /// Clear all cached data
   static Future<void> _clearAllCache() async {
-    // Cache clearing is now handled by Providers
-    // Providers will automatically clear their cache when needed
+    try {
+      // Clear delivery_photos box (untyped)
+      try {
+        if (Hive.isBoxOpen('delivery_photos')) {
+          final box = Hive.box('delivery_photos');
+          await box.clear();
+          print('Cleared Hive box: delivery_photos');
+        }
+      } catch (e) {
+        print('Error clearing Hive box delivery_photos: $e');
+      }
+
+      // Clear order_statuses box using the service to handle typed box properly
+      try {
+        final orderStatusService = OrderStatusService();
+        await orderStatusService.clearOrderStatuses();
+        print('Cleared Hive box: order_statuses');
+      } catch (e) {
+        print('Error clearing Hive box order_statuses: $e');
+      }
+
+      print('All Hive boxes cleared successfully');
+    } catch (e) {
+      print('Error clearing cache: $e');
+    }
   }
 
   /// Update user profile

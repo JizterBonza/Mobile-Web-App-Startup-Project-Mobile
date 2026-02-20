@@ -9,6 +9,7 @@ import 'screens/rider/riderDeliveryMap.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'provider/provider.dart';
+import 'models/order_status.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,9 +21,15 @@ void main() async {
   // Register Hive adapters
   // Note: Run 'flutter pub run build_runner build' to generate the adapter
   // Hive.registerAdapter(DeliveryPhotoModelAdapter());
+  // Hive.registerAdapter(OrderStatusAdapter());
 
+  // Open Hive boxes
   // Open delivery photos box (using Map for now until adapter is generated)
   await Hive.openBox('delivery_photos');
+  
+  // Open order statuses box
+  // Note: Uncomment the adapter registration above after running build_runner
+  await Hive.openBox<OrderStatus>('order_statuses');
 
   runApp(const MyApp());
 }
@@ -38,7 +45,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ItemsProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => OrderStatusProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
+        ChangeNotifierProvider(create: (_) => PodProvider()),
         ChangeNotifierProvider(create: (_) => ShopsProvider()),
       ],
       child: MaterialApp(

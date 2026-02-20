@@ -1534,95 +1534,117 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
           )
         else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Column(
-              children: _recentOrders.asMap().entries.map((entry) {
-                final index = entry.key;
-                final order = entry.value;
-                final orderCode = order['order_code']?.toString() ?? 'N/A';
-                final orderStatus =
-                    order['order_status']?.toString() ?? 'Pending';
-                final totalAmount = order['total_amount']?.toString() ?? '0.00';
-                final orderedAt = order['ordered_at']?.toString() ?? '';
+          Consumer<OrderStatusProvider>(
+            builder: (context, orderStatusProvider, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  children: _recentOrders.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final order = entry.value;
+                    final orderCode = order['order_code']?.toString() ?? 'N/A';
 
-                return Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Colors.grey[200]!,
-                        width: index < _recentOrders.length - 1 ? 1 : 0,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order $orderCode',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              _formatOrderDate(orderedAt),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                    // Parse order_status as ID (number) and get description from provider
+                    final orderStatusId = order['order_status'];
+                    int? statusId;
+                    if (orderStatusId is int) {
+                      statusId = orderStatusId;
+                    } else if (orderStatusId is String) {
+                      statusId = int.tryParse(orderStatusId);
+                    } else if (orderStatusId != null) {
+                      statusId = int.tryParse(orderStatusId.toString());
+                    }
+
+                    // Get status description from provider using ID
+                    final orderStatusDesc = statusId != null
+                        ? orderStatusProvider
+                            .getOrderStatusDescription(statusId)
+                        : null;
+                    final orderStatus = orderStatusDesc ?? 'Pending';
+
+                    final totalAmount =
+                        order['total_amount']?.toString() ?? '0.00';
+                    final orderedAt = order['ordered_at']?.toString() ?? '';
+
+                    return Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.grey[200]!,
+                            width: index < _recentOrders.length - 1 ? 1 : 0,
+                          ),
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color:
-                                  getStatusColor(orderStatus).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              orderStatus,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: getStatusColor(orderStatus),
-                              ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Order $orderCode',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[800],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  _formatOrderDate(orderedAt),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SizedBox(height: 4),
-                          Text(
-                            _formatPrice(totalAmount),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.mediumGreen,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: getStatusColor(orderStatus)
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  orderStatus,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: getStatusColor(orderStatus),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                _formatPrice(totalAmount),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.mediumGreen,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
           ),
       ],
     );
