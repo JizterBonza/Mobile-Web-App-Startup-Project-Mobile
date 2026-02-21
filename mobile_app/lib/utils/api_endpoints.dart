@@ -79,4 +79,15 @@ class ApiEndpoints {
   static String get deleteNotification => '$baseUrl/api/notifications/{id}';
   static String get clearReadNotifications =>
       '$baseUrl/api/notifications/clear-read';
+
+  /// Proof of Delivery endpoints
+  static String get uploadProofOfDelivery => '$baseUrl/api/pod/upload';
+  static String get showProofOfDelivery => '$baseUrl/api/pod/show/{order_id}';
+  static String get getProofOfDelivery => '$baseUrl/api/pod/get/{order_id}';
+  static String get deleteProofOfDelivery => '$baseUrl/api/pod/delete/{id}';
+  static String get getProofOfDeliveryByOrderId =>
+      '$baseUrl/api/pod/order/{order_id}';
+
+  // Order Status endpoints
+  static String get getOrderStatus => '$baseUrl/api/order-statuses';
 }

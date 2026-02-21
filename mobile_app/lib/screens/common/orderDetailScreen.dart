@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
+import '../../provider/order_status_provider.dart';
 import '../../widgets/order/order_header_widget.dart';
 import '../../widgets/order/order_timeline_widget.dart';
 import '../../widgets/order/order_items_widget.dart';
@@ -124,19 +126,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orderCode = widget.order['order_code']?.toString() ?? 'N/A';
-    final orderStatus = widget.order['order_status']?.toString() ?? 'Pending';
-    final orderedAt = widget.order['ordered_at']?.toString() ?? '';
-    final orderId = widget.order['id']?.toString() ??
-        widget.order['order_id']?.toString() ??
-        '';
-    final canCancel = orderStatus.toLowerCase() == 'pending';
-    final orderItems = widget.order['order_items'] as List? ?? [];
-    final shippingAddress =
-        widget.order['shipping_address']?.toString() ?? 'No address';
-    final orderInstruction = widget.order['order_instruction']?.toString();
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final orderCode = widget.order['order_code']?.toString() ?? 'N/A';
+        
+        // Parse order_status as ID (number) and get description from provider
+        final orderStatusId = widget.order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+        
+        // Get status description from provider using ID
+        final orderStatusDesc = statusId != null
+            ? orderStatusProvider.getOrderStatusDescription(statusId)
+            : null;
+        final orderStatus = orderStatusDesc ?? 'Pending';
+        
+        final orderedAt = widget.order['ordered_at']?.toString() ?? '';
+        final orderId = widget.order['id']?.toString() ??
+            widget.order['order_id']?.toString() ??
+            '';
+        final canCancel = orderStatus.toLowerCase() == 'pending';
+        final orderItems = widget.order['order_items'] as List? ?? [];
+        final shippingAddress =
+            widget.order['shipping_address']?.toString() ?? 'No address';
+        final orderInstruction = widget.order['order_instruction']?.toString();
 
-    return Scaffold(
+        return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Text(
@@ -184,6 +205,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       ),
       bottomNavigationBar: canCancel ? _buildBottomBar(orderId) : null,
+    );
+      },
     );
   }
 

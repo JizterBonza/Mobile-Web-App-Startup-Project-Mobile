@@ -686,6 +686,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         iconTheme: IconThemeData(color: Colors.grey[700]),
         actions: [
           IconButton(
+            onPressed: _toggleRoute,
+            icon: Icon(Icons.upload),
+            tooltip: 'Upload Deliveries',
+          ),
+          IconButton(
             onPressed: _loadOrders,
             icon: Icon(Icons.refresh),
             tooltip: 'Refresh',

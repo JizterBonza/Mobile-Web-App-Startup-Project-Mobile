@@ -3,5 +3,7 @@ export 'cart_provider.dart';
 export 'category_provider.dart';
 export 'items_provider.dart';
 export 'notification_provider.dart';
+export 'order_status_provider.dart';
 export 'orders_provider.dart';
+export 'pod_provider.dart';
 export 'shops_provider.dart';

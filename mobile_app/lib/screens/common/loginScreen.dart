@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'signUpScreen.dart';
 import 'forgotPasswordScreen.dart';
 import '../../widgets/form_widgets.dart';
 import '../../services/api_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,6 +36,19 @@ class _LoginScreenState extends State<LoginScreen> {
         if (userType != null && userType.isNotEmpty) {
           // Wait for the widget to be mounted before navigating
           if (mounted) {
+            // Fetch and cache order statuses for existing session
+            try {
+              final orderStatusProvider =
+                  Provider.of<OrderStatusProvider>(context, listen: false);
+              // Fetch in background (don't wait for it)
+              orderStatusProvider.fetchAndCacheOrderStatuses().catchError((e) {
+                print('Error fetching order statuses: $e');
+                // Silently fail - don't block navigation
+              });
+            } catch (e) {
+              print('Error accessing OrderStatusProvider: $e');
+            }
+
             final route = _getDashboardRoute(userType.toLowerCase());
             Navigator.pushReplacementNamed(context, route);
           }
@@ -203,6 +218,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                 context,
                                 result['message'] ?? 'Login successful!',
                               );
+
+                              // Fetch and cache order statuses after successful login
+                              if (context.mounted) {
+                                try {
+                                  final orderStatusProvider =
+                                      Provider.of<OrderStatusProvider>(
+                                    context,
+                                    listen: false,
+                                  );
+                                  // Fetch in background (don't wait for it)
+                                  orderStatusProvider
+                                      .fetchAndCacheOrderStatuses()
+                                      .catchError((e) {
+                                    print('Error fetching order statuses: $e');
+                                    // Silently fail - don't block navigation
+                                  });
+                                } catch (e) {
+                                  print(
+                                      'Error accessing OrderStatusProvider: $e');
+                                }
+                              }
 
                               // Navigate to appropriate dashboard based on user type
                               if (context.mounted) {

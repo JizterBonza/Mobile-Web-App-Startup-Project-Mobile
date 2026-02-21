@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
+import '../../provider/order_status_provider.dart';
 import '../../services/order_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
@@ -58,8 +59,33 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   List<Map<String, dynamic>> _filterOrdersByStatus(
       List<Map<String, dynamic>> orders, String? status) {
     if (status == null) return orders;
+    
+    final orderStatusProvider = Provider.of<OrderStatusProvider>(context, listen: false);
+    
     return orders.where((order) {
-      final orderStatus = order['order_status']?.toString().toLowerCase() ?? '';
+      // Parse order_status as ID (number)
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+      
+      // Get status description from provider
+      final orderStatusDesc = statusId != null
+          ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
+          : null;
+      
+      // Compare with filter status
+      if (orderStatusDesc != null) {
+        return orderStatusDesc == status.toLowerCase();
+      }
+      
+      // Fallback: if provider lookup fails, try direct comparison
+      final orderStatus = orderStatusId?.toString().toLowerCase() ?? '';
       return orderStatus == status.toLowerCase();
     }).toList();
   }
@@ -615,31 +641,50 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
-    final orderCode = order['order_code']?.toString() ?? 'N/A';
-    final orderStatus = order['order_status']?.toString() ?? 'Pending';
-    final totalAmount = order['total_amount'];
-    final orderedAt = order['ordered_at']?.toString() ?? '';
-    final shippingAddress =
-        order['shipping_address']?.toString() ?? 'No address';
-    final paymentMethod = order['payment_method']?.toString() ?? 'N/A';
-    final orderId =
-        order['id']?.toString() ?? order['order_id']?.toString() ?? '';
-    final orderItems = order['order_items'] as List? ?? [];
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final orderCode = order['order_code']?.toString() ?? 'N/A';
+        
+        // Parse order_status as ID (number) and get description from provider
+        final orderStatusId = order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+        
+        // Get status description from provider using ID
+        final orderStatusDesc = statusId != null
+            ? orderStatusProvider.getOrderStatusDescription(statusId)
+            : null;
+        final orderStatus = orderStatusDesc ?? 'Pending';
+        
+        final totalAmount = order['total_amount'];
+        final orderedAt = order['ordered_at']?.toString() ?? '';
+        final shippingAddress =
+            order['shipping_address']?.toString() ?? 'No address';
+        final paymentMethod = order['payment_method']?.toString() ?? 'N/A';
+        final orderId =
+            order['id']?.toString() ?? order['order_id']?.toString() ?? '';
+        final orderItems = order['order_items'] as List? ?? [];
 
-    // Get shop_id from order or first order item
-    String shopId = order['shop_id']?.toString() ?? '';
-    if (shopId.isEmpty && orderItems.isNotEmpty) {
-      final firstItem = orderItems.first;
-      final nestedItem = firstItem['item'] as Map<String, dynamic>?;
-      shopId = nestedItem?['shop_id']?.toString() ??
-          firstItem['shop_id']?.toString() ??
-          '';
-    }
+        // Get shop_id from order or first order item
+        String shopId = order['shop_id']?.toString() ?? '';
+        if (shopId.isEmpty && orderItems.isNotEmpty) {
+          final firstItem = orderItems.first;
+          final nestedItem = firstItem['item'] as Map<String, dynamic>?;
+          shopId = nestedItem?['shop_id']?.toString() ??
+              firstItem['shop_id']?.toString() ??
+              '';
+        }
 
-    final canCancel = orderStatus.toLowerCase() == 'pending';
-    final isDelivered = orderStatus.toLowerCase() == 'delivered';
+        final canCancel = orderStatus.toLowerCase() == 'pending';
+        final isDelivered = orderStatus.toLowerCase() == 'delivered';
 
-    return Container(
+        return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -935,6 +980,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           ),
         ],
       ),
+    );
+      },
     );
   }
 

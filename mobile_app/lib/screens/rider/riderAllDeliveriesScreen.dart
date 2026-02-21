@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
 import '../../provider/provider.dart';
+import '../../provider/pod_provider.dart';
 import '../../widgets/order_item_card.dart';
 import '../../widgets/view_header.dart';
 import '../../widgets/empty_state_widget.dart';
@@ -326,6 +327,105 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     }
   }
 
+  Future<void> _uploadPendingPhotos() async {
+    try {
+      final podProvider = Provider.of<PodProvider>(context, listen: false);
+
+      if (podProvider.isUploading) return;
+
+      print('=== POD UPLOAD DEBUG: Starting upload process via Provider ===');
+
+      // Show progress dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            content: Consumer<PodProvider>(
+              builder: (context, provider, child) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: AppColors.mediumGreen),
+                    SizedBox(height: 16),
+                    if (provider.totalToUpload > 0)
+                      Text(
+                        'Uploading ${provider.uploadProgress}/${provider.totalToUpload} photo(s)...',
+                      )
+                    else
+                      Text('Preparing upload...'),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Use provider to upload all pending PODs
+      final result = await podProvider.uploadAllPendingPods();
+
+      // Close progress dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Show result
+      if (mounted) {
+        String message = result['message'] ?? 'Upload completed';
+        Color backgroundColor;
+
+        if (result['success'] == true) {
+          final data = result['data'] as Map<String, dynamic>?;
+          final successCount = data?['successCount'] ?? 0;
+          final total = data?['total'] ?? 0;
+
+          if (successCount == total) {
+            backgroundColor = AppColors.mediumGreen;
+          } else {
+            backgroundColor = Colors.orange;
+          }
+        } else {
+          backgroundColor = Colors.red;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      print('\n=== POD UPLOAD DEBUG: CRITICAL ERROR ===');
+      print('DEBUG: Error: $e');
+      print('DEBUG: Stack trace: $stackTrace');
+      if (mounted) {
+        Navigator.pop(context); // Close progress dialog if still open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during upload: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (providerError) {
+      // Handle case where PodProvider is not available
+      if (mounted) {
+        Navigator.pop(context); // Close progress dialog if still open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PodProvider not available. Please restart the app.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _onNavTap(int index) {
     if (index == 1) {
       // Already on Deliveries, do nothing
@@ -403,13 +503,38 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
               onBack: () {
                 Navigator.pop(context);
               },
-              trailing: _orderError != null
-                  ? IconButton(
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Consumer<PodProvider>(
+                    builder: (context, podProvider, child) {
+                      return IconButton(
+                        icon: podProvider.isUploading
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.mediumGreen,
+                                ),
+                              )
+                            : Icon(Icons.cloud_upload,
+                                color: AppColors.mediumGreen),
+                        onPressed: podProvider.isUploading
+                            ? null
+                            : _uploadPendingPhotos,
+                        tooltip: 'Upload Pending Photos',
+                      );
+                    },
+                  ),
+                  if (_orderError != null)
+                    IconButton(
                       icon: Icon(Icons.refresh, color: AppColors.mediumGreen),
                       onPressed: () => _loadOrders(useCache: false),
                       tooltip: 'Retry',
-                    )
-                  : null,
+                    ),
+                ],
+              ),
             ),
             // Status filter tabs (matching myOrderScreen style)
             Container(

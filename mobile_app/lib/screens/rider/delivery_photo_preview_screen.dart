@@ -29,7 +29,14 @@ class DeliveryPhotoPreviewScreen extends StatefulWidget {
 class _DeliveryPhotoPreviewScreenState
     extends State<DeliveryPhotoPreviewScreen> {
   final OrderService _orderService = OrderService();
+  final TextEditingController _remarksController = TextEditingController();
   bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    _remarksController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +59,64 @@ class _DeliveryPhotoPreviewScreenState
           children: [
             // Image Preview
             Expanded(
+              flex: 3,
               child: Center(
                 child: Image.file(
                   File(widget.imageFile.path),
                   fit: BoxFit.contain,
                 ),
+              ),
+            ),
+            // Remarks Input Section
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                border: Border(
+                  top: BorderSide(color: Colors.grey[800]!),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Delivery Notes (Optional)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  TextField(
+                    controller: _remarksController,
+                    maxLines: 3,
+                    maxLength: 1000,
+                    style: TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Add notes about the delivery (e.g., "Left at front door", "Customer requested back gate")',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      filled: true,
+                      fillColor: Colors.grey[800],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            BorderSide(color: AppColors.statusDelivered),
+                      ),
+                      contentPadding: EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
               ),
             ),
             // Action Buttons
@@ -244,19 +304,10 @@ class _DeliveryPhotoPreviewScreenState
           longitude: position.longitude,
           address: address,
         );
-
-        print('DEBUG: Delivery Photo Model created:');
-        print('DEBUG:   - Order ID: ${deliveryPhoto.orderId}');
-        print('DEBUG:   - Image Path: ${deliveryPhoto.imagePath}');
-        print(
-            'DEBUG:   - Timestamp: ${deliveryPhoto.timestamp.toIso8601String()}');
-        print('DEBUG:   - Latitude: ${deliveryPhoto.latitude}');
-        print('DEBUG:   - Longitude: ${deliveryPhoto.longitude}');
-        print('DEBUG:   - Address: ${deliveryPhoto.address ?? "N/A"}');
-
         final box = Hive.box('delivery_photos');
-        print('DEBUG: Hive box opened: delivery_photos');
-        print('DEBUG: Current box length before add: ${box.length}');
+
+        // Get remarks from text field
+        final remarks = _remarksController.text.trim();
 
         final dataToSave = {
           'orderId': deliveryPhoto.orderId,
@@ -265,6 +316,7 @@ class _DeliveryPhotoPreviewScreenState
           'latitude': deliveryPhoto.latitude,
           'longitude': deliveryPhoto.longitude,
           'address': deliveryPhoto.address,
+          'remarks': remarks.isNotEmpty ? remarks : null,
         };
 
         print('DEBUG: Data to save to Hive:');
