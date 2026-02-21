@@ -40,21 +40,38 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     {'label': 'Cancelled', 'status': 'cancelled'},
   ];
 
-  List<Map<String, dynamic>> _filterOrdersByStatus(String? status) {
+  List<Map<String, dynamic>> _filterOrdersByStatus(
+      String? status, OrderStatusProvider orderStatusProvider) {
     if (status == null) return _allOrders;
     return _allOrders.where((order) {
-      final orderStatus = order['order_status']?.toString().toLowerCase() ?? '';
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final orderStatusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
       final filterStatus = status.toLowerCase();
+
       // Handle various status formats
       if (filterStatus == 'ready for pickup') {
-        return orderStatus == 'ready for pickup' ||
-            orderStatus == 'ready-for-pickup';
+        return orderStatusDesc == 'ready for pickup' ||
+            orderStatusDesc == 'ready-for-pickup';
       } else if (filterStatus == 'in-transit') {
-        return orderStatus == 'in-transit' || orderStatus == 'in transit';
+        return orderStatusDesc == 'in-transit' || orderStatusDesc == 'in transit';
       } else if (filterStatus == 'cancelled') {
-        return orderStatus == 'cancelled' || orderStatus == 'canceled';
+        return orderStatusDesc == 'cancelled' || orderStatusDesc == 'canceled';
       }
-      return orderStatus == filterStatus;
+      return orderStatusDesc == filterStatus;
     }).toList();
   }
 
@@ -62,7 +79,14 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _statusTabs.length, vsync: this);
+    _initializeOrderStatusProvider();
     _loadOrders();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   @override
@@ -138,7 +162,8 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     return '₱0.00';
   }
 
-  Map<String, dynamic> _convertOrderToCardFormat(Map<String, dynamic> order) {
+  Map<String, dynamic> _convertOrderToCardFormat(
+      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
     final user = order['user'] as Map<String, dynamic>?;
     // Use recipient_name from address if available, fallback to user name
     final recipientName = order['recipient_name']?.toString().isNotEmpty == true
@@ -152,10 +177,27 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
             ? order['recipient_contact'].toString()
             : (user?['mobile_number']?.toString() ?? '');
 
+    // Parse order_status as ID (number) and get description from provider
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    // Get status description from provider using ID
+    final orderStatusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)
+        : null;
+    final orderStatus = orderStatusDesc ?? 'Pending';
+
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
       'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
-      'status': order['order_status']?.toString() ?? 'Pending',
+      'status': orderStatus,
       'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
       'total':
           double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
@@ -205,7 +247,22 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
 
     // Check if order is delivered and retrieve photo from Hive
     String? deliveryPhotoPath;
-    final status = order['order_status']?.toString().toLowerCase() ?? '';
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    final statusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
+        : null;
+    final status = statusDesc ?? '';
 
     if (status == 'delivered' && orderId != null) {
       try {
@@ -248,7 +305,25 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       );
       return;
     }
-    _updateOrderStatus(orderId, 'In-Transit');
+
+    // Get status code for "in-transit" from OrderStatusProvider
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final inTransitStatusId = orderStatusProvider
+            .getOrderStatusIdByDescription('in-transit') ??
+        orderStatusProvider.getOrderStatusIdByDescription('in transit');
+
+    if (inTransitStatusId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to find "In Transit" status. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    _updateOrderStatus(orderId, inTransitStatusId.toString());
   }
 
   Future<void> _handleDelivered(Map<String, dynamic> order) async {
@@ -412,17 +487,6 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           ),
         );
       }
-    } catch (providerError) {
-      // Handle case where PodProvider is not available
-      if (mounted) {
-        Navigator.pop(context); // Close progress dialog if still open
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PodProvider not available. Please restart the app.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -435,7 +499,8 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     Navigator.pop(context, index);
   }
 
-  Widget _buildOrdersList(List<Map<String, dynamic>> orders) {
+  Widget _buildOrdersList(List<Map<String, dynamic>> orders,
+      OrderStatusProvider orderStatusProvider) {
     if (orders.isEmpty) {
       return RefreshIndicator(
         onRefresh: _onRefresh,
@@ -462,17 +527,36 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         itemCount: orders.length,
         itemBuilder: (context, index) {
           final order = orders[index];
-          final cardData = _convertOrderToCardFormat(order);
-          final status = order['order_status']?.toString().toLowerCase() ?? '';
+          final cardData =
+              _convertOrderToCardFormat(order, orderStatusProvider);
+
+          // Parse order_status as ID to get description
+          final orderStatusId = order['order_status'];
+          int? statusId;
+          if (orderStatusId is int) {
+            statusId = orderStatusId;
+          } else if (orderStatusId is String) {
+            statusId = int.tryParse(orderStatusId);
+          } else if (orderStatusId != null) {
+            statusId = int.tryParse(orderStatusId.toString());
+          }
+
+          final statusDesc = statusId != null
+              ? orderStatusProvider
+                      .getOrderStatusDescription(statusId)
+                      ?.toLowerCase() ??
+                  ''
+              : '';
 
           // Determine action button based on status
           String? actionLabel;
           VoidCallback? actionCallback;
 
-          if (status == 'ready for pickup' || status == 'ready-for-pickup') {
+          if (statusDesc == 'ready for pickup' ||
+              statusDesc == 'ready-for-pickup') {
             actionLabel = 'Pickup';
             actionCallback = () => _handlePickup(order);
-          } else if (status == 'in-transit' || status == 'in transit') {
+          } else if (statusDesc == 'in-transit' || statusDesc == 'in transit') {
             actionLabel = 'Delivered';
             actionCallback = () => _handleDelivered(order);
           }
@@ -570,13 +654,18 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                         color: AppColors.mediumGreen,
                       ),
                     )
-                  : TabBarView(
-                      controller: _tabController,
-                      children: _statusTabs.map((tab) {
-                        final filteredOrders =
-                            _filterOrdersByStatus(tab['status']);
-                        return _buildOrdersList(filteredOrders);
-                      }).toList(),
+                  : Consumer<OrderStatusProvider>(
+                      builder: (context, orderStatusProvider, child) {
+                        return TabBarView(
+                          controller: _tabController,
+                          children: _statusTabs.map((tab) {
+                            final filteredOrders = _filterOrdersByStatus(
+                                tab['status'], orderStatusProvider);
+                            return _buildOrdersList(
+                                filteredOrders, orderStatusProvider);
+                          }).toList(),
+                        );
+                      },
                     ),
             ),
           ],

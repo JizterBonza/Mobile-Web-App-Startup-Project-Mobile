@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
+import '../../provider/provider.dart';
 import '../../services/order_service.dart';
 import '../../services/directions_service.dart';
 
@@ -43,8 +44,15 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeOrderStatusProvider();
     _loadOrders();
     _initLocationTracking();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   Future<void> _initLocationTracking() async {
@@ -145,11 +153,36 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
 
       // Filter orders for pickup statuses: pending, processing, ready for pickup
       final allOrders = ordersProvider.orders;
-      final pickupStatuses = ['pending', 'processing', 'ready for pickup'];
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      await orderStatusProvider.initialize();
+
+      // Get status IDs for pickup statuses
+      final pendingStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('pending');
+      final processingStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('processing');
+      final readyForPickupStatusId = orderStatusProvider
+              .getOrderStatusIdByDescription('ready for pickup') ??
+          orderStatusProvider.getOrderStatusIdByDescription('ready-for-pickup');
+
+      final pickupStatusIds = [
+        if (pendingStatusId != null) pendingStatusId,
+        if (processingStatusId != null) processingStatusId,
+        if (readyForPickupStatusId != null) readyForPickupStatusId,
+      ];
 
       _pickupOrders = allOrders.where((order) {
-        final status = order['order_status']?.toString().toLowerCase() ?? '';
-        return pickupStatuses.contains(status);
+        final orderStatusId = order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+        return statusId != null && pickupStatusIds.contains(statusId);
       }).toList();
 
       _createMarkers();
@@ -303,9 +336,28 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
     }
   }
 
-  /// Get order status
+  /// Get order status description using OrderStatusProvider
   String _getOrderStatus(Map<String, dynamic> order) {
-    return order['order_status']?.toString() ?? 'pending';
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    if (statusId != null) {
+      final statusDesc =
+          orderStatusProvider.getOrderStatusDescription(statusId);
+      if (statusDesc != null) {
+        return statusDesc;
+      }
+    }
+    return 'pending';
   }
 
   /// Fetch and display the pickup route to shops
@@ -470,7 +522,6 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
       // Skip orders without valid shop coordinates
       if (lat == null || lng == null) continue;
 
-      final status = _getOrderStatus(order).toLowerCase();
       final shopName = _getShopName(order);
       final shopAddress = _getShopAddress(order);
 
@@ -483,7 +534,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
             snippet: shopAddress,
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
-            status == 'ready for pickup'
+            _isReadyForPickup(order)
                 ? BitmapDescriptor.hueGreen
                 : BitmapDescriptor.hueOrange,
           ),
@@ -566,6 +617,28 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
 
   String _formatStatus(String status) {
     return OrderStatusColors.formatStatus(status);
+  }
+
+  /// Check if order is ready for pickup using OrderStatusProvider
+  bool _isReadyForPickup(Map<String, dynamic> order) {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    if (statusId == null) return false;
+
+    final readyForPickupStatusId = orderStatusProvider
+            .getOrderStatusIdByDescription('ready for pickup') ??
+        orderStatusProvider.getOrderStatusIdByDescription('ready-for-pickup');
+    return readyForPickupStatusId != null && statusId == readyForPickupStatusId;
   }
 
   @override
@@ -1308,44 +1381,75 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   ),
                 ),
                 // Show Pickup button only for "ready for pickup" orders
-                if (status.toLowerCase() == 'ready for pickup') ...[
-                  SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () => _handlePickup(order),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.mediumGreen,
-                      foregroundColor: Colors.white,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size(0, 28),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.inventory_2_outlined, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          'Pickup',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                Builder(
+                  builder: (context) {
+                    final orderStatusProvider =
+                        Provider.of<OrderStatusProvider>(context,
+                            listen: false);
+                    final orderStatusId = order['order_status'];
+                    int? statusId;
+                    if (orderStatusId is int) {
+                      statusId = orderStatusId;
+                    } else if (orderStatusId is String) {
+                      statusId = int.tryParse(orderStatusId);
+                    } else if (orderStatusId != null) {
+                      statusId = int.tryParse(orderStatusId.toString());
+                    }
+                    final readyForPickupStatusId = orderStatusProvider
+                            .getOrderStatusIdByDescription(
+                                'ready for pickup') ??
+                        orderStatusProvider
+                            .getOrderStatusIdByDescription('ready-for-pickup');
+                    if (statusId != null &&
+                        readyForPickupStatusId != null &&
+                        statusId == readyForPickupStatusId) {
+                      return Column(
+                        children: [
+                          SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () => _handlePickup(order),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.mediumGreen,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              minimumSize: Size(0, 28),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.inventory_2_outlined, size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Pickup',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  SizedBox(height: 8),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey[400],
-                    size: 20,
-                  ),
-                ],
+                        ],
+                      );
+                    } else {
+                      return Column(
+                        children: [
+                          SizedBox(height: 8),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Colors.grey[400],
+                            size: 20,
+                          ),
+                        ],
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ],
@@ -1709,9 +1813,28 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
     );
 
     try {
+      // Get status code for "in-transit" from OrderStatusProvider
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      final inTransitStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
+              orderStatusProvider.getOrderStatusIdByDescription('in transit');
+
+      if (inTransitStatusId == null) {
+        if (mounted) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Unable to find "In Transit" status. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       final result = await _orderService.updateOrderStatus(
         orderId: orderId,
-        status: 'in-transit',
+        status: inTransitStatusId.toString(),
       );
 
       // Close loading dialog

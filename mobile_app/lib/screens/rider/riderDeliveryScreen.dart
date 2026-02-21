@@ -22,7 +22,14 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeOrderStatusProvider();
     _loadAvailableOrders();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   Future<void> _loadAvailableOrders() async {
@@ -39,9 +46,29 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
       final orders = ordersProvider.orders;
 
       // Filter orders that need a rider (not yet assigned or in transit)
+      // Get OrderStatusProvider to check status by ID
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      await orderStatusProvider.initialize();
+
       final availableOrders = orders.where((order) {
-        final status = order['order_status']?.toString().toLowerCase() ?? '';
-        return status == 'pending' || status == 'processing';
+        final orderStatusId = order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+
+        if (statusId == null) return false;
+
+        final statusDesc = orderStatusProvider
+                .getOrderStatusDescription(statusId)
+                ?.toLowerCase() ??
+            '';
+        return statusDesc == 'pending' || statusDesc == 'processing';
       }).toList();
 
       setState(() {
@@ -123,11 +150,29 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
     );
 
     try {
+      // Get status code for "in-transit" from OrderStatusProvider
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      final inTransitStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
+              orderStatusProvider.getOrderStatusIdByDescription('in transit');
+
+      if (inTransitStatusId == null) {
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          SnackbarHelper.showError(
+            context,
+            'Unable to find "In Transit" status. Please try again.',
+          );
+        }
+        return;
+      }
+
       // Update order status to "in-transit" (accepted by rider)
       final orderService = OrderService();
       final result = await orderService.updateOrderStatus(
         orderId: orderId,
-        status: 'in-transit',
+        status: inTransitStatusId.toString(),
       );
 
       if (context.mounted) {
@@ -213,11 +258,29 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
     return dateString;
   }
 
-  Map<String, dynamic> _convertOrderToCardFormat(Map<String, dynamic> order) {
+  Map<String, dynamic> _convertOrderToCardFormat(
+      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
+    // Parse order_status as ID (number) and get description from provider
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    // Get status description from provider using ID
+    final orderStatusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)
+        : null;
+    final orderStatus = orderStatusDesc ?? 'Pending';
+
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
       'customer': _getCustomerName(order),
-      'status': order['order_status']?.toString() ?? 'Pending',
+      'status': orderStatus,
       'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
       'total':
           double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
@@ -234,9 +297,26 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
     if (_selectedFilter == 'all') {
       return _availableOrders;
     } else {
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
       return _availableOrders.where((order) {
-        final status = order['order_status']?.toString().toLowerCase() ?? '';
-        return status == _selectedFilter;
+        final orderStatusId = order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+
+        if (statusId == null) return false;
+
+        final statusDesc = orderStatusProvider
+                .getOrderStatusDescription(statusId)
+                ?.toLowerCase() ??
+            '';
+        return statusDesc == _selectedFilter.toLowerCase();
       }).toList();
     }
   }
@@ -359,74 +439,80 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                               ],
                             ),
                           )
-                        : RefreshIndicator(
-                            onRefresh: _loadAvailableOrders,
-                            color: AppColors.mediumGreen,
-                            child: ListView.builder(
-                              padding: EdgeInsets.all(16),
-                              itemCount: _filteredOrders.length,
-                              itemBuilder: (context, index) {
-                                final order = _filteredOrders[index];
-                                final cardData =
-                                    _convertOrderToCardFormat(order);
+                        : Consumer<OrderStatusProvider>(
+                            builder: (context, orderStatusProvider, child) {
+                              return RefreshIndicator(
+                                onRefresh: _loadAvailableOrders,
+                                color: AppColors.mediumGreen,
+                                child: ListView.builder(
+                                  padding: EdgeInsets.all(16),
+                                  itemCount: _filteredOrders.length,
+                                  itemBuilder: (context, index) {
+                                    final order = _filteredOrders[index];
+                                    final cardData = _convertOrderToCardFormat(
+                                        order, orderStatusProvider);
 
-                                return Container(
-                                  margin: EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: AppColors.mediumGreen
-                                          .withOpacity(0.3),
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
+                                    return Container(
+                                      margin: EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.mediumGreen
+                                              .withOpacity(0.3),
+                                          width: 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.05),
+                                            blurRadius: 4,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      OrderItemCard(
-                                        order: cardData,
-                                        showDetails: true,
-                                        onViewDetails: () {
-                                          _showOrderDetails(order);
-                                        },
-                                      ),
-                                      Divider(height: 1),
-                                      Padding(
-                                        padding: EdgeInsets.all(16),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () =>
-                                                _acceptDelivery(order),
-                                            icon: Icon(Icons.check_circle),
-                                            label: Text('Accept Delivery'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  AppColors.mediumGreen,
-                                              foregroundColor: Colors.white,
-                                              padding: EdgeInsets.symmetric(
-                                                vertical: 16,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                      child: Column(
+                                        children: [
+                                          OrderItemCard(
+                                            order: cardData,
+                                            showDetails: true,
+                                            onViewDetails: () {
+                                              _showOrderDetails(order);
+                                            },
+                                          ),
+                                          Divider(height: 1),
+                                          Padding(
+                                            padding: EdgeInsets.all(16),
+                                            child: SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _acceptDelivery(order),
+                                                icon: Icon(Icons.check_circle),
+                                                label: Text('Accept Delivery'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      AppColors.mediumGreen,
+                                                  foregroundColor: Colors.white,
+                                                  padding: EdgeInsets.symmetric(
+                                                    vertical: 16,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
                           ),
           ),
         ],
@@ -475,7 +561,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                   'Order Code', order['order_code']?.toString() ?? 'N/A'),
               _buildDetailRow('Customer', customerName),
               _buildDetailRow(
-                  'Status', order['order_status']?.toString() ?? 'Pending'),
+                  'Status', _getOrderStatusDescription(order) ?? 'Pending'),
               _buildDetailRow('Date',
                   _formatOrderDate(order['ordered_at']?.toString() ?? '')),
               _buildDetailRow(
@@ -582,6 +668,25 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
         ],
       ),
     );
+  }
+
+  String? _getOrderStatusDescription(Map<String, dynamic> order) {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    if (statusId != null) {
+      return orderStatusProvider.getOrderStatusDescription(statusId);
+    }
+    return null;
   }
 
   Widget _buildDetailRow(String label, String value, {bool isBold = false}) {

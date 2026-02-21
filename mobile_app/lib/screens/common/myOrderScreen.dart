@@ -59,9 +59,10 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   List<Map<String, dynamic>> _filterOrdersByStatus(
       List<Map<String, dynamic>> orders, String? status) {
     if (status == null) return orders;
-    
-    final orderStatusProvider = Provider.of<OrderStatusProvider>(context, listen: false);
-    
+
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+
     return orders.where((order) {
       // Parse order_status as ID (number)
       final orderStatusId = order['order_status'];
@@ -73,17 +74,19 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       } else if (orderStatusId != null) {
         statusId = int.tryParse(orderStatusId.toString());
       }
-      
+
       // Get status description from provider
       final orderStatusDesc = statusId != null
-          ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
+          ? orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase()
           : null;
-      
+
       // Compare with filter status
       if (orderStatusDesc != null) {
         return orderStatusDesc == status.toLowerCase();
       }
-      
+
       // Fallback: if provider lookup fails, try direct comparison
       final orderStatus = orderStatusId?.toString().toLowerCase() ?? '';
       return orderStatus == status.toLowerCase();
@@ -644,7 +647,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     return Consumer<OrderStatusProvider>(
       builder: (context, orderStatusProvider, child) {
         final orderCode = order['order_code']?.toString() ?? 'N/A';
-        
+
         // Parse order_status as ID (number) and get description from provider
         final orderStatusId = order['order_status'];
         int? statusId;
@@ -655,13 +658,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         } else if (orderStatusId != null) {
           statusId = int.tryParse(orderStatusId.toString());
         }
-        
+
         // Get status description from provider using ID
         final orderStatusDesc = statusId != null
             ? orderStatusProvider.getOrderStatusDescription(statusId)
             : null;
         final orderStatus = orderStatusDesc ?? 'Pending';
-        
+
         final totalAmount = order['total_amount'];
         final orderedAt = order['ordered_at']?.toString() ?? '';
         final shippingAddress =
@@ -685,302 +688,306 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final isDelivered = orderStatus.toLowerCase() == 'delivered';
 
         return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: Offset(0, 2),
+          margin: EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey[200]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with order code and status
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: getStatusColor(orderStatus).withOpacity(0.05),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$orderCode',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey[900],
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        _formatOrderDate(orderedAt),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with order code and status
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: getStatusColor(orderStatus).withOpacity(0.05),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: getStatusColor(orderStatus).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        getStatusIcon(orderStatus),
-                        size: 14,
-                        color: getStatusColor(orderStatus),
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        orderStatus,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: getStatusColor(orderStatus),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Order items preview
-          if (orderItems.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Items',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[500],
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  ...orderItems.take(3).map((item) {
-                    // Handle nested item structure - item details might be in 'item' key
-                    final nestedItem = item['item'] as Map<String, dynamic>?;
-                    final itemName = nestedItem?['item_name']?.toString() ??
-                        item['item_name']?.toString() ??
-                        item['name']?.toString() ??
-                        'Unknown Item';
-                    final quantity = item['quantity']?.toString() ?? '1';
-                    final price = item['price'] ??
-                        item['item_price'] ??
-                        nestedItem?['item_price'] ??
-                        item['price_at_purchase'] ??
-                        0;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: 6),
-                      child: Row(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: AppColors.mediumGreen,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '$itemName x$quantity',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[800],
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
                           Text(
-                            _formatPrice(price),
+                            '$orderCode',
                             style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey[700],
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[900],
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            _formatOrderDate(orderedAt),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
                             ),
                           ),
                         ],
                       ),
-                    );
-                  }).toList(),
-                  if (orderItems.length > 3)
-                    Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(
-                        '+${orderItems.length - 3} more items',
+                    ),
+                    Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: getStatusColor(orderStatus).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            getStatusIcon(orderStatus),
+                            size: 14,
+                            color: getStatusColor(orderStatus),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            orderStatus,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: getStatusColor(orderStatus),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Order items preview
+              if (orderItems.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Items',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.mediumGreen,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[500],
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-
-          Divider(height: 1, color: Colors.grey[200]),
-
-          // Order details
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildDetailRow(
-                  Icons.location_on_outlined,
-                  'Delivery Address',
-                  shippingAddress,
-                ),
-                SizedBox(height: 12),
-                _buildDetailRow(
-                  Icons.payment_outlined,
-                  'Payment Method',
-                  _capitalizeFirst(paymentMethod),
-                ),
-              ],
-            ),
-          ),
-
-          Divider(height: 1, color: Colors.grey[200]),
-
-          // Footer with total and actions
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Amount',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      _formatPrice(totalAmount),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.mediumGreen,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    if (canCancel)
-                      TextButton(
-                        onPressed:
-                            _isCancelling ? null : () => _cancelOrder(orderId),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red[600],
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                        child: _isCancelling
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.red[600],
+                      SizedBox(height: 8),
+                      ...orderItems.take(3).map((item) {
+                        // Handle nested item structure - item details might be in 'item' key
+                        final nestedItem =
+                            item['item'] as Map<String, dynamic>?;
+                        final itemName = nestedItem?['item_name']?.toString() ??
+                            item['item_name']?.toString() ??
+                            item['name']?.toString() ??
+                            'Unknown Item';
+                        final quantity = item['quantity']?.toString() ?? '1';
+                        final price = item['price'] ??
+                            item['item_price'] ??
+                            nestedItem?['item_price'] ??
+                            item['price_at_purchase'] ??
+                            0;
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: AppColors.mediumGreen,
+                                  shape: BoxShape.circle,
                                 ),
-                              )
-                            : Text(
-                                'Cancel',
-                                style: TextStyle(fontWeight: FontWeight.w600),
                               ),
-                      ),
-                    SizedBox(width: 8),
-                    if (isDelivered)
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          _showRateOrderDialog(orderId, shopId, orderItems);
-                        },
-                        icon: Icon(Icons.star_rounded, size: 18),
-                        label: Text(
-                          'Rate',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber[600],
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 0,
-                        ),
-                      ),
-                    if (isDelivered) SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                OrderDetailScreen(order: order),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '$itemName x$quantity',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[800],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                _formatPrice(price),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
                           ),
                         );
-                        // Refresh orders if order was cancelled
-                        if (result == true) {
-                          _loadOrders(useCache: false);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.mediumGreen,
-                        foregroundColor: Colors.white,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      }).toList(),
+                      if (orderItems.length > 3)
+                        Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            '+${orderItems.length - 3} more items',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.mediumGreen,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'View Details',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                    ],
+                  ),
+                ),
+
+              Divider(height: 1, color: Colors.grey[200]),
+
+              // Order details
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildDetailRow(
+                      Icons.location_on_outlined,
+                      'Delivery Address',
+                      shippingAddress,
+                    ),
+                    SizedBox(height: 12),
+                    _buildDetailRow(
+                      Icons.payment_outlined,
+                      'Payment Method',
+                      _capitalizeFirst(paymentMethod),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              Divider(height: 1, color: Colors.grey[200]),
+
+              // Footer with total and actions
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Total Amount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          _formatPrice(totalAmount),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.mediumGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        if (canCancel)
+                          TextButton(
+                            onPressed: _isCancelling
+                                ? null
+                                : () => _cancelOrder(orderId),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red[600],
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                            ),
+                            child: _isCancelling
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.red[600],
+                                    ),
+                                  )
+                                : Text(
+                                    'Cancel',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                          ),
+                        SizedBox(width: 8),
+                        if (isDelivered)
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              _showRateOrderDialog(orderId, shopId, orderItems);
+                            },
+                            icon: Icon(Icons.star_rounded, size: 18),
+                            label: Text(
+                              'Rate',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber[600],
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
+                        if (isDelivered) SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    OrderDetailScreen(order: order),
+                              ),
+                            );
+                            // Refresh orders if order was cancelled
+                            if (result == true) {
+                              _loadOrders(useCache: false);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.mediumGreen,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'View Details',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
       },
     );
   }

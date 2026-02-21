@@ -148,6 +148,40 @@ class OrderStatusProvider with ChangeNotifier {
     return status?.status_desc;
   }
 
+  /// Get order status ID by description (case-insensitive)
+  /// Returns null if not found
+  int? getOrderStatusIdByDescription(String description) {
+    final normalizedDesc = description.toLowerCase().trim();
+
+    try {
+      final status = _orderStatuses.firstWhere(
+        (status) => status.status_desc.toLowerCase().trim() == normalizedDesc,
+        orElse: () => throw Exception('Status not found'),
+      );
+      return status.status_id;
+    } catch (e) {
+      // Also try matching with common variations
+      final variations = [
+        normalizedDesc,
+        normalizedDesc.replaceAll('-', ' '),
+        normalizedDesc.replaceAll(' ', '-'),
+      ];
+
+      for (var variation in variations) {
+        try {
+          final status = _orderStatuses.firstWhere(
+            (status) => status.status_desc.toLowerCase().trim() == variation,
+          );
+          return status.status_id;
+        } catch (_) {
+          continue;
+        }
+      }
+
+      return null;
+    }
+  }
+
   /// Clear order statuses cache
   Future<void> clearCache() async {
     await _orderStatusService.clearOrderStatuses();

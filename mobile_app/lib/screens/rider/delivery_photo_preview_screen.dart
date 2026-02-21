@@ -5,9 +5,11 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../models/delivery_photo_model.dart';
 import '../../services/order_service.dart';
+import '../../provider/provider.dart';
 
 class DeliveryPhotoPreviewScreen extends StatefulWidget {
   final XFile imageFile;
@@ -350,9 +352,25 @@ class _DeliveryPhotoPreviewScreenState
       print('DEBUG: Order ID: ${widget.orderId}');
       print('DEBUG: New status: delivered');
 
+      // Get status code for "delivered" from OrderStatusProvider
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      final deliveredStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('delivered');
+
+      if (deliveredStatusId == null) {
+        _showError('Unable to find "Delivered" status. Please try again.');
+        setState(() {
+          _isProcessing = false;
+        });
+        return;
+      }
+
+      print('DEBUG: Delivered status ID: $deliveredStatusId');
+
       final result = await _orderService.updateOrderStatus(
         orderId: widget.orderId,
-        status: 'delivered',
+        status: deliveredStatusId.toString(),
       );
 
       print('DEBUG: Order status update result:');

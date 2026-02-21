@@ -39,8 +39,15 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeOrderStatusProvider();
     _loadOrders();
     _loadUserName();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   Future<void> _loadUserName() async {
@@ -101,37 +108,89 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  List<Map<String, dynamic>> get _activeDeliveries {
+  List<Map<String, dynamic>> _getActiveDeliveries(
+      OrderStatusProvider orderStatusProvider) {
     // Active deliveries exclude delivered orders
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() != 'delivered')
-        .toList();
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc != 'delivered';
+    }).toList();
   }
 
-  List<Map<String, dynamic>> get _completedDeliveries {
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'delivered')
-        .toList();
+  List<Map<String, dynamic>> _getCompletedDeliveries(
+      OrderStatusProvider orderStatusProvider) {
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc == 'delivered';
+    }).toList();
   }
 
-  List<Map<String, dynamic>> get _pendingDeliveries {
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'pending')
-        .toList();
+  List<Map<String, dynamic>> _getPendingDeliveries(
+      OrderStatusProvider orderStatusProvider) {
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc == 'pending';
+    }).toList();
   }
 
-  Map<String, dynamic> get _stats {
+  Map<String, dynamic> _getStats(OrderStatusProvider orderStatusProvider) {
     final totalDeliveries = _allOrders.length;
-    final pendingCount = _pendingDeliveries.length;
-    final completedCount = _completedDeliveries.length;
-    final activeCount = _activeDeliveries.length;
+    final pendingDeliveries = _getPendingDeliveries(orderStatusProvider);
+    final completedDeliveries = _getCompletedDeliveries(orderStatusProvider);
+    final activeDeliveries = _getActiveDeliveries(orderStatusProvider);
+
+    final pendingCount = pendingDeliveries.length;
+    final completedCount = completedDeliveries.length;
+    final activeCount = activeDeliveries.length;
 
     // Calculate total earnings from completed deliveries
     double totalEarnings = 0.0;
-    for (var order in _completedDeliveries) {
+    for (var order in completedDeliveries) {
       final shippingFee =
           double.tryParse(order['shipping_fee']?.toString() ?? '0.0') ?? 0.0;
       totalEarnings += shippingFee;
@@ -188,7 +247,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return dateString;
   }
 
-  Map<String, dynamic> _convertOrderToCardFormat(Map<String, dynamic> order) {
+  Map<String, dynamic> _convertOrderToCardFormat(
+      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
     final user = order['user'] as Map<String, dynamic>?;
     // Use recipient_name from address if available, fallback to user name
     final recipientName = order['recipient_name']?.toString().isNotEmpty == true
@@ -202,10 +262,27 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             ? order['recipient_contact'].toString()
             : (user?['mobile_number']?.toString() ?? '');
 
+    // Parse order_status as ID (number) and get description from provider
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    // Get status description from provider using ID
+    final orderStatusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)
+        : null;
+    final orderStatus = orderStatusDesc ?? 'Pending';
+
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
       'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
-      'status': order['order_status']?.toString() ?? 'Pending',
+      'status': orderStatus,
       'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
       'total':
           double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
@@ -241,8 +318,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Widget _buildHomeView() {
-    final stats = _stats;
-    final activeDeliveries = _activeDeliveries.take(3).toList();
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final stats = _getStats(orderStatusProvider);
+        final activeDeliveries =
+            _getActiveDeliveries(orderStatusProvider).take(3).toList();
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
@@ -258,7 +338,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             SizedBox(height: 24),
 
             // Statistics cards
-            _buildStatisticsCards(stats),
+            _buildStatisticsCards(stats, orderStatusProvider),
             SizedBox(height: 24),
 
             // Quick actions
@@ -266,11 +346,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             SizedBox(height: 24),
 
             // Active deliveries
-            _buildActiveDeliveriesSection(activeDeliveries),
+            _buildActiveDeliveriesSection(activeDeliveries, orderStatusProvider),
             SizedBox(height: 24),
           ],
         ),
       ),
+    );
+      },
     );
   }
 
@@ -286,7 +368,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildStatisticsCards(Map<String, dynamic> stats) {
+  Widget _buildStatisticsCards(Map<String, dynamic> stats,
+      OrderStatusProvider orderStatusProvider) {
     return RiderStatisticsGrid(
       stats: stats,
       formatPrice: _formatPrice,
@@ -318,7 +401,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildActiveDeliveriesSection(List<Map<String, dynamic>> deliveries) {
+  Widget _buildActiveDeliveriesSection(List<Map<String, dynamic>> deliveries,
+      OrderStatusProvider orderStatusProvider) {
     return ActiveDeliveriesSection(
       deliveries: deliveries,
       isLoading: _isLoadingOrders,
@@ -329,7 +413,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       },
       onUpdateStatus: (order) => _showUpdateStatusDialog(order),
       onViewDetails: (order) => _showOrderDetails(order),
-      convertOrderToCardFormat: _convertOrderToCardFormat,
+      convertOrderToCardFormat: (order) =>
+          _convertOrderToCardFormat(order, orderStatusProvider),
     );
   }
 
@@ -350,7 +435,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Widget _buildHistoryView() {
-    final completedDeliveries = _completedDeliveries;
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final completedDeliveries =
+            _getCompletedDeliveries(orderStatusProvider);
 
     return Column(
       children: [
@@ -377,7 +465,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                     itemCount: completedDeliveries.length,
                     itemBuilder: (context, index) {
                       final order = completedDeliveries[index];
-                      final cardData = _convertOrderToCardFormat(order);
+                      final cardData =
+                          _convertOrderToCardFormat(order, orderStatusProvider);
 
                       return OrderItemCard(
                         order: cardData,
@@ -391,6 +480,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 ),
         ),
       ],
+    );
+      },
     );
   }
 
@@ -515,7 +606,22 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
     // Check if order is delivered and retrieve photo from Hive
     String? deliveryPhotoPath;
-    final status = order['order_status']?.toString().toLowerCase() ?? '';
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    final statusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
+        : null;
+    final status = statusDesc ?? '';
 
     if (status == 'delivered' && orderId != null) {
       try {
