@@ -306,6 +306,20 @@ class _DeliveryPhotoPreviewScreenState
           longitude: position.longitude,
           address: address,
         );
+
+        // Print DeliveryPhotoModel content
+        print('=== DELIVERY PHOTO MODEL CONTENT ===');
+        print('DeliveryPhotoModel {');
+        print('  orderId: ${deliveryPhoto.orderId}');
+        print('  imagePath: ${deliveryPhoto.imagePath}');
+        print('  timestamp: ${deliveryPhoto.timestamp.toIso8601String()}');
+        print('  latitude: ${deliveryPhoto.latitude}');
+        print('  longitude: ${deliveryPhoto.longitude}');
+        print('  address: ${deliveryPhoto.address ?? 'null'}');
+        print('  status: ${deliveryPhoto.status}');
+        print('}');
+        print('=====================================');
+
         final box = Hive.box('delivery_photos');
 
         // Get remarks from text field

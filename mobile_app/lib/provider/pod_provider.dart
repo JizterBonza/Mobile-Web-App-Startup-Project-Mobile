@@ -34,12 +34,17 @@ class PodProvider with ChangeNotifier {
       final box = Hive.box('delivery_photos');
       final List<Map<String, dynamic>> pendingPhotos = [];
 
-      // Get all pending photos from Hive
+      // Get all pending photos from Hive (exclude 'uploaded' and 'failed' statuses)
       for (int i = 0; i < box.length; i++) {
         final photoData = box.getAt(i);
         if (photoData is Map) {
           final status = photoData['status']?.toString() ?? 'pending';
-          // Check if status is 'pending' or if status field doesn't exist (legacy data)
+          // Only include photos with 'pending' status or legacy data without status field
+          // Explicitly exclude 'uploaded' and 'failed' statuses
+          if (status == 'uploaded') {
+            // Skip already uploaded photos
+            continue;
+          }
           if (status == 'pending' || !photoData.containsKey('status')) {
             pendingPhotos.add({
               'index': i,
@@ -188,7 +193,7 @@ class PodProvider with ChangeNotifier {
     }
   }
 
-  /// Get count of pending POD photos
+  /// Get count of pending POD photos (excludes 'uploaded' and 'failed' statuses)
   int getPendingCount() {
     try {
       final box = Hive.box('delivery_photos');
@@ -197,6 +202,12 @@ class PodProvider with ChangeNotifier {
         final photoData = box.getAt(i);
         if (photoData is Map) {
           final status = photoData['status']?.toString() ?? 'pending';
+          // Only count photos with 'pending' status or legacy data without status field
+          // Explicitly exclude 'uploaded' and 'failed' statuses
+          if (status == 'uploaded') {
+            // Skip already uploaded photos
+            continue;
+          }
           if (status == 'pending' || !photoData.containsKey('status')) {
             count++;
           }
