@@ -4,6 +4,7 @@ import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_service.dart';
 import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import '../common/editAddressScreen.dart';
@@ -24,12 +25,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _orderInstructionController = TextEditingController();
 
-  String? _selectedPaymentMethod;
+  int? _selectedPaymentMethodId;
   int? _selectedDeliveryMethodId;
   String? _selectedDeliveryMethodDescription;
   bool _isLoading = false;
   bool _isLoadingProfile = true;
   bool _isLoadingDeliveryMethods = true;
+  bool _isLoadingPaymentMethods = true;
 
   // Address selection
   List<AddressModel> _addresses = [];
@@ -38,18 +40,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   // Delivery methods from API
   List<Map<String, dynamic>> _deliveryMethods = [];
 
-  final List<String> _paymentMethods = [
-    'Cash on Delivery',
-    'GCash',
-    'PayMaya',
-    'Bank Transfer',
-  ];
+  // Payment methods from API
+  List<Map<String, dynamic>> _paymentMethods = [];
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
     _loadDeliveryMethods();
+    _loadPaymentMethods();
   }
 
   @override
@@ -119,6 +118,41 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     }
   }
 
+  Future<void> _loadPaymentMethods() async {
+    try {
+      final paymentService = PaymentService();
+      final result = await paymentService.fetchPaymentMethods();
+
+      if (mounted) {
+        if (result['success'] == true && result['data'] != null) {
+          final methods = (result['data'] as List)
+              .map((method) => {
+                    'id': method['id'],
+                    'name': method['name']?.toString() ?? '',
+                  })
+              .where((method) => method['name']?.toString().isNotEmpty == true)
+              .toList();
+
+          setState(() {
+            _paymentMethods = List<Map<String, dynamic>>.from(methods);
+            _isLoadingPaymentMethods = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingPaymentMethods = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading payment methods: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingPaymentMethods = false;
+        });
+      }
+    }
+  }
+
   // Get effective price - use item_price if different from price_snapshot
   double _getEffectivePrice(Map<String, dynamic> item) {
     final priceSnapshot = double.parse(item['price_snapshot'].toString());
@@ -161,7 +195,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return;
     }
 
-    if (_selectedPaymentMethod == null || _selectedPaymentMethod!.isEmpty) {
+    if (_selectedPaymentMethodId == null) {
       SnackbarHelper.showError(
         context,
         'Please select a payment method',
@@ -208,7 +242,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ? null
             : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
-        paymentMethod: _selectedPaymentMethod!,
+        paymentMethod: _selectedPaymentMethodId!.toString(),
       );
 
       SnackbarHelper.hide(context);
@@ -1061,22 +1095,48 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ],
           ),
           SizedBox(height: 16),
-          ..._paymentMethods.map((method) {
-            return _buildPaymentMethodOption(method);
-          }),
+          if (_isLoadingPaymentMethods)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(
+                  color: AppColors.mediumGreen,
+                ),
+              ),
+            )
+          else if (_paymentMethods.isEmpty)
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No payment methods available',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            )
+          else
+            ..._paymentMethods.map((method) {
+              return _buildPaymentMethodOption(method);
+            }),
         ],
       ),
     );
   }
 
-  Widget _buildPaymentMethodOption(String method) {
-    final isSelected = _selectedPaymentMethod == method;
+  Widget _buildPaymentMethodOption(Map<String, dynamic> method) {
+    final methodId = method['id'] as int?;
+    final methodName = method['name']?.toString() ?? '';
+    final isSelected = _selectedPaymentMethodId == methodId;
+
+    if (methodId == null) return SizedBox.shrink();
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () {
           setState(() {
-            _selectedPaymentMethod = method;
+            _selectedPaymentMethodId = methodId;
           });
         },
         borderRadius: BorderRadius.circular(8),
@@ -1094,12 +1154,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           ),
           child: Row(
             children: [
-              Radio<String>(
-                value: method,
-                groupValue: _selectedPaymentMethod,
+              Radio<int>(
+                value: methodId,
+                groupValue: _selectedPaymentMethodId,
                 onChanged: (value) {
                   setState(() {
-                    _selectedPaymentMethod = value;
+                    _selectedPaymentMethodId = value;
                   });
                 },
                 activeColor: AppColors.mediumGreen,
@@ -1107,7 +1167,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  method,
+                  methodName,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight:
