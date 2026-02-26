@@ -26,7 +26,7 @@ void main() async {
   // Open Hive boxes
   // Open delivery photos box (using Map for now until adapter is generated)
   await Hive.openBox('delivery_photos');
-  
+
   // Open order statuses box
   // Note: Uncomment the adapter registration above after running build_runner
   await Hive.openBox<OrderStatus>('order_statuses');

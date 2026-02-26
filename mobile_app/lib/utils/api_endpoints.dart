@@ -90,4 +90,7 @@ class ApiEndpoints {
 
   // Order Status endpoints
   static String get getOrderStatus => '$baseUrl/api/order-statuses';
+
+  // Payment endpoints
+  static String get getPaymentMethods => '$baseUrl/api/payment-methods/active';
 }

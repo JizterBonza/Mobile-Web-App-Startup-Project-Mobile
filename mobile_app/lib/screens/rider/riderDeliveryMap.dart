@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
+import '../../provider/provider.dart';
 import '../../services/directions_service.dart';
 import 'delivery_photo_preview_screen.dart';
 
@@ -45,8 +46,15 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeOrderStatusProvider();
     _loadOrders();
     _initLocationTracking();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   Future<void> _initLocationTracking() async {
@@ -147,11 +155,28 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
 
       // Filter orders for in-transit status only
       final allOrders = ordersProvider.orders;
-      final deliveryStatuses = ['in-transit', 'in transit'];
+      final orderStatusProvider =
+          Provider.of<OrderStatusProvider>(context, listen: false);
+      await orderStatusProvider.initialize();
+
+      // Get status ID for in-transit
+      final inTransitStatusId = orderStatusProvider
+              .getOrderStatusIdByDescription('in-transit') ??
+          orderStatusProvider.getOrderStatusIdByDescription('in transit');
 
       _deliveryOrders = allOrders.where((order) {
-        final status = order['order_status']?.toString().toLowerCase() ?? '';
-        return deliveryStatuses.contains(status);
+        final orderStatusId = order['order_status'];
+        int? statusId;
+        if (orderStatusId is int) {
+          statusId = orderStatusId;
+        } else if (orderStatusId is String) {
+          statusId = int.tryParse(orderStatusId);
+        } else if (orderStatusId != null) {
+          statusId = int.tryParse(orderStatusId.toString());
+        }
+        return statusId != null &&
+            inTransitStatusId != null &&
+            statusId == inTransitStatusId;
       }).toList();
 
       _createMarkers();
@@ -316,9 +341,27 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     }
   }
 
-  /// Get order status
+  /// Get order status description using OrderStatusProvider
   String _getOrderStatus(Map<String, dynamic> order) {
-    return order['order_status']?.toString() ?? 'in-transit';
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    if (statusId != null) {
+      final statusDesc = orderStatusProvider.getOrderStatusDescription(statusId);
+      if (statusDesc != null) {
+        return statusDesc;
+      }
+    }
+    return 'in-transit';
   }
 
   /// Fetch and display the delivery route
@@ -341,9 +384,25 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     }
 
     // Filter only in-transit orders for routing
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final inTransitStatusId = orderStatusProvider
+            .getOrderStatusIdByDescription('in-transit') ??
+        orderStatusProvider.getOrderStatusIdByDescription('in transit');
+
     final inTransitOrders = _deliveryOrders.where((order) {
-      final status = _getOrderStatus(order).toLowerCase();
-      return status == 'in-transit' || status == 'in transit';
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+      return statusId != null &&
+          inTransitStatusId != null &&
+          statusId == inTransitStatusId;
     }).toList();
 
     if (inTransitOrders.isEmpty) {

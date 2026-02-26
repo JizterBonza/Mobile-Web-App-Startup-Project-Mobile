@@ -129,7 +129,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Consumer<OrderStatusProvider>(
       builder: (context, orderStatusProvider, child) {
         final orderCode = widget.order['order_code']?.toString() ?? 'N/A';
-        
+
         // Parse order_status as ID (number) and get description from provider
         final orderStatusId = widget.order['order_status'];
         int? statusId;
@@ -140,13 +140,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         } else if (orderStatusId != null) {
           statusId = int.tryParse(orderStatusId.toString());
         }
-        
+
         // Get status description from provider using ID
         final orderStatusDesc = statusId != null
             ? orderStatusProvider.getOrderStatusDescription(statusId)
             : null;
         final orderStatus = orderStatusDesc ?? 'Pending';
-        
+
         final orderedAt = widget.order['ordered_at']?.toString() ?? '';
         final orderId = widget.order['id']?.toString() ??
             widget.order['order_id']?.toString() ??
@@ -158,54 +158,54 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         final orderInstruction = widget.order['order_instruction']?.toString();
 
         return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(
-          'Order Details',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[900],
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            title: Text(
+              'Order Details',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[900],
+              ),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            iconTheme: IconThemeData(color: Colors.grey[700]),
           ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[700]),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            OrderHeaderWidget(
-              orderCode: orderCode,
-              orderStatus: orderStatus,
-              orderedAt: orderedAt,
+          body: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OrderHeaderWidget(
+                  orderCode: orderCode,
+                  orderStatus: orderStatus,
+                  orderedAt: orderedAt,
+                ),
+                SizedBox(height: 16),
+                OrderTimelineWidget(currentStatus: orderStatus),
+                SizedBox(height: 16),
+                OrderItemsWidget(orderItems: orderItems),
+                SizedBox(height: 16),
+                DeliveryDetailsWidget(
+                  shippingAddress: shippingAddress,
+                  orderInstruction: orderInstruction,
+                ),
+                SizedBox(height: 16),
+                PaymentSummaryWidget(
+                  subtotal: widget.order['subtotal'],
+                  shippingFee: widget.order['shipping_fee'],
+                  totalAmount: widget.order['total_amount'],
+                  paymentMethod:
+                      widget.order['payment_method']?.toString() ?? 'N/A',
+                  paymentStatus:
+                      widget.order['payment_status']?.toString() ?? 'pending',
+                ),
+                SizedBox(height: 24),
+              ],
             ),
-            SizedBox(height: 16),
-            OrderTimelineWidget(currentStatus: orderStatus),
-            SizedBox(height: 16),
-            OrderItemsWidget(orderItems: orderItems),
-            SizedBox(height: 16),
-            DeliveryDetailsWidget(
-              shippingAddress: shippingAddress,
-              orderInstruction: orderInstruction,
-            ),
-            SizedBox(height: 16),
-            PaymentSummaryWidget(
-              subtotal: widget.order['subtotal'],
-              shippingFee: widget.order['shipping_fee'],
-              totalAmount: widget.order['total_amount'],
-              paymentMethod:
-                  widget.order['payment_method']?.toString() ?? 'N/A',
-              paymentStatus:
-                  widget.order['payment_status']?.toString() ?? 'pending',
-            ),
-            SizedBox(height: 24),
-          ],
-        ),
-      ),
-      bottomNavigationBar: canCancel ? _buildBottomBar(orderId) : null,
-    );
+          ),
+          bottomNavigationBar: canCancel ? _buildBottomBar(orderId) : null,
+        );
       },
     );
   }

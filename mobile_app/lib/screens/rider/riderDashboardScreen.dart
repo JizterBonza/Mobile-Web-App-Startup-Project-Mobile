@@ -6,6 +6,7 @@ import '../../constants/constants.dart';
 import '../../services/order_service.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
+import '../../utils/connectivity_helper.dart';
 import '../../widgets/dashboard_header.dart';
 import '../../widgets/order_item_card.dart';
 import '../../widgets/rider_statistics_grid.dart';
@@ -39,8 +40,16 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeOrderStatusProvider();
     _loadOrders();
     _loadUserName();
+    _autoUploadPendingPods();
+  }
+
+  Future<void> _initializeOrderStatusProvider() async {
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    await orderStatusProvider.initialize();
   }
 
   Future<void> _loadUserName() async {
@@ -49,6 +58,56 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       if (mounted) setState(() {});
     } catch (e) {
       print('Error loading user name: $e');
+    }
+  }
+
+  /// Automatically upload pending POD photos if internet is available
+  /// This runs silently in the background after login
+  Future<void> _autoUploadPendingPods() async {
+    try {
+      // Check if internet is available
+      final hasInternet = await ConnectivityHelper.hasInternetConnection();
+      if (!hasInternet) {
+        print('POD AUTO-UPLOAD: No internet connection, skipping upload');
+        return;
+      }
+
+      // Get PodProvider
+      final podProvider = Provider.of<PodProvider>(context, listen: false);
+
+      // Check if there are pending photos and not already uploading
+      final pendingCount = podProvider.getPendingCount();
+      if (pendingCount == 0) {
+        print('POD AUTO-UPLOAD: No pending photos to upload');
+        return;
+      }
+
+      if (podProvider.isUploading) {
+        print('POD AUTO-UPLOAD: Upload already in progress, skipping');
+        return;
+      }
+
+      print(
+          'POD AUTO-UPLOAD: Starting automatic upload of $pendingCount pending photo(s)');
+
+      // Upload in background (don't await, let it run silently)
+      podProvider.uploadAllPendingPods().then((result) {
+        if (result['success'] == true) {
+          final data = result['data'] as Map<String, dynamic>?;
+          final successCount = data?['successCount'] ?? 0;
+          final total = data?['total'] ?? 0;
+          print(
+              'POD AUTO-UPLOAD: Completed - $successCount of $total photo(s) uploaded');
+        } else {
+          print('POD AUTO-UPLOAD: Failed - ${result['message']}');
+        }
+      }).catchError((e) {
+        print('POD AUTO-UPLOAD: Error during upload - $e');
+      });
+    } catch (e) {
+      // Silently fail - don't interrupt the login flow
+      print(
+          'POD AUTO-UPLOAD: Error checking connectivity or starting upload - $e');
     }
   }
 
@@ -75,6 +134,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
   Future<void> _onRefresh() async {
     await _loadOrders(useCache: false);
+    // Trigger automatic POD upload on refresh if internet is available
+    _autoUploadPendingPods();
     await Future.delayed(Duration(milliseconds: 500));
   }
 
@@ -101,37 +162,89 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  List<Map<String, dynamic>> get _activeDeliveries {
+  List<Map<String, dynamic>> _getActiveDeliveries(
+      OrderStatusProvider orderStatusProvider) {
     // Active deliveries exclude delivered orders
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() != 'delivered')
-        .toList();
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc != 'delivered';
+    }).toList();
   }
 
-  List<Map<String, dynamic>> get _completedDeliveries {
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'delivered')
-        .toList();
+  List<Map<String, dynamic>> _getCompletedDeliveries(
+      OrderStatusProvider orderStatusProvider) {
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc == 'delivered';
+    }).toList();
   }
 
-  List<Map<String, dynamic>> get _pendingDeliveries {
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'pending')
-        .toList();
+  List<Map<String, dynamic>> _getPendingDeliveries(
+      OrderStatusProvider orderStatusProvider) {
+    return _allOrders.where((order) {
+      final orderStatusId = order['order_status'];
+      int? statusId;
+      if (orderStatusId is int) {
+        statusId = orderStatusId;
+      } else if (orderStatusId is String) {
+        statusId = int.tryParse(orderStatusId);
+      } else if (orderStatusId != null) {
+        statusId = int.tryParse(orderStatusId.toString());
+      }
+
+      if (statusId == null) return false;
+
+      final statusDesc = orderStatusProvider
+              .getOrderStatusDescription(statusId)
+              ?.toLowerCase() ??
+          '';
+      return statusDesc == 'pending';
+    }).toList();
   }
 
-  Map<String, dynamic> get _stats {
+  Map<String, dynamic> _getStats(OrderStatusProvider orderStatusProvider) {
     final totalDeliveries = _allOrders.length;
-    final pendingCount = _pendingDeliveries.length;
-    final completedCount = _completedDeliveries.length;
-    final activeCount = _activeDeliveries.length;
+    final pendingDeliveries = _getPendingDeliveries(orderStatusProvider);
+    final completedDeliveries = _getCompletedDeliveries(orderStatusProvider);
+    final activeDeliveries = _getActiveDeliveries(orderStatusProvider);
+
+    final pendingCount = pendingDeliveries.length;
+    final completedCount = completedDeliveries.length;
+    final activeCount = activeDeliveries.length;
 
     // Calculate total earnings from completed deliveries
     double totalEarnings = 0.0;
-    for (var order in _completedDeliveries) {
+    for (var order in completedDeliveries) {
       final shippingFee =
           double.tryParse(order['shipping_fee']?.toString() ?? '0.0') ?? 0.0;
       totalEarnings += shippingFee;
@@ -188,7 +301,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return dateString;
   }
 
-  Map<String, dynamic> _convertOrderToCardFormat(Map<String, dynamic> order) {
+  Map<String, dynamic> _convertOrderToCardFormat(
+      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
     final user = order['user'] as Map<String, dynamic>?;
     // Use recipient_name from address if available, fallback to user name
     final recipientName = order['recipient_name']?.toString().isNotEmpty == true
@@ -202,10 +316,27 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             ? order['recipient_contact'].toString()
             : (user?['mobile_number']?.toString() ?? '');
 
+    // Parse order_status as ID (number) and get description from provider
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    // Get status description from provider using ID
+    final orderStatusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)
+        : null;
+    final orderStatus = orderStatusDesc ?? 'Pending';
+
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
       'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
-      'status': order['order_status']?.toString() ?? 'Pending',
+      'status': orderStatus,
       'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
       'total':
           double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
@@ -241,36 +372,42 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Widget _buildHomeView() {
-    final stats = _stats;
-    final activeDeliveries = _activeDeliveries.take(3).toList();
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final stats = _getStats(orderStatusProvider);
+        final activeDeliveries =
+            _getActiveDeliveries(orderStatusProvider).take(3).toList();
 
-    return RefreshIndicator(
-      onRefresh: _onRefresh,
-      color: AppColors.mediumGreen,
-      child: SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            _buildHeader(),
-            SizedBox(height: 24),
+        return RefreshIndicator(
+          onRefresh: _onRefresh,
+          color: AppColors.mediumGreen,
+          child: SingleChildScrollView(
+            physics: AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                _buildHeader(),
+                SizedBox(height: 24),
 
-            // Statistics cards
-            _buildStatisticsCards(stats),
-            SizedBox(height: 24),
+                // Statistics cards
+                _buildStatisticsCards(stats, orderStatusProvider),
+                SizedBox(height: 24),
 
-            // Quick actions
-            _buildQuickActions(),
-            SizedBox(height: 24),
+                // Quick actions
+                _buildQuickActions(),
+                SizedBox(height: 24),
 
-            // Active deliveries
-            _buildActiveDeliveriesSection(activeDeliveries),
-            SizedBox(height: 24),
-          ],
-        ),
-      ),
+                // Active deliveries
+                _buildActiveDeliveriesSection(
+                    activeDeliveries, orderStatusProvider),
+                SizedBox(height: 24),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -286,7 +423,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildStatisticsCards(Map<String, dynamic> stats) {
+  Widget _buildStatisticsCards(
+      Map<String, dynamic> stats, OrderStatusProvider orderStatusProvider) {
     return RiderStatisticsGrid(
       stats: stats,
       formatPrice: _formatPrice,
@@ -318,7 +456,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildActiveDeliveriesSection(List<Map<String, dynamic>> deliveries) {
+  Widget _buildActiveDeliveriesSection(List<Map<String, dynamic>> deliveries,
+      OrderStatusProvider orderStatusProvider) {
     return ActiveDeliveriesSection(
       deliveries: deliveries,
       isLoading: _isLoadingOrders,
@@ -329,7 +468,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       },
       onUpdateStatus: (order) => _showUpdateStatusDialog(order),
       onViewDetails: (order) => _showOrderDetails(order),
-      convertOrderToCardFormat: _convertOrderToCardFormat,
+      convertOrderToCardFormat: (order) =>
+          _convertOrderToCardFormat(order, orderStatusProvider),
     );
   }
 
@@ -350,47 +490,53 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Widget _buildHistoryView() {
-    final completedDeliveries = _completedDeliveries;
+    return Consumer<OrderStatusProvider>(
+      builder: (context, orderStatusProvider, child) {
+        final completedDeliveries =
+            _getCompletedDeliveries(orderStatusProvider);
 
-    return Column(
-      children: [
-        ViewHeader(
-          title: 'Delivery History',
-          onBack: () {
-            _loadOrders(useCache: false);
-            setState(() {
-              _selectedIndex = 0; // Switch to Home tab
-            });
-          },
-        ),
-        Expanded(
-          child: completedDeliveries.isEmpty
-              ? EmptyStateWidget(
-                  icon: Icons.history_outlined,
-                  message: 'No completed deliveries yet',
-                )
-              : RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  color: AppColors.mediumGreen,
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(16),
-                    itemCount: completedDeliveries.length,
-                    itemBuilder: (context, index) {
-                      final order = completedDeliveries[index];
-                      final cardData = _convertOrderToCardFormat(order);
+        return Column(
+          children: [
+            ViewHeader(
+              title: 'Delivery History',
+              onBack: () {
+                _loadOrders(useCache: false);
+                setState(() {
+                  _selectedIndex = 0; // Switch to Home tab
+                });
+              },
+            ),
+            Expanded(
+              child: completedDeliveries.isEmpty
+                  ? EmptyStateWidget(
+                      icon: Icons.history_outlined,
+                      message: 'No completed deliveries yet',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _onRefresh,
+                      color: AppColors.mediumGreen,
+                      child: ListView.builder(
+                        padding: EdgeInsets.all(16),
+                        itemCount: completedDeliveries.length,
+                        itemBuilder: (context, index) {
+                          final order = completedDeliveries[index];
+                          final cardData = _convertOrderToCardFormat(
+                              order, orderStatusProvider);
 
-                      return OrderItemCard(
-                        order: cardData,
-                        showDetails: true,
-                        onViewDetails: () {
-                          _showOrderDetails(order);
+                          return OrderItemCard(
+                            order: cardData,
+                            showDetails: true,
+                            onViewDetails: () {
+                              _showOrderDetails(order);
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
-                ),
-        ),
-      ],
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -515,7 +661,22 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
     // Check if order is delivered and retrieve photo from Hive
     String? deliveryPhotoPath;
-    final status = order['order_status']?.toString().toLowerCase() ?? '';
+    final orderStatusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final orderStatusId = order['order_status'];
+    int? statusId;
+    if (orderStatusId is int) {
+      statusId = orderStatusId;
+    } else if (orderStatusId is String) {
+      statusId = int.tryParse(orderStatusId);
+    } else if (orderStatusId != null) {
+      statusId = int.tryParse(orderStatusId.toString());
+    }
+
+    final statusDesc = statusId != null
+        ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
+        : null;
+    final status = statusDesc ?? '';
 
     if (status == 'delivered' && orderId != null) {
       try {
