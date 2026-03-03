@@ -35,6 +35,7 @@ class ShopsService extends ApiService {
           return {
             "id": shop['id'],
             "agrivet_id": shop['agrivet_id'],
+            "zone_id": shop['zone_id'],
             "shop_name": shop['shop_name'],
             "shop_description": shop['shop_description'],
             "shop_address": shop['shop_address'],

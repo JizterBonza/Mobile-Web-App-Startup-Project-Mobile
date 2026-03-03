@@ -28,6 +28,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   int? _selectedPaymentMethodId;
   int? _selectedDeliveryMethodId;
   String? _selectedDeliveryMethodDescription;
+  String? _selectedDeliveryMethodInfo;
   bool _isLoading = false;
   bool _isLoadingProfile = true;
   bool _isLoadingDeliveryMethods = true;
@@ -95,6 +96,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               .map((method) => {
                     'id': method['id'],
                     'description': method['description'],
+                    'info': method['info'],
                   })
               .toList();
 
@@ -625,15 +627,18 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   onChanged: (int? newValue) {
                     setState(() {
                       _selectedDeliveryMethodId = newValue;
+                      final selectedMethod = _deliveryMethods
+                          .firstWhere((m) => m['id'] == newValue);
                       _selectedDeliveryMethodDescription =
-                          _deliveryMethods.firstWhere(
-                              (m) => m['id'] == newValue)['description'];
+                          selectedMethod['description'] as String;
+                      _selectedDeliveryMethodInfo =
+                          selectedMethod['info'] as String;
                     });
                   },
                 ),
               ),
             ),
-          if (_selectedDeliveryMethodDescription != null) ...[
+          if (_selectedDeliveryMethodInfo != null) ...[
             SizedBox(height: 12),
             Container(
               padding: EdgeInsets.all(12),
@@ -654,8 +659,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _getDeliveryMethodInfo(
-                          _selectedDeliveryMethodDescription!),
+                      _selectedDeliveryMethodInfo ?? '',
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey[700],
@@ -682,18 +686,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return Icons.store_outlined;
     }
     return Icons.local_shipping_outlined;
-  }
-
-  String _getDeliveryMethodInfo(String description) {
-    final lowerDesc = description.toLowerCase();
-    if (lowerDesc.contains('contact') || lowerDesc.contains('no contact')) {
-      return 'Your order will be left at your address for no contact delivery.';
-    } else if (lowerDesc.contains('express') || lowerDesc.contains('fast')) {
-      return 'Your order will be delivered faster with express delivery.';
-    } else if (lowerDesc.contains('pickup') || lowerDesc.contains('pick up')) {
-      return 'Pick up your order at the designated location.';
-    }
-    return 'Your order will be delivered directly to you.';
   }
 
   Widget _buildShippingAddressSection() {
