@@ -184,6 +184,27 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return _subtotal + _shippingFee;
   }
 
+  /// Groups selected cart items by shop_id. Returns a list of maps:
+  /// [{ shop_id, shop_name, items }, ...]
+  List<Map<String, dynamic>> get _itemsGroupedByShop {
+    final map = <String, List<Map<String, dynamic>>>{};
+    for (final item in widget.selectedCartItems) {
+      final shopId = item['shop_id']?.toString() ?? 'unknown';
+      map.putIfAbsent(shopId, () => []).add(item);
+    }
+    return map.entries.map((e) {
+      final items = e.value;
+      final shopName = items.isNotEmpty && items.first['shop_name'] != null
+          ? items.first['shop_name'].toString()
+          : 'Shop ${e.key}';
+      return {
+        'shop_id': e.key,
+        'shop_name': shopName,
+        'items': items,
+      };
+    }).toList();
+  }
+
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -366,6 +387,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Widget _buildOrderItemsSection() {
+    final groups = _itemsGroupedByShop;
     return Container(
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(16),
@@ -402,11 +424,47 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ],
           ),
           SizedBox(height: 16),
-          ...widget.selectedCartItems.asMap().entries.map((entry) {
-            final item = entry.value;
-            final isLast = entry.key == widget.selectedCartItems.length - 1;
-            return _buildOrderItem(item, isLast);
+          ...groups.asMap().entries.expand((groupEntry) {
+            final groupIndex = groupEntry.key;
+            final group = groupEntry.value;
+            final shopName = group['shop_name'] as String;
+            final items = group['items'] as List<Map<String, dynamic>>;
+            final isLastGroup = groupIndex == groups.length - 1;
+            return [
+              _buildShopHeader(shopName),
+              ...items.asMap().entries.map((entry) {
+                final isLastItemInGroup =
+                    entry.key == items.length - 1;
+                final isLastOverall = isLastGroup && isLastItemInGroup;
+                return _buildOrderItem(entry.value, isLastOverall);
+              }),
+              if (!isLastGroup) SizedBox(height: 12),
+            ];
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShopHeader(String shopName) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            Icons.store_outlined,
+            color: AppColors.mediumGreen,
+            size: 18,
+          ),
+          SizedBox(width: 6),
+          Text(
+            shopName,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
         ],
       ),
     );
@@ -1348,38 +1406,55 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ],
           ),
           SizedBox(height: 16),
-          // Item breakdown with quantities
-          ...widget.selectedCartItems.map((item) {
-            final effectivePrice = _getEffectivePrice(item);
-            final quantity = item['quantity'] as int;
-            final itemTotal = effectivePrice * quantity;
-            return Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${item['item_name'] ?? 'Unknown Item'} (×$quantity)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+          // Item breakdown grouped by shop
+          ..._itemsGroupedByShop.expand((group) {
+            final shopName = group['shop_name'] as String;
+            final items = group['items'] as List<Map<String, dynamic>>;
+            return [
+              Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  shopName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
                   ),
-                  Text(
-                    '₱${itemTotal.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[900],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            );
+              ...items.map((item) {
+                final effectivePrice = _getEffectivePrice(item);
+                final quantity = item['quantity'] as int;
+                final itemTotal = effectivePrice * quantity;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${item['item_name'] ?? 'Unknown Item'} (×$quantity)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '₱${itemTotal.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[900],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ];
           }),
           SizedBox(height: 12),
           Divider(height: 1),
