@@ -138,8 +138,6 @@ class ItemsService extends ApiService {
       },
     );
 
-    print('Fetching items by category from URL: $uri');
-
     final response = await http.get(
       uri,
       headers: {
@@ -154,8 +152,8 @@ class ItemsService extends ApiService {
       },
     );
 
-    print('Category items API response status: ${response.statusCode}');
-    print('Category items API response body: ${response.body}');
+    // print('Category items API response status: ${response.statusCode}');
+    // print('Category items API response body: ${response.body}');
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);

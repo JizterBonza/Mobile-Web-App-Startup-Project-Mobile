@@ -1697,20 +1697,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           if (index == 1) {
             // Cart
             // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
-            Navigator.push(
-              context,
-              _createFadeRoute(CartScreen()),
-            ).then((_) {
-              // Reset to home when returning from cart
-              if (mounted) {
-                setState(() {
-                  _selectedIndex = 0;
-                });
-              }
-            });
             // Navigator.push(
             //   context,
-            //   _createFadeRoute(CartScreenV2()),
+            //   _createFadeRoute(CartScreen()),
             // ).then((_) {
             //   // Reset to home when returning from cart
             //   if (mounted) {
@@ -1719,6 +1708,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             //     });
             //   }
             // });
+            Navigator.push(
+              context,
+              _createFadeRoute(CartScreenV2()),
+            ).then((_) {
+              // Reset to home when returning from cart
+              if (mounted) {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+              }
+            });
           } else if (index == 2) {
             // Favorites
             Navigator.pushReplacement(

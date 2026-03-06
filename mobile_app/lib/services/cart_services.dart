@@ -291,4 +291,62 @@ class CartService extends ApiService {
       };
     }
   }
+
+  // ===== CartScreen V2 Methods =====
+  // Fetches cart items preserving full nested structure (zone, shop info)
+  // for CartScreenV2 zone-based grouping.
+  // Sample API response:
+  // {
+  //   "success": true,
+  //   "data": [
+  //     {
+  //       "id": 15, "user_id": 1, "item_id": 6, "quantity": 3,
+  //       "price_snapshot": "12.00",
+  //       "item": {
+  //         "id": 6, "shop_id": 2, "item_name": "Test",
+  //         "item_description": "test product",
+  //         "item_price": "12.00", "item_quantity": 98,
+  //         "category": 1, "item_images": null,
+  //         "average_rating": "0.00", "total_reviews": 0,
+  //         "sold_count": 23, "shop_name": "James Shop",
+  //         "shop": {
+  //           "id": 2, "agrivet_id": 2, "zone_id": 1,
+  //           "shop_name": "James Shop",
+  //           "shop_description": "Your one stop shop",
+  //           "shop_address": "Madaum",
+  //           "contact_number": "09123456789",
+  //           "zone": { "id": 1, "name": "Zone 1" }
+  //         }
+  //       }
+  //     }
+  //   ],
+  //   "count": 1
+  // }
+  Future<List<Map<String, dynamic>>> fetchCartItemsForV2(
+      String userId) async {
+    final token = await ApiService.getToken();
+    final response = await http.get(
+      Uri.parse(ApiEndpoints.getCart.replaceAll('{id}', userId)),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (responseData['success'] == true && responseData['data'] != null) {
+        return List<Map<String, dynamic>>.from(responseData['data']);
+      } else {
+        throw Exception('Failed to load cart items: ${response.statusCode}');
+      }
+    }
+    return [];
+  }
 }

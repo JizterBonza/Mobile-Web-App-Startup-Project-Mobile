@@ -17,30 +17,6 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   int _selectedIndex = 1; // Cart tab
-  // Sample cart items - in real app, this would come from state management
-  // List<Map<String, dynamic>> _cartItems = [
-  //   {
-  //     'id': '1',
-  //     'name': 'Organic Fertilizer',
-  //     'price': 24.99,
-  //     'quantity': 2,
-  //     'image': null,
-  //   },
-  //   {
-  //     'id': '2',
-  //     'name': 'Garden Spade',
-  //     'price': 18.50,
-  //     'quantity': 1,
-  //     'image': null,
-  //   },
-  //   {
-  //     'id': '3',
-  //     'name': 'Watering Can',
-  //     'price': 15.99,
-  //     'quantity': 3,
-  //     'image': null,
-  //   },
-  // ];
 
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;

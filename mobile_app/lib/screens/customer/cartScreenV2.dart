@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
+import '../../services/cart_services.dart';
+import '../../services/api_service.dart';
+import '../../utils/snackbar_helper.dart';
+import 'checkOutScreen.dart';
+import 'customerDashboardScreen.dart';
 
 class CartScreenV2 extends StatefulWidget {
   const CartScreenV2({super.key});
@@ -9,280 +14,408 @@ class CartScreenV2 extends StatefulWidget {
 }
 
 class _CartScreenV2State extends State<CartScreenV2> {
-  // Mock data structure: Zone -> Shop -> Item
-  late List<ZoneData> _zones;
+  List<ZoneData> _zones = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _initializeMockData();
+    _loadCartItems();
   }
 
-  void _initializeMockData() {
-    _zones = [
-      ZoneData(
-        id: 'zone1',
-        name: 'Zone A - North District',
-        shops: [
-          ShopData(
-            id: 'shop1',
-            name: 'Green Garden Supplies',
-            items: [
-              ItemData(
-                id: 'item1',
-                name: 'Organic Fertilizer',
-                price: 24.99,
-                quantity: 2,
-              ),
-              ItemData(
-                id: 'item2',
-                name: 'Garden Spade',
-                price: 18.50,
-                quantity: 1,
-              ),
-              ItemData(
-                id: 'item3',
-                name: 'Watering Can',
-                price: 15.99,
-                quantity: 3,
-              ),
-            ],
-          ),
-          ShopData(
-            id: 'shop2',
-            name: 'Farm Fresh Tools',
-            items: [
-              ItemData(
-                id: 'item4',
-                name: 'Pruning Shears',
-                price: 12.99,
-                quantity: 2,
-              ),
-              ItemData(
-                id: 'item5',
-                name: 'Garden Gloves',
-                price: 8.50,
-                quantity: 4,
-              ),
-            ],
-          ),
-        ],
-      ),
-      ZoneData(
-        id: 'zone2',
-        name: 'Zone B - South District',
-        shops: [
-          ShopData(
-            id: 'shop3',
-            name: 'AgriTech Solutions',
-            items: [
-              ItemData(
-                id: 'item6',
-                name: 'Seed Packets',
-                price: 5.99,
-                quantity: 10,
-              ),
-              ItemData(
-                id: 'item7',
-                name: 'Plant Pots',
-                price: 3.50,
-                quantity: 6,
-              ),
-              ItemData(
-                id: 'item8',
-                name: 'Soil Mix',
-                price: 19.99,
-                quantity: 2,
-              ),
-            ],
-          ),
-        ],
-      ),
-      ZoneData(
-        id: 'zone3',
-        name: 'Zone C - East District',
-        shops: [
-          ShopData(
-            id: 'shop4',
-            name: 'Harvest Market',
-            items: [
-              ItemData(
-                id: 'item9',
-                name: 'Compost Bin',
-                price: 45.00,
-                quantity: 1,
-              ),
-            ],
-          ),
-          ShopData(
-            id: 'shop5',
-            name: 'Garden Essentials',
-            items: [
-              ItemData(
-                id: 'item10',
-                name: 'Hose Pipe',
-                price: 32.99,
-                quantity: 1,
-              ),
-              ItemData(
-                id: 'item11',
-                name: 'Sprinkler',
-                price: 28.50,
-                quantity: 2,
-              ),
-            ],
-          ),
-        ],
-      ),
-    ];
+  Future<void> _loadCartItems() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'User not logged in';
+        });
+        return;
+      }
+
+      final apiData = await CartService().fetchCartItemsForV2(userId);
+      setState(() {
+        _zones = _transformApiData(apiData);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load cart items: ${e.toString()}';
+      });
+    }
   }
 
-  // Handle Zone checkbox toggle
+  /// Transforms the flat API response into a Zone -> Shop -> Item hierarchy.
+  List<ZoneData> _transformApiData(List<Map<String, dynamic>> apiData) {
+    final Map<String, ZoneData> zoneMap = {};
+
+    for (var cartItem in apiData) {
+      final item = cartItem['item'] as Map<String, dynamic>? ?? {};
+      final shop = item['shop'] as Map<String, dynamic>? ?? {};
+      final zone = shop['zone'] as Map<String, dynamic>? ?? {};
+
+      final zoneId = zone['id']?.toString() ?? 'unknown';
+      final zoneName = zone['name']?.toString() ?? 'Unknown Zone';
+
+      final shopId =
+          shop['id']?.toString() ?? item['shop_id']?.toString() ?? 'unknown';
+      final shopName = shop['shop_name']?.toString() ??
+          item['shop_name']?.toString() ??
+          'Unknown Shop';
+      final shopAddress = shop['shop_address']?.toString();
+
+      if (!zoneMap.containsKey(zoneId)) {
+        zoneMap[zoneId] = ZoneData(id: zoneId, name: zoneName, shops: []);
+      }
+
+      final zoneData = zoneMap[zoneId]!;
+      final shopIndex = zoneData.shops.indexWhere((s) => s.id == shopId);
+      ShopData shopData;
+      if (shopIndex == -1) {
+        shopData = ShopData(
+          id: shopId,
+          name: shopName,
+          address: shopAddress,
+          items: [],
+        );
+        zoneData.shops.add(shopData);
+      } else {
+        shopData = zoneData.shops[shopIndex];
+      }
+
+      final priceSnapshot =
+          double.tryParse(cartItem['price_snapshot'].toString()) ?? 0.0;
+      final itemPrice =
+          double.tryParse(item['item_price'].toString()) ?? 0.0;
+      final stock = int.tryParse(item['item_quantity'].toString()) ?? 0;
+      final quantity = cartItem['quantity'] is int
+          ? cartItem['quantity'] as int
+          : int.tryParse(cartItem['quantity'].toString()) ?? 1;
+
+      shopData.items.add(ItemData(
+        id: cartItem['id'].toString(),
+        itemId: (item['id'] ?? cartItem['item_id']).toString(),
+        name: item['item_name']?.toString() ?? 'Unknown Item',
+        price: itemPrice,
+        priceSnapshot: priceSnapshot,
+        stock: stock,
+        quantity: quantity,
+      ));
+    }
+
+    return zoneMap.values.toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Selection logic
+  // ---------------------------------------------------------------------------
+
   void _toggleZone(String zoneId) {
     setState(() {
       final zone = _zones.firstWhere((z) => z.id == zoneId);
-      zone.isSelected = !zone.isSelected;
+      final newState = !zone.isSelected;
+      zone.isSelected = newState;
 
-      // Cascade to all shops and items in this zone
       for (var shop in zone.shops) {
-        shop.isSelected = zone.isSelected;
+        shop.isSelected = newState;
         for (var item in shop.items) {
-          item.isSelected = zone.isSelected;
+          item.isSelected = newState && item.isQuantityValid;
         }
       }
-    });
-  }
-
-  // Handle Shop checkbox toggle
-  void _toggleShop(String zoneId, String shopId) {
-    setState(() {
-      final zone = _zones.firstWhere((z) => z.id == zoneId);
-      final shop = zone.shops.firstWhere((s) => s.id == shopId);
-      shop.isSelected = !shop.isSelected;
-
-      // Cascade to all items in this shop
-      for (var item in shop.items) {
-        item.isSelected = shop.isSelected;
-      }
-
-      // Update zone selection state
       _updateZoneSelection(zone);
     });
   }
 
-  // Handle Item checkbox toggle
+  void _toggleShop(String zoneId, String shopId) {
+    setState(() {
+      final zone = _zones.firstWhere((z) => z.id == zoneId);
+      final shop = zone.shops.firstWhere((s) => s.id == shopId);
+      final newState = !shop.isSelected;
+      shop.isSelected = newState;
+
+      for (var item in shop.items) {
+        item.isSelected = newState && item.isQuantityValid;
+      }
+      _updateZoneSelection(zone);
+    });
+  }
+
   void _toggleItem(String zoneId, String shopId, String itemId) {
     setState(() {
       final zone = _zones.firstWhere((z) => z.id == zoneId);
       final shop = zone.shops.firstWhere((s) => s.id == shopId);
       final item = shop.items.firstWhere((i) => i.id == itemId);
+
+      if (!item.isQuantityValid) return;
       item.isSelected = !item.isSelected;
 
-      // Update shop selection state
       _updateShopSelection(shop);
-
-      // Update zone selection state
       _updateZoneSelection(zone);
     });
   }
 
-  // Update shop selection based on item selections
   void _updateShopSelection(ShopData shop) {
-    final allSelected = shop.items.every((item) => item.isSelected);
-    final someSelected = shop.items.any((item) => item.isSelected);
+    final validItems = shop.items.where((i) => i.isQuantityValid).toList();
+    if (validItems.isEmpty) {
+      shop.isSelected = false;
+      shop.isIndeterminate = false;
+      return;
+    }
+    final allSelected = validItems.every((i) => i.isSelected);
+    final someSelected = validItems.any((i) => i.isSelected);
     shop.isSelected = allSelected;
     shop.isIndeterminate = someSelected && !allSelected;
   }
 
-  // Update zone selection based on shop/item selections
   void _updateZoneSelection(ZoneData zone) {
-    final allSelected = zone.shops.every((shop) =>
-        shop.isSelected && shop.items.every((item) => item.isSelected));
-    final someSelected = zone.shops.any(
-        (shop) => shop.isSelected || shop.items.any((item) => item.isSelected));
-
-    zone.isSelected = allSelected;
-    zone.isIndeterminate = someSelected && !allSelected;
-
-    // Update shop indeterminate states
     for (var shop in zone.shops) {
       _updateShopSelection(shop);
     }
+    final shopsWithValidItems =
+        zone.shops.where((s) => s.items.any((i) => i.isQuantityValid)).toList();
+    if (shopsWithValidItems.isEmpty) {
+      zone.isSelected = false;
+      zone.isIndeterminate = false;
+      return;
+    }
+    final allSelected = shopsWithValidItems.every((s) => s.isSelected);
+    final someSelected = shopsWithValidItems
+        .any((s) => s.isSelected || s.isIndeterminate);
+    zone.isSelected = allSelected;
+    zone.isIndeterminate = someSelected && !allSelected;
   }
 
-  // Calculate zone subtotal
+  // ---------------------------------------------------------------------------
+  // Calculations
+  // ---------------------------------------------------------------------------
+
   double _calculateZoneSubtotal(ZoneData zone) {
     double total = 0.0;
     for (var shop in zone.shops) {
-      if (shop.isSelected) {
-        // If shop is selected, include all items
-        for (var item in shop.items) {
-          total += item.price * item.quantity;
-        }
-      } else {
-        // Only include selected items
-        for (var item in shop.items) {
-          if (item.isSelected) {
-            total += item.price * item.quantity;
-          }
+      for (var item in shop.items) {
+        if (item.isSelected && item.isQuantityValid) {
+          total += item.effectivePrice * item.quantity;
         }
       }
     }
     return total;
   }
 
-  // Get selected items count for zone
   int _getSelectedItemsCount(ZoneData zone) {
     int count = 0;
     for (var shop in zone.shops) {
-      if (shop.isSelected) {
-        count += shop.items.length;
-      } else {
-        count += shop.items.where((item) => item.isSelected).length;
+      for (var item in shop.items) {
+        if (item.isSelected && item.isQuantityValid) {
+          count++;
+        }
       }
     }
     return count;
   }
 
-  // Update item quantity
+  int _getTotalItemsCount() {
+    int count = 0;
+    for (var zone in _zones) {
+      for (var shop in zone.shops) {
+        count += shop.items.length;
+      }
+    }
+    return count;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cart operations
+  // ---------------------------------------------------------------------------
+
   void _updateQuantity(
       String zoneId, String shopId, String itemId, int newQuantity) {
-    if (newQuantity < 1) {
-      // Remove item if quantity goes below 1
-      _removeItem(zoneId, shopId, itemId);
-      return;
-    }
+    if (newQuantity < 1) return;
+
     setState(() {
       final zone = _zones.firstWhere((z) => z.id == zoneId);
       final shop = zone.shops.firstWhere((s) => s.id == shopId);
       final item = shop.items.firstWhere((i) => i.id == itemId);
       item.quantity = newQuantity;
-    });
-  }
 
-  // Remove item from cart
-  void _removeItem(String zoneId, String shopId, String itemId) {
-    setState(() {
-      final zone = _zones.firstWhere((z) => z.id == zoneId);
-      final shop = zone.shops.firstWhere((s) => s.id == shopId);
-      shop.items.removeWhere((item) => item.id == itemId);
-
-      // If shop has no items, remove the shop
-      if (shop.items.isEmpty) {
-        zone.shops.removeWhere((s) => s.id == shopId);
-      }
-
-      // If zone has no shops, remove the zone
-      if (zone.shops.isEmpty) {
-        _zones.removeWhere((z) => z.id == zoneId);
-      }
-
-      // Update selection states after removal
-      if (zone.shops.isNotEmpty) {
+      if (!item.isQuantityValid && item.isSelected) {
+        item.isSelected = false;
+        _updateShopSelection(shop);
         _updateZoneSelection(zone);
       }
     });
   }
+
+  Future<void> _removeItem(
+      String zoneId, String shopId, String itemId) async {
+    SnackbarHelper.showLoading(context, 'Removing item...');
+
+    try {
+      final result = await CartService().removeCartItem(itemId);
+      if (!mounted) return;
+      SnackbarHelper.hide(context);
+
+      if (result['success'] == true) {
+        setState(() {
+          final zone = _zones.firstWhere((z) => z.id == zoneId);
+          final shop = zone.shops.firstWhere((s) => s.id == shopId);
+          shop.items.removeWhere((i) => i.id == itemId);
+
+          if (shop.items.isEmpty) {
+            zone.shops.removeWhere((s) => s.id == shopId);
+          }
+          if (zone.shops.isEmpty) {
+            _zones.removeWhere((z) => z.id == zoneId);
+          } else {
+            _updateZoneSelection(zone);
+          }
+        });
+
+        SnackbarHelper.showSuccess(
+          context,
+          result['message'] ?? 'Item removed from cart',
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Failed to remove item',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SnackbarHelper.hide(context);
+      SnackbarHelper.showError(context, 'Error removing item: ${e.toString()}');
+    }
+  }
+
+  Future<void> _clearAllItems() async {
+    final totalItems = _getTotalItemsCount();
+    if (totalItems == 0) return;
+
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Cart'),
+        content: Text(
+            'Are you sure you want to remove all $totalItems item(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+            ),
+            child: const Text('Clear All',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldClear != true || !mounted) return;
+
+    final allCartItemIds = <String>[];
+    for (var zone in _zones) {
+      for (var shop in zone.shops) {
+        for (var item in shop.items) {
+          allCartItemIds.add(item.id);
+        }
+      }
+    }
+
+    SnackbarHelper.showLoading(context, 'Removing all items...');
+
+    try {
+      final result = await CartService().clearAllCartItems(allCartItemIds);
+      if (!mounted) return;
+      SnackbarHelper.hide(context);
+
+      if (result['success'] == true) {
+        setState(() {
+          _zones.clear();
+        });
+        SnackbarHelper.showSuccess(
+          context,
+          result['message'] ?? 'All items removed from cart',
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Failed to clear cart',
+        );
+        _loadCartItems();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SnackbarHelper.hide(context);
+      SnackbarHelper.showError(
+          context, 'Error clearing cart: ${e.toString()}');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Checkout helpers
+  // ---------------------------------------------------------------------------
+
+  /// Converts selected valid items in a zone back to the flat map format
+  /// that [CheckOutScreen] expects.
+  List<Map<String, dynamic>> _getSelectedItemsForCheckout(ZoneData zone) {
+    final List<Map<String, dynamic>> items = [];
+    for (var shop in zone.shops) {
+      for (var item in shop.items) {
+        if (item.isSelected && item.isQuantityValid) {
+          items.add({
+            'id': int.tryParse(item.id) ?? item.id,
+            'item_id': int.tryParse(item.itemId) ?? item.itemId,
+            'shop_id': int.tryParse(shop.id) ?? shop.id,
+            'shop_name': shop.name,
+            'quantity': item.quantity,
+            'price_snapshot': item.priceSnapshot.toStringAsFixed(2),
+            'item_name': item.name,
+            'item_price': item.price.toStringAsFixed(2),
+            'item_quantity': item.stock.toString(),
+          });
+        }
+      }
+    }
+    return items;
+  }
+
+  void _handleZoneCheckout(ZoneData zone) {
+    final selectedItems = _getSelectedItemsForCheckout(zone);
+
+    if (selectedItems.isEmpty) {
+      SnackbarHelper.showError(
+        context,
+        'Please select valid items to checkout',
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            CheckOutScreen(selectedCartItems: selectedItems),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build methods
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +423,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
-          'Cart V2 - Zone Based',
+          'Shopping Cart',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -300,16 +433,95 @@ class _CartScreenV2State extends State<CartScreenV2> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.grey),
-      ),
-      body: _zones.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _zones.length,
-              itemBuilder: (context, index) {
-                return _buildZoneCard(_zones[index]);
-              },
+        actions: [
+          if (!_isLoading && _zones.isNotEmpty)
+            TextButton(
+              onPressed: _clearAllItems,
+              child: Text(
+                'Clear All',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
+        ],
+      ),
+      body: _isLoading
+          ? _buildLoadingState()
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _zones.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: _loadCartItems,
+                      color: AppColors.mediumGreen,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _zones.length,
+                        itemBuilder: (context, index) {
+                          return _buildZoneCard(_zones[index]);
+                        },
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading cart items...',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              _errorMessage ?? 'An error occurred',
+              style: TextStyle(fontSize: 16, color: Colors.grey[900]),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadCartItems,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.mediumGreen,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Retry',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -318,17 +530,57 @@ class _CartScreenV2State extends State<CartScreenV2> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.shopping_cart_outlined,
-            size: 80,
-            color: Colors.grey[400],
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.mediumGreen.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.shopping_cart_outlined,
+              size: 64,
+              color: AppColors.mediumGreen,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             'Your cart is empty',
             style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[900],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add some items to get started',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CustomerDashboardScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.mediumGreen,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Continue Shopping',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -361,7 +613,6 @@ class _CartScreenV2State extends State<CartScreenV2> {
             ),
             child: Row(
               children: [
-                // Zone Checkbox
                 _buildCheckbox(
                   value: zone.isSelected,
                   isIndeterminate: zone.isIndeterminate,
@@ -432,23 +683,35 @@ class _CartScreenV2State extends State<CartScreenV2> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    selectedCount > 0 ? () => _handleZoneCheckout(zone) : null,
+                onPressed: selectedCount > 0
+                    ? () => _handleZoneCheckout(zone)
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.mediumGreen,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[400],
+                  disabledForegroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  'Checkout Zone - ₱${subtotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.shopping_cart_checkout, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      selectedCount > 0
+                          ? 'Checkout - ₱${subtotal.toStringAsFixed(2)}'
+                          : 'Select items to checkout',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -481,7 +744,6 @@ class _CartScreenV2State extends State<CartScreenV2> {
             ),
             child: Row(
               children: [
-                // Shop Checkbox
                 _buildCheckbox(
                   value: shop.isSelected,
                   isIndeterminate: shop.isIndeterminate,
@@ -495,21 +757,34 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    shop.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        shop.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      if (shop.address != null && shop.address!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            shop.address!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Text(
                   '${shop.items.length} ${shop.items.length == 1 ? 'item' : 'items'}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -530,7 +805,9 @@ class _CartScreenV2State extends State<CartScreenV2> {
   }
 
   Widget _buildItemCard(String zoneId, String shopId, ItemData item) {
-    final subtotal = item.price * item.quantity;
+    final lineTotal = item.effectivePrice * item.quantity;
+    final hasPriceChanged = item.priceSnapshot != item.price;
+    final isValid = item.isQuantityValid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -538,20 +815,33 @@ class _CartScreenV2State extends State<CartScreenV2> {
       decoration: BoxDecoration(
         color: Colors.grey[50],
         border: Border.all(
-          color: item.isSelected ? AppColors.mediumGreen : Colors.grey[300]!,
-          width: item.isSelected ? 2 : 1,
+          color: !isValid
+              ? Colors.red[300]!
+              : item.isSelected
+                  ? AppColors.mediumGreen
+                  : Colors.grey[300]!,
+          width: !isValid || item.isSelected ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Item Checkbox
-          _buildCheckbox(
-            value: item.isSelected,
-            isIndeterminate: false,
-            onChanged: () => _toggleItem(zoneId, shopId, item.id),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: _buildCheckbox(
+              value: isValid && item.isSelected,
+              isIndeterminate: false,
+              onChanged: isValid
+                  ? () => _toggleItem(zoneId, shopId, item.id)
+                  : null,
+              enabled: isValid,
+            ),
           ),
           const SizedBox(width: 12),
+
+          // Item Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,17 +853,78 @@ class _CartScreenV2State extends State<CartScreenV2> {
                     fontWeight: FontWeight.w500,
                     color: Colors.grey,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Price: ₱${item.price.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
+                const SizedBox(height: 6),
+
+                // Price display
+                if (hasPriceChanged) ...[
+                  Text(
+                    'Added at ₱${item.priceSnapshot.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      decoration: TextDecoration.lineThrough,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                // Quantity controls
+                  const SizedBox(height: 2),
+                  Text(
+                    '₱${item.price.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.mediumGreen,
+                    ),
+                  ),
+                ] else
+                  Text(
+                    '₱${item.effectivePrice.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.mediumGreen,
+                    ),
+                  ),
+
+                // Stock warning
+                if (item.isOutOfStock)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: Text(
+                        'Out of stock',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red[700],
+                        ),
+                      ),
+                    ),
+                  )
+                else if (!isValid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Only ${item.stock} available',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red[700],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 10),
+
+                // Quantity controls & line total
                 Row(
                   children: [
                     Container(
@@ -589,14 +940,18 @@ class _CartScreenV2State extends State<CartScreenV2> {
                             icon: const Icon(Icons.remove, size: 18),
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
-                            onPressed: () {
-                              _updateQuantity(
-                                  zoneId, shopId, item.id, item.quantity - 1);
-                            },
-                            color: Colors.grey[700],
+                            onPressed: item.quantity <= 1 ||
+                                    item.isOutOfStock
+                                ? null
+                                : () => _updateQuantity(zoneId, shopId,
+                                    item.id, item.quantity - 1),
+                            color: item.quantity <= 1
+                                ? Colors.grey[400]
+                                : Colors.grey[700],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
                               '${item.quantity}',
                               style: const TextStyle(
@@ -610,30 +965,41 @@ class _CartScreenV2State extends State<CartScreenV2> {
                             icon: const Icon(Icons.add, size: 18),
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
-                            onPressed: () {
-                              _updateQuantity(
-                                  zoneId, shopId, item.id, item.quantity + 1);
-                            },
-                            color: AppColors.mediumGreen,
+                            onPressed: item.quantity >= item.stock ||
+                                    item.isOutOfStock
+                                ? null
+                                : () => _updateQuantity(zoneId, shopId,
+                                    item.id, item.quantity + 1),
+                            color: item.quantity >= item.stock
+                                ? Colors.grey[400]
+                                : AppColors.mediumGreen,
                           ),
                         ],
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      '₱${subtotal.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: item.isSelected
-                            ? AppColors.mediumGreen
-                            : Colors.grey[700],
+                    if (isValid)
+                      Text(
+                        '₱${lineTotal.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: item.isSelected
+                              ? AppColors.mediumGreen
+                              : Colors.grey[700],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
             ),
+          ),
+
+          // Delete button
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+            onPressed: () => _removeItem(zoneId, shopId, item.id),
+            tooltip: 'Remove item',
           ),
         ],
       ),
@@ -643,156 +1009,46 @@ class _CartScreenV2State extends State<CartScreenV2> {
   Widget _buildCheckbox({
     required bool value,
     required bool isIndeterminate,
-    required VoidCallback onChanged,
+    VoidCallback? onChanged,
+    bool enabled = true,
   }) {
     return GestureDetector(
-      onTap: onChanged,
+      onTap: enabled ? onChanged : null,
       child: Container(
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: value
-              ? AppColors.mediumGreen
-              : isIndeterminate
-                  ? AppColors.mediumGreen.withOpacity(0.5)
-                  : Colors.white,
+          color: !enabled
+              ? Colors.grey[200]
+              : value
+                  ? AppColors.mediumGreen
+                  : isIndeterminate
+                      ? AppColors.mediumGreen.withOpacity(0.5)
+                      : Colors.white,
           border: Border.all(
-            color: value || isIndeterminate
-                ? AppColors.mediumGreen
-                : Colors.grey[400]!,
+            color: !enabled
+                ? Colors.grey[400]!
+                : value || isIndeterminate
+                    ? AppColors.mediumGreen
+                    : Colors.grey[400]!,
             width: 2,
           ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: value
-            ? const Icon(
-                Icons.check,
-                color: Colors.white,
-                size: 16,
-              )
+            ? const Icon(Icons.check, color: Colors.white, size: 16)
             : isIndeterminate
-                ? const Icon(
-                    Icons.remove,
-                    color: Colors.white,
-                    size: 16,
-                  )
+                ? const Icon(Icons.remove, color: Colors.white, size: 16)
                 : null,
-      ),
-    );
-  }
-
-  void _handleZoneCheckout(ZoneData zone) {
-    final subtotal = _calculateZoneSubtotal(zone);
-    final selectedCount = _getSelectedItemsCount(zone);
-
-    if (selectedCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one item to checkout'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Build selected items list for display
-    final selectedItems = <String>[];
-    for (var shop in zone.shops) {
-      if (shop.isSelected) {
-        for (var item in shop.items) {
-          selectedItems.add('${item.name} (x${item.quantity})');
-        }
-      } else {
-        for (var item in shop.items) {
-          if (item.isSelected) {
-            selectedItems.add('${item.name} (x${item.quantity})');
-          }
-        }
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Checkout: ${zone.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Selected Items:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...selectedItems.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '• $item',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                )),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.mediumGreen.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '₱${subtotal.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.mediumGreen,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                      'Checkout initiated for ${zone.name} - ₱${subtotal.toStringAsFixed(2)}'),
-                  backgroundColor: AppColors.mediumGreen,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Proceed'),
-          ),
-        ],
       ),
     );
   }
 }
 
-// Data Models
+// =============================================================================
+// Data Models for CartScreenV2
+// =============================================================================
+
 class ZoneData {
   final String id;
   final String name;
@@ -812,6 +1068,7 @@ class ZoneData {
 class ShopData {
   final String id;
   final String name;
+  final String? address;
   final List<ItemData> items;
   bool isSelected;
   bool isIndeterminate;
@@ -819,6 +1076,7 @@ class ShopData {
   ShopData({
     required this.id,
     required this.name,
+    this.address,
     required this.items,
     this.isSelected = false,
     this.isIndeterminate = false,
@@ -827,16 +1085,29 @@ class ShopData {
 
 class ItemData {
   final String id;
+  final String itemId;
   final String name;
   final double price;
-  int quantity; // Made non-final to allow quantity updates
+  final double priceSnapshot;
+  final int stock;
+  int quantity;
   bool isSelected;
 
   ItemData({
     required this.id,
+    required this.itemId,
     required this.name,
     required this.price,
+    required this.priceSnapshot,
+    required this.stock,
     required this.quantity,
     this.isSelected = false,
   });
+
+  double get effectivePrice =>
+      priceSnapshot != price ? price : priceSnapshot;
+
+  bool get isQuantityValid => quantity <= stock && stock > 0;
+
+  bool get isOutOfStock => stock <= 0;
 }
