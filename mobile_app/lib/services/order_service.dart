@@ -77,6 +77,7 @@ class OrderService extends ApiService {
           'success': true,
           'message': responseData['message'] ?? 'Order created successfully',
           'data': responseData['data'] ?? responseData,
+          'checkout_url': responseData['checkout_url'],
         };
       } else {
         String errorMessage = 'Failed to create order';

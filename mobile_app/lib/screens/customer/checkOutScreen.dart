@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
@@ -271,14 +272,25 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       SnackbarHelper.hide(context);
 
       if (result['success'] == true) {
-        // Show success message
-        SnackbarHelper.showSuccess(
-          context,
-          result['message'] ?? 'Order placed successfully!',
-          duration: Duration(seconds: 3),
-        );
+        final checkoutUrl = result['checkout_url'];
 
-        // Navigate to customer dashboard after a short delay
+        if (checkoutUrl != null && checkoutUrl.toString().isNotEmpty) {
+          final uri = Uri.parse(checkoutUrl.toString());
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else if (mounted) {
+            SnackbarHelper.showError(context, 'Could not open checkout page');
+          }
+        }
+
+        if (mounted) {
+          SnackbarHelper.showSuccess(
+            context,
+            result['message'] ?? 'Order placed successfully!',
+            duration: Duration(seconds: 3),
+          );
+        }
+
         await Future.delayed(Duration(seconds: 1));
 
         if (mounted) {
@@ -433,8 +445,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             return [
               _buildShopHeader(shopName),
               ...items.asMap().entries.map((entry) {
-                final isLastItemInGroup =
-                    entry.key == items.length - 1;
+                final isLastItemInGroup = entry.key == items.length - 1;
                 final isLastOverall = isLastGroup && isLastItemInGroup;
                 return _buildOrderItem(entry.value, isLastOverall);
               }),

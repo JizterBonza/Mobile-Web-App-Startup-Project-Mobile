@@ -39,15 +39,14 @@ class PaymentService extends ApiService {
       if (response.statusCode == 200) {
         // Handle both direct array response and wrapped response
         List<dynamic> paymentMethods = [];
-        
+
         if (responseData is List) {
           paymentMethods = responseData;
         } else if (responseData is Map && responseData['success'] == true) {
           paymentMethods = responseData['data'] ?? [];
         } else if (responseData is Map && responseData['data'] != null) {
-          paymentMethods = responseData['data'] is List 
-              ? responseData['data'] 
-              : [];
+          paymentMethods =
+              responseData['data'] is List ? responseData['data'] : [];
         }
 
         return {
@@ -76,6 +75,3 @@ class PaymentService extends ApiService {
     }
   }
 }
-
-
-
