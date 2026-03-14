@@ -479,22 +479,13 @@ class ApiService {
     }
   }
 
-  /// Clear the stored authentication token, user type, and user ID
+  /// Clear all user data from SharedPreferences
   static Future<void> clearToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_userTypeKey);
-      await prefs.remove(_userIdKey);
-      await prefs.remove(_userNameKey);
-      await prefs.remove(_userEmailKey);
-      await prefs.remove(_userMobileNumberKey);
-      await prefs.remove(_userAddressKey);
-      await prefs.remove(_firstNameKey);
-      await prefs.remove(_middleNameKey);
-      await prefs.remove(_lastNameKey);
+      await prefs.clear();
     } catch (e) {
-      print('Error clearing token from SharedPreferences: $e');
+      print('Error clearing SharedPreferences: $e');
     }
   }
 
@@ -567,30 +558,23 @@ class ApiService {
     }
   }
 
-  /// Clear all cached data
+  /// Clear all Hive cached data
   static Future<void> _clearAllCache() async {
     try {
-      // Clear delivery_photos box (untyped)
       try {
         if (Hive.isBoxOpen('delivery_photos')) {
-          final box = Hive.box('delivery_photos');
-          await box.clear();
-          print('Cleared Hive box: delivery_photos');
+          await Hive.box('delivery_photos').clear();
         }
       } catch (e) {
         print('Error clearing Hive box delivery_photos: $e');
       }
 
-      // Clear order_statuses box using the service to handle typed box properly
       try {
         final orderStatusService = OrderStatusService();
         await orderStatusService.clearOrderStatuses();
-        print('Cleared Hive box: order_statuses');
       } catch (e) {
         print('Error clearing Hive box order_statuses: $e');
       }
-
-      print('All Hive boxes cleared successfully');
     } catch (e) {
       print('Error clearing cache: $e');
     }

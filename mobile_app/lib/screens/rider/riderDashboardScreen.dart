@@ -616,17 +616,22 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       builder: (context) => UpdateStatusDialog(
         order: order,
         onStatusSelected: (status) {
-          _updateOrderStatus(orderId, status);
+          _updateOrderStatus(order, status);
         },
       ),
     );
   }
 
-  Future<void> _updateOrderStatus(String orderId, String status) async {
+  Future<void> _updateOrderStatus(
+      Map<String, dynamic> order, String status) async {
+    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
+    if (orderId == null || orderId.isEmpty) return;
+    final shopId = order['shop_id']?.toString();
     try {
       final result = await _orderService.updateOrderStatus(
         orderId: orderId,
         status: status,
+        shopId: shopId,
       );
 
       if (result['success'] == true) {

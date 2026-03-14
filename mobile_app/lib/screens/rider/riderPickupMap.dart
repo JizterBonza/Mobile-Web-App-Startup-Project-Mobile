@@ -199,9 +199,12 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
     }
   }
 
-  /// Get shop data from order items
+  /// Get shop data — prefers top-level 'shop', falls back to order_items
   Map<String, dynamic>? _getShopData(Map<String, dynamic> order) {
     try {
+      if (order['shop'] is Map<String, dynamic>) {
+        return order['shop'] as Map<String, dynamic>;
+      }
       final orderItems = order['order_items'] as List<dynamic>?;
       if (orderItems != null && orderItems.isNotEmpty) {
         final firstItem = orderItems[0] as Map<String, dynamic>;
@@ -1832,9 +1835,11 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         return;
       }
 
+      final shopId = order['shop_id']?.toString();
       final result = await _orderService.updateOrderStatus(
         orderId: orderId,
         status: inTransitStatusId.toString(),
+        shopId: shopId,
       );
 
       // Close loading dialog

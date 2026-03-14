@@ -208,11 +208,13 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     };
   }
 
-  Future<void> _updateOrderStatus(String orderId, String status) async {
+  Future<void> _updateOrderStatus(
+      String orderId, String status, String? shopId) async {
     try {
       final result = await _orderService.updateOrderStatus(
         orderId: orderId,
         status: status,
+        shopId: shopId,
       );
 
       if (result['success'] == true) {
@@ -323,7 +325,8 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       return;
     }
 
-    _updateOrderStatus(orderId, inTransitStatusId.toString());
+    final shopId = order['shop_id']?.toString();
+    _updateOrderStatus(orderId, inTransitStatusId.toString(), shopId);
   }
 
   Future<void> _handleDelivered(Map<String, dynamic> order) async {
