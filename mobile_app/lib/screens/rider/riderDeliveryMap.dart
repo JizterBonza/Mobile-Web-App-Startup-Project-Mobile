@@ -8,6 +8,7 @@ import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
 import '../../provider/provider.dart';
 import '../../services/directions_service.dart';
+import '../../services/payment_service.dart';
 import 'delivery_photo_preview_screen.dart';
 
 class RiderDeliveryMapScreen extends StatefulWidget {
@@ -43,12 +44,20 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   bool _isLoadingRoute = false;
   bool _showRoute = false;
 
+  Map<String, String> _paymentMethodNames = {};
+
   @override
   void initState() {
     super.initState();
     _initializeOrderStatusProvider();
     _loadOrders();
+    _loadPaymentMethodNames();
     _initLocationTracking();
+  }
+
+  Future<void> _loadPaymentMethodNames() async {
+    final names = await PaymentService.getPaymentMethodNames();
+    if (mounted) setState(() => _paymentMethodNames = names);
   }
 
   Future<void> _initializeOrderStatusProvider() async {
@@ -221,9 +230,14 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     return null;
   }
 
-  /// Get shop name from order items
+  /// Get shop name — prefers top-level 'shop', falls back to order_items
   String _getShopName(Map<String, dynamic> order) {
     try {
+      if (order['shop'] is Map<String, dynamic>) {
+        return (order['shop'] as Map<String, dynamic>)['shop_name']
+                ?.toString() ??
+            'Unknown Shop';
+      }
       final orderItems = order['order_items'] as List<dynamic>?;
       if (orderItems != null && orderItems.isNotEmpty) {
         final firstItem = orderItems[0] as Map<String, dynamic>;
@@ -298,16 +312,15 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     return null;
   }
 
-  /// Get payment method
+  /// Get payment method display name (resolves ID to name like checkout)
   String _getPaymentMethod(Map<String, dynamic> order) {
     try {
       final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final paymentMethod = orderDetail?['payment_method']?.toString() ?? '';
-      if (paymentMethod.isNotEmpty) {
-        return paymentMethod;
-      }
-      // Fallback to check flattened field
-      return order['payment_method']?.toString() ?? '';
+      final id = orderDetail?['payment_method']?.toString() ??
+          order['payment_method']?.toString() ??
+          '';
+      if (id.isEmpty) return '';
+      return _paymentMethodNames[id] ?? id;
     } catch (e) {
       print('Error getting payment method: $e');
     }

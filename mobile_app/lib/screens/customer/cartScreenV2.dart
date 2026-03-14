@@ -93,8 +93,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
 
       final priceSnapshot =
           double.tryParse(cartItem['price_snapshot'].toString()) ?? 0.0;
-      final itemPrice =
-          double.tryParse(item['item_price'].toString()) ?? 0.0;
+      final itemPrice = double.tryParse(item['item_price'].toString()) ?? 0.0;
       final stock = int.tryParse(item['item_quantity'].toString()) ?? 0;
       final quantity = cartItem['quantity'] is int
           ? cartItem['quantity'] as int
@@ -187,8 +186,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
       return;
     }
     final allSelected = shopsWithValidItems.every((s) => s.isSelected);
-    final someSelected = shopsWithValidItems
-        .any((s) => s.isSelected || s.isIndeterminate);
+    final someSelected =
+        shopsWithValidItems.any((s) => s.isSelected || s.isIndeterminate);
     zone.isSelected = allSelected;
     zone.isIndeterminate = someSelected && !allSelected;
   }
@@ -253,8 +252,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     });
   }
 
-  Future<void> _removeItem(
-      String zoneId, String shopId, String itemId) async {
+  Future<void> _removeItem(String zoneId, String shopId, String itemId) async {
     SnackbarHelper.showLoading(context, 'Removing item...');
 
     try {
@@ -304,8 +302,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Cart'),
-        content: Text(
-            'Are you sure you want to remove all $totalItems item(s)?'),
+        content:
+            Text('Are you sure you want to remove all $totalItems item(s)?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -316,8 +314,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red[700],
             ),
-            child: const Text('Clear All',
-                style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Clear All', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -360,8 +358,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     } catch (e) {
       if (!mounted) return;
       SnackbarHelper.hide(context);
-      SnackbarHelper.showError(
-          context, 'Error clearing cart: ${e.toString()}');
+      SnackbarHelper.showError(context, 'Error clearing cart: ${e.toString()}');
     }
   }
 
@@ -407,8 +404,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            CheckOutScreen(selectedCartItems: selectedItems),
+        builder: (context) => CheckOutScreen(selectedCartItems: selectedItems),
       ),
     );
   }
@@ -420,19 +416,16 @@ class _CartScreenV2State extends State<CartScreenV2> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text(
           'Shopping Cart',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.grey,
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.grey),
         actions: [
           if (!_isLoading && _zones.isNotEmpty)
             TextButton(
@@ -505,8 +498,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
             onPressed: _loadCartItems,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.mediumGreen,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -568,8 +560,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.mediumGreen,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -683,9 +674,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: selectedCount > 0
-                    ? () => _handleZoneCheckout(zone)
-                    : null,
+                onPressed:
+                    selectedCount > 0 ? () => _handleZoneCheckout(zone) : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.mediumGreen,
                   foregroundColor: Colors.white,
@@ -833,9 +823,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
             child: _buildCheckbox(
               value: isValid && item.isSelected,
               isIndeterminate: false,
-              onChanged: isValid
-                  ? () => _toggleItem(zoneId, shopId, item.id)
-                  : null,
+              onChanged:
+                  isValid ? () => _toggleItem(zoneId, shopId, item.id) : null,
               enabled: isValid,
             ),
           ),
@@ -940,18 +929,16 @@ class _CartScreenV2State extends State<CartScreenV2> {
                             icon: const Icon(Icons.remove, size: 18),
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
-                            onPressed: item.quantity <= 1 ||
-                                    item.isOutOfStock
+                            onPressed: item.quantity <= 1 || item.isOutOfStock
                                 ? null
-                                : () => _updateQuantity(zoneId, shopId,
-                                    item.id, item.quantity - 1),
+                                : () => _updateQuantity(
+                                    zoneId, shopId, item.id, item.quantity - 1),
                             color: item.quantity <= 1
                                 ? Colors.grey[400]
                                 : Colors.grey[700],
                           ),
                           Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
                               '${item.quantity}',
                               style: const TextStyle(
@@ -968,8 +955,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
                             onPressed: item.quantity >= item.stock ||
                                     item.isOutOfStock
                                 ? null
-                                : () => _updateQuantity(zoneId, shopId,
-                                    item.id, item.quantity + 1),
+                                : () => _updateQuantity(
+                                    zoneId, shopId, item.id, item.quantity + 1),
                             color: item.quantity >= item.stock
                                 ? Colors.grey[400]
                                 : AppColors.mediumGreen,
@@ -1104,8 +1091,7 @@ class ItemData {
     this.isSelected = false,
   });
 
-  double get effectivePrice =>
-      priceSnapshot != price ? price : priceSnapshot;
+  double get effectivePrice => priceSnapshot != price ? price : priceSnapshot;
 
   bool get isQuantityValid => quantity <= stock && stock > 0;
 

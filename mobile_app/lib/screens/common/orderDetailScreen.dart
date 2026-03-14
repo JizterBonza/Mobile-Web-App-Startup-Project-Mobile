@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_service.dart';
 import '../../provider/order_status_provider.dart';
 import '../../widgets/order/order_header_widget.dart';
 import '../../widgets/order/order_timeline_widget.dart';
 import '../../widgets/order/order_items_widget.dart';
 import '../../widgets/order/delivery_details_widget.dart';
 import '../../widgets/order/payment_summary_widget.dart';
+import '../customer/paymentWebViewScreen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -21,6 +23,146 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   final OrderService _orderService = OrderService();
   bool _isCancelling = false;
+  bool _isInitiatingPayment = false;
+  Map<String, String> _paymentMethodNames = {};
+
+  Future<void> _loadPaymentMethodNames() async {
+    final names = await PaymentService.getPaymentMethodNames();
+    if (mounted) setState(() => _paymentMethodNames = names);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPaymentMethodNames();
+  }
+
+  String _getPaymentMethodDisplayName(String? paymentMethodId) {
+    if (paymentMethodId == null || paymentMethodId.isEmpty) return 'N/A';
+    return _paymentMethodNames[paymentMethodId] ?? paymentMethodId;
+  }
+
+  Future<void> _payNow(String orderId) async {
+    setState(() => _isInitiatingPayment = true);
+
+    try {
+      final paymentService = PaymentService();
+      final result = await paymentService.initiateCheckout(orderId: orderId);
+
+      if (!mounted) return;
+
+      if (result['success'] == true &&
+          result['checkout_url'] != null &&
+          result['checkout_url'].toString().isNotEmpty) {
+        final paymentResult = await Navigator.push<PaymentResult>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentWebViewScreen(
+              checkoutUrl: result['checkout_url'].toString(),
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+
+        switch (paymentResult) {
+          case PaymentResult.success:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Payment completed successfully!'),
+                  ],
+                ),
+                backgroundColor: AppColors.mediumGreen,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+            Navigator.pop(context, true);
+            break;
+          case PaymentResult.failed:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Payment failed. Please try again.'),
+                  ],
+                ),
+                backgroundColor: Colors.red[600],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+            break;
+          case PaymentResult.cancelled:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Payment cancelled.'),
+                  ],
+                ),
+                backgroundColor: Colors.orange[700],
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+            break;
+          case null:
+            break;
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                      result['message'] ?? 'Could not initiate payment'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red[600],
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('An error occurred'),
+              ],
+            ),
+            backgroundColor: Colors.red[600],
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isInitiatingPayment = false);
+    }
+  }
 
   Future<void> _cancelOrder(String orderId) async {
     final confirmed = await showDialog<bool>(
@@ -152,10 +294,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             widget.order['order_id']?.toString() ??
             '';
         final canCancel = orderStatus.toLowerCase() == 'pending';
+        final paymentStatus =
+            widget.order['payment_status']?.toString().toLowerCase() ?? 'pending';
+        final canPay =
+            canCancel && paymentStatus != 'paid';
         final orderItems = widget.order['order_items'] as List? ?? [];
         final shippingAddress =
             widget.order['shipping_address']?.toString() ?? 'No address';
         final orderInstruction = widget.order['order_instruction']?.toString();
+        final showBottomBar = canCancel || canPay;
 
         return Scaffold(
           backgroundColor: Colors.grey[50],
@@ -195,22 +342,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   subtotal: widget.order['subtotal'],
                   shippingFee: widget.order['shipping_fee'],
                   totalAmount: widget.order['total_amount'],
-                  paymentMethod:
-                      widget.order['payment_method']?.toString() ?? 'N/A',
-                  paymentStatus:
-                      widget.order['payment_status']?.toString() ?? 'pending',
+                  paymentMethod: _getPaymentMethodDisplayName(
+                      widget.order['payment_method']?.toString()),
+                  paymentStatus: paymentStatus,
                 ),
                 SizedBox(height: 24),
               ],
             ),
           ),
-          bottomNavigationBar: canCancel ? _buildBottomBar(orderId) : null,
+          bottomNavigationBar:
+              showBottomBar ? _buildBottomBar(orderId, canPay) : null,
         );
       },
     );
   }
 
-  Widget _buildBottomBar(String orderId) {
+  Widget _buildBottomBar(String orderId, bool canPay) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -260,36 +407,71 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
             SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Contact support coming soon!'),
-                      backgroundColor: AppColors.mediumGreen,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+              child: canPay
+                  ? ElevatedButton.icon(
+                      onPressed: _isInitiatingPayment
+                          ? null
+                          : () => _payNow(orderId),
+                      icon: _isInitiatingPayment
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(Icons.payment, size: 20),
+                      label: Text(
+                        'Pay Now',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.mediumGreen,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.mediumGreen.withOpacity(0.6),
+                        disabledForegroundColor: Colors.white70,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                    )
+                  : ElevatedButton(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Contact support coming soon!'),
+                            backgroundColor: AppColors.mediumGreen,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.mediumGreen,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Contact Support',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.mediumGreen,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Contact Support',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             ),
           ],
         ),

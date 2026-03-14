@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
@@ -8,6 +7,7 @@ import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
 import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
+import 'paymentWebViewScreen.dart';
 import '../common/editAddressScreen.dart';
 
 class CheckOutScreen extends StatefulWidget {
@@ -275,20 +275,55 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         final checkoutUrl = result['checkout_url'];
 
         if (checkoutUrl != null && checkoutUrl.toString().isNotEmpty) {
-          final uri = Uri.parse(checkoutUrl.toString());
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else if (mounted) {
-            SnackbarHelper.showError(context, 'Could not open checkout page');
-          }
-        }
+          if (!mounted) return;
 
-        if (mounted) {
-          SnackbarHelper.showSuccess(
+          final paymentResult = await Navigator.push<PaymentResult>(
             context,
-            result['message'] ?? 'Order placed successfully!',
-            duration: Duration(seconds: 3),
+            MaterialPageRoute(
+              builder: (context) => PaymentWebViewScreen(
+                checkoutUrl: checkoutUrl.toString(),
+              ),
+            ),
           );
+
+          if (!mounted) return;
+
+          switch (paymentResult) {
+            case PaymentResult.success:
+              SnackbarHelper.showSuccess(
+                context,
+                'Payment completed successfully!',
+                duration: Duration(seconds: 3),
+              );
+              break;
+            case PaymentResult.failed:
+              SnackbarHelper.showError(
+                context,
+                'Payment failed. Please try again.',
+              );
+              setState(() => _isLoading = false);
+              return;
+            case PaymentResult.cancelled:
+              SnackbarHelper.showWarning(
+                context,
+                'Payment was cancelled. Your order is pending payment.',
+              );
+              break;
+            case null:
+              SnackbarHelper.showInfo(
+                context,
+                result['message'] ?? 'Order placed. Please complete payment.',
+              );
+              break;
+          }
+        } else {
+          if (mounted) {
+            SnackbarHelper.showSuccess(
+              context,
+              result['message'] ?? 'Order placed successfully!',
+              duration: Duration(seconds: 3),
+            );
+          }
         }
 
         await Future.delayed(Duration(seconds: 1));

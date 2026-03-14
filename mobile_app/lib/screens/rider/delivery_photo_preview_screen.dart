@@ -382,9 +382,11 @@ class _DeliveryPhotoPreviewScreenState
 
       print('DEBUG: Delivered status ID: $deliveredStatusId');
 
+      final shopId = widget.order['shop_id']?.toString();
       final result = await _orderService.updateOrderStatus(
         orderId: widget.orderId,
         status: deliveredStatusId.toString(),
+        shopId: shopId,
       );
 
       print('DEBUG: Order status update result:');

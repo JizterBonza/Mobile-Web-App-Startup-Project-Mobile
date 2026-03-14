@@ -94,4 +94,6 @@ class ApiEndpoints {
   // Payment endpoints
   static String get getPaymentMethods => '$baseUrl/api/payment-methods/active';
   static String get paymentCheckout => '$baseUrl/api/payment/checkout';
+  static String get paymentCheckoutUrl =>
+      '$baseUrl/api/payment/checkout-url/{orderId}';
 }

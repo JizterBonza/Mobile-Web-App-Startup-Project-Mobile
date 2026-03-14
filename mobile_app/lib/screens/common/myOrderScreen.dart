@@ -4,6 +4,7 @@ import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
 import '../../provider/order_status_provider.dart';
 import '../../services/order_service.dart';
+import '../../services/payment_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/status_utils.dart';
@@ -22,6 +23,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   final OrderService _orderService = OrderService();
   final ShopsService _shopsService = ShopsService();
   bool _isCancelling = false;
+  Map<String, String> _paymentMethodNames = {};
 
   final List<Map<String, dynamic>> _statusTabs = [
     {'label': 'All', 'status': null},
@@ -38,7 +40,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     _tabController = TabController(length: _statusTabs.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadOrders();
+      _loadPaymentMethodNames();
     });
+  }
+
+  Future<void> _loadPaymentMethodNames() async {
+    final names = await PaymentService.getPaymentMethodNames();
+    if (mounted) setState(() => _paymentMethodNames = names);
   }
 
   @override
@@ -669,7 +677,10 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final orderedAt = order['ordered_at']?.toString() ?? '';
         final shippingAddress =
             order['shipping_address']?.toString() ?? 'No address';
-        final paymentMethod = order['payment_method']?.toString() ?? 'N/A';
+        final paymentMethodId = order['payment_method']?.toString();
+        final paymentMethod = paymentMethodId != null && paymentMethodId.isNotEmpty
+            ? (_paymentMethodNames[paymentMethodId] ?? paymentMethodId)
+            : 'N/A';
         final orderId =
             order['id']?.toString() ?? order['order_id']?.toString() ?? '';
         final orderItems = order['order_items'] as List? ?? [];

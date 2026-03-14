@@ -250,10 +250,13 @@ class OrderService extends ApiService {
     }
   }
 
-  /// Update order status
+  /// Update order status.
+  /// Sends PUT /api/orders/{id}/status with body: { status, order_id?, shop_id? }.
+  /// order_id is in the URL; order_id and shop_id are also sent in the body when provided.
   Future<Map<String, dynamic>> updateOrderStatus({
     required String orderId,
     required String status,
+    String? shopId,
   }) async {
     try {
       final token = await ApiService.getToken();
@@ -269,9 +272,13 @@ class OrderService extends ApiService {
         ApiEndpoints.updateOrderStatus.replaceAll('{id}', orderId),
       );
 
-      final body = {
+      final body = <String, dynamic>{
         'status': status,
+        'order_id': orderId,
       };
+      if (shopId != null && shopId.isNotEmpty) {
+        body['shop_id'] = shopId;
+      }
 
       final response = await http
           .put(
@@ -395,7 +402,9 @@ class OrderService extends ApiService {
 
   /// Fetch orders assigned to a specific rider
   /// Uses the getOrdersByRiderId endpoint
-  /// Preserves the original nested API structure for map screens
+  /// The API returns order-shop groups: each entry has an order_shop_id,
+  /// a nested order object (with user/order_detail), a shop object, and items.
+  /// This method flattens the response into the structure the rider screens expect.
   Future<Map<String, dynamic>> fetchOrdersByRiderId({
     String? status,
   }) async {
@@ -437,33 +446,38 @@ class OrderService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       if (responseData['success'] == true && responseData['data'] != null) {
-        // Preserve the original nested structure from API
-        // This includes: order_detail, order_detail.address, user, order_items
-        final orders = (responseData['data'] as List).map((order) {
-          final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-          final user = order['user'] as Map<String, dynamic>?;
-          final address = orderDetail?['address'] as Map<String, dynamic>?;
+        final orders = (responseData['data'] as List).map((entry) {
+          final orderData =
+              entry['order'] as Map<String, dynamic>? ?? {};
+          final orderDetail =
+              orderData['order_detail'] as Map<String, dynamic>?;
+          final user = orderData['user'] as Map<String, dynamic>?;
+          final address =
+              orderDetail?['address'] as Map<String, dynamic>?;
+          final shop = entry['shop'] as Map<String, dynamic>?;
+          final items = entry['items'] as List<dynamic>? ?? [];
 
-          // Return the original structure with some flattened fields for backward compatibility
           return {
-            // Original nested structure preserved
-            'id': order['id'],
-            'user_id': order['user_id'],
-            'order_detail_id': order['order_detail_id'],
-            'order_status': order['order_status']?.toString() ?? 'pending',
-            'rider_id': order['rider_id'],
-            'ordered_at': order['ordered_at']?.toString() ?? '',
-            'updated_at': order['updated_at']?.toString(),
+            'id': entry['order_id'],
+            'order_shop_id': entry['order_shop_id'],
+            'user_id': orderData['user_id'],
+            'order_detail_id': orderData['order_detail_id'],
+            'order_status': entry['order_status']?.toString() ?? 'pending',
+            'rider_id': entry['rider_id'] ?? orderData['rider_id'],
+            'ordered_at': orderData['ordered_at']?.toString() ?? '',
+            'updated_at': orderData['updated_at']?.toString(),
             'user': user,
             'order_detail': orderDetail,
-            'order_items': order['order_items'] ?? [],
-
-            // Flattened fields for backward compatibility with existing code
-            'order_id': order['id'],
+            'order_items': items,
+            'shop': shop,
+            'shop_id': entry['shop_id'],
+            'order_id': entry['order_id'],
             'order_code': orderDetail?['order_code']?.toString() ?? '',
             'subtotal': orderDetail?['subtotal']?.toString() ?? '0.00',
-            'shipping_fee': orderDetail?['shipping_fee']?.toString() ?? '0.00',
-            'total_amount': orderDetail?['total_amount']?.toString() ?? '0.00',
+            'shipping_fee':
+                orderDetail?['shipping_fee']?.toString() ?? '0.00',
+            'total_amount':
+                orderDetail?['total_amount']?.toString() ?? '0.00',
             'shipping_address':
                 orderDetail?['shipping_address']?.toString() ?? '',
             'address_id': orderDetail?['address_id'],
@@ -471,11 +485,14 @@ class OrderService extends ApiService {
                 address?['latitude'] ?? orderDetail?['drop_location_lat'],
             'drop_location_long':
                 address?['longitude'] ?? orderDetail?['drop_location_long'],
-            'recipient_name': address?['recipient_name']?.toString() ?? '',
-            'recipient_contact': address?['contact_number']?.toString() ?? '',
+            'recipient_name':
+                address?['recipient_name']?.toString() ?? '',
+            'recipient_contact':
+                address?['contact_number']?.toString() ?? '',
             'order_instruction': orderDetail?['order_instruction'],
             'delivery_method_id': orderDetail?['delivery_method_id'],
-            'payment_method': orderDetail?['payment_method']?.toString() ?? '',
+            'payment_method':
+                orderDetail?['payment_method']?.toString() ?? '',
             'payment_status':
                 orderDetail?['payment_status']?.toString() ?? 'pending',
             'order_detail_created_at': orderDetail?['created_at'],

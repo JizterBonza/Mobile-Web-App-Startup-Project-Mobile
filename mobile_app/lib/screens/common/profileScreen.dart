@@ -3,6 +3,12 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
+import '../../provider/category_provider.dart';
+import '../../provider/items_provider.dart';
+import '../../provider/notification_provider.dart';
+import '../../provider/order_status_provider.dart';
+import '../../provider/orders_provider.dart';
+import '../../provider/shops_provider.dart';
 import '../../services/api_service.dart';
 import 'loginScreen.dart';
 import '../customer/customerDashboardScreen.dart';
@@ -534,6 +540,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 // Handle result
                 if (logoutResult['success'] == true) {
+                  // Clear all provider caches
+                  if (context.mounted) {
+                    context.read<AddressProvider>().clearCache();
+                    context.read<CategoryProvider>().clearCache();
+                    context.read<ItemsProvider>().clearCache();
+                    context.read<NotificationProvider>().clearCache();
+                    context.read<OrderStatusProvider>().clearCache();
+                    context.read<OrdersProvider>().clearCache();
+                    context.read<ShopsProvider>().clearCache();
+                  }
+
                   // Show success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
