@@ -164,8 +164,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
   List<Map<String, dynamic>> _getActiveDeliveries(
       OrderStatusProvider orderStatusProvider) {
-    // Active deliveries exclude delivered orders
-    return _allOrders.where((order) {
+    final filtered = _allOrders.where((order) {
       final orderStatusId = order['order_status'];
       int? statusId;
       if (orderStatusId is int) {
@@ -182,7 +181,15 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
               .getOrderStatusDescription(statusId)
               ?.toLowerCase() ??
           '';
-      return statusDesc != 'delivered';
+      return statusDesc != 'delivered' && statusDesc != 'cancelled';
+    }).toList();
+
+    final seenOrderIds = <String>{};
+    return filtered.where((order) {
+      final orderId = order['order_id']?.toString();
+      if (orderId == null || seenOrderIds.contains(orderId)) return false;
+      seenOrderIds.add(orderId);
+      return true;
     }).toList();
   }
 
@@ -233,13 +240,21 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Map<String, dynamic> _getStats(OrderStatusProvider orderStatusProvider) {
-    final totalDeliveries = _allOrders.length;
+    final totalDeliveries = _allOrders
+        .map((o) => o['order_id']?.toString())
+        .where((id) => id != null)
+        .toSet()
+        .length;
     final pendingDeliveries = _getPendingDeliveries(orderStatusProvider);
     final completedDeliveries = _getCompletedDeliveries(orderStatusProvider);
     final activeDeliveries = _getActiveDeliveries(orderStatusProvider);
 
     final pendingCount = pendingDeliveries.length;
-    final completedCount = completedDeliveries.length;
+    final completedCount = completedDeliveries
+        .map((o) => o['order_id']?.toString())
+        .where((id) => id != null)
+        .toSet()
+        .length;
     final activeCount = activeDeliveries.length;
 
     // Calculate total earnings from completed deliveries
@@ -371,6 +386,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     }
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
   Widget _buildHomeView() {
     return Consumer<OrderStatusProvider>(
       builder: (context, orderStatusProvider, child) {
@@ -387,19 +409,12 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                _buildHeader(),
+                _buildHeader(activeDeliveries.length),
                 SizedBox(height: 24),
-
-                // Statistics cards
                 _buildStatisticsCards(stats, orderStatusProvider),
                 SizedBox(height: 24),
-
-                // Quick actions
                 _buildQuickActions(),
                 SizedBox(height: 24),
-
-                // Active deliveries
                 _buildActiveDeliveriesSection(
                     activeDeliveries, orderStatusProvider),
                 SizedBox(height: 24),
@@ -411,14 +426,18 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(int activeCount) {
     return DashboardHeader(
-      greeting: 'Good Morning!',
-      title: 'Welcome, $_userName!',
+      greeting: _getGreeting(),
+      title: _userName ?? 'Rider',
       subtitle: 'Manage your deliveries',
       icon: Icons.delivery_dining,
+      userName: _userName,
+      activeCount: activeCount,
       onIconTap: () {
-        // Could navigate to profile or settings
+        setState(() {
+          _selectedIndex = 3;
+        });
       },
     );
   }
@@ -452,6 +471,17 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
           context,
           _createFadeRoute(const RiderDeliveryMapScreen()),
         );
+      },
+      onAllDeliveries: () {
+        _navigateToDeliveries();
+      },
+      onEarnings: () {
+        Navigator.push(
+          context,
+          _createFadeRoute(const RiderEarningsScreen()),
+        ).then((_) {
+          _loadOrders(useCache: false);
+        });
       },
     );
   }

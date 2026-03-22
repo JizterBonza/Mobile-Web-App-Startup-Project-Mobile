@@ -25,6 +25,10 @@ class ActiveDeliveriesSection extends StatelessWidget {
     required this.convertOrderToCardFormat,
   });
 
+  Color _getStatusAccentColor(String status) {
+    return OrderStatusColors.getColor(status);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -36,27 +40,33 @@ class ActiveDeliveriesSection extends StatelessWidget {
             Text(
               'Active Deliveries',
               style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
                 color: Colors.grey[900],
               ),
             ),
             Row(
               children: [
                 if (error != null)
-                  IconButton(
-                    icon: Icon(Icons.refresh,
-                        size: 20, color: AppColors.mediumGreen),
-                    onPressed: onRetry,
-                    tooltip: 'Retry',
+                  GestureDetector(
+                    onTap: onRetry,
+                    child: Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.refresh,
+                          size: 18, color: AppColors.mediumGreen),
+                    ),
                   ),
-                TextButton(
-                  onPressed: onViewAll,
-                  child: Text(
-                    'View All',
-                    style: TextStyle(
-                      color: AppColors.mediumGreen,
-                      fontWeight: FontWeight.w600,
+                GestureDetector(
+                  onTap: onViewAll,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'View All',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.mediumGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -64,43 +74,46 @@ class ActiveDeliveriesSection extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
         if (isLoading)
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.mediumGreen,
+                ),
               ),
             ),
           )
         else if (deliveries.isEmpty)
           Container(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.symmetric(vertical: 32),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Column(
                 children: [
                   Icon(
                     Icons.inbox_outlined,
-                    size: 48,
-                    color: Colors.grey[400],
+                    size: 40,
+                    color: Colors.grey[300],
                   ),
                   SizedBox(height: 8),
                   Text(
                     'No active deliveries',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                      fontSize: 13,
+                      color: Colors.grey[500],
                     ),
                   ),
                 ],
@@ -108,27 +121,47 @@ class ActiveDeliveriesSection extends StatelessWidget {
             ),
           )
         else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: Column(
-              children: deliveries.asMap().entries.map((entry) {
-                final index = entry.key;
-                final order = entry.value;
-                final cardData = convertOrderToCardFormat(order);
-                final isLast = index == deliveries.length - 1;
+          Column(
+            children: deliveries.asMap().entries.map((entry) {
+              final index = entry.key;
+              final order = entry.value;
+              final cardData = convertOrderToCardFormat(order);
+              final isLast = index == deliveries.length - 1;
+              final statusColor =
+                  _getStatusAccentColor(cardData['status'] ?? '');
 
-                return OrderItemCard(
-                  order: cardData,
-                  isLast: isLast,
-                  onUpdateStatus: () => onUpdateStatus(order),
-                  onViewDetails: () => onViewDetails(order),
-                );
-              }).toList(),
-            ),
+              return Container(
+                margin: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(14),
+                            bottomLeft: Radius.circular(14),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: OrderItemCard(
+                          order: cardData,
+                          isLast: true,
+                          onUpdateStatus: () => onUpdateStatus(order),
+                          onViewDetails: () => onViewDetails(order),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
       ],
     );

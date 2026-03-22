@@ -129,8 +129,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Icon(Icons.error_outline, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                      result['message'] ?? 'Could not initiate payment'),
+                  child:
+                      Text(result['message'] ?? 'Could not initiate payment'),
                 ),
               ],
             ),
@@ -295,9 +295,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             '';
         final canCancel = orderStatus.toLowerCase() == 'pending';
         final paymentStatus =
-            widget.order['payment_status']?.toString().toLowerCase() ?? 'pending';
-        final canPay =
-            canCancel && paymentStatus != 'paid';
+            widget.order['payment_status']?.toString().toLowerCase() ??
+                'pending';
+        final canPay = canCancel && paymentStatus != 'paid';
         final orderItems = widget.order['order_items'] as List? ?? [];
         final shippingAddress =
             widget.order['shipping_address']?.toString() ?? 'No address';
@@ -409,9 +409,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Expanded(
               child: canPay
                   ? ElevatedButton.icon(
-                      onPressed: _isInitiatingPayment
-                          ? null
-                          : () => _payNow(orderId),
+                      onPressed:
+                          _isInitiatingPayment ? null : () => _payNow(orderId),
                       icon: _isInitiatingPayment
                           ? SizedBox(
                               width: 18,

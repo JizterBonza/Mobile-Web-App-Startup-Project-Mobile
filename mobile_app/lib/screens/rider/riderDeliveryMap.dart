@@ -169,11 +169,11 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       await orderStatusProvider.initialize();
 
       // Get status ID for in-transit
-      final inTransitStatusId = orderStatusProvider
-              .getOrderStatusIdByDescription('in-transit') ??
-          orderStatusProvider.getOrderStatusIdByDescription('in transit');
+      final inTransitStatusId =
+          orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
+              orderStatusProvider.getOrderStatusIdByDescription('in transit');
 
-      _deliveryOrders = allOrders.where((order) {
+      final filtered = allOrders.where((order) {
         final orderStatusId = order['order_status'];
         int? statusId;
         if (orderStatusId is int) {
@@ -186,6 +186,14 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         return statusId != null &&
             inTransitStatusId != null &&
             statusId == inTransitStatusId;
+      }).toList();
+
+      final seenOrderIds = <String>{};
+      _deliveryOrders = filtered.where((order) {
+        final orderId = order['order_id']?.toString();
+        if (orderId == null || seenOrderIds.contains(orderId)) return false;
+        seenOrderIds.add(orderId);
+        return true;
       }).toList();
 
       _createMarkers();
@@ -369,7 +377,8 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     }
 
     if (statusId != null) {
-      final statusDesc = orderStatusProvider.getOrderStatusDescription(statusId);
+      final statusDesc =
+          orderStatusProvider.getOrderStatusDescription(statusId);
       if (statusDesc != null) {
         return statusDesc;
       }
@@ -399,9 +408,9 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     // Filter only in-transit orders for routing
     final orderStatusProvider =
         Provider.of<OrderStatusProvider>(context, listen: false);
-    final inTransitStatusId = orderStatusProvider
-            .getOrderStatusIdByDescription('in-transit') ??
-        orderStatusProvider.getOrderStatusIdByDescription('in transit');
+    final inTransitStatusId =
+        orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
+            orderStatusProvider.getOrderStatusIdByDescription('in transit');
 
     final inTransitOrders = _deliveryOrders.where((order) {
       final orderStatusId = order['order_status'];
@@ -748,30 +757,20 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         title: Text(
           'Delivery Map',
           style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
             color: Colors.grey[900],
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[700]),
         actions: [
-          IconButton(
-            onPressed: _toggleRoute,
-            icon: Icon(Icons.upload),
-            tooltip: 'Upload Deliveries',
-          ),
-          IconButton(
-            onPressed: _loadOrders,
-            icon: Icon(Icons.refresh),
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            onPressed: _fitAllMarkers,
-            icon: Icon(Icons.zoom_out_map),
-            tooltip: 'Fit All Locations',
-          ),
+          // _buildAppBarAction(Icons.upload, 'Upload', _toggleRoute),
+          _buildAppBarAction(Icons.refresh, 'Refresh', _loadOrders),
+          _buildAppBarAction(Icons.zoom_out_map, 'Fit All', _fitAllMarkers),
+          SizedBox(width: 8),
         ],
       ),
       body: _isLoading
@@ -819,15 +818,8 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Wrap(
                       spacing: 12,
@@ -842,52 +834,44 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   ),
                 ),
 
-                // Route info banner (when route is displayed)
+                // Route info banner
                 if (_showRoute && _currentRoute != null)
                   Positioned(
-                    top: 60,
+                    top: 56,
                     left: 16,
                     right: 80,
                     child: Container(
                       padding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
+                        color: Colors.white.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
                           Container(
-                            padding: EdgeInsets.all(8),
+                            padding: EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.statusInTransit.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
+                              color: AppColors.statusInTransit.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               Icons.route,
                               color: AppColors.statusInTransit,
-                              size: 20,
+                              size: 18,
                             ),
                           ),
-                          SizedBox(width: 12),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Optimized Delivery Route',
+                                  'Delivery Route',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
                                     color: Colors.grey[800],
                                   ),
                                 ),
@@ -896,7 +880,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                                   '${_currentRoute!.totalDistance} • ${_currentRoute!.totalDuration}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600],
+                                    color: Colors.grey[500],
                                   ),
                                 ),
                                 if (_currentRoute!.legs.isNotEmpty)
@@ -905,18 +889,19 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.statusInTransit,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                               ],
                             ),
                           ),
-                          IconButton(
-                            onPressed: _clearRoute,
-                            icon: Icon(Icons.close, size: 18),
-                            color: Colors.grey[500],
-                            padding: EdgeInsets.zero,
-                            constraints: BoxConstraints(),
+                          GestureDetector(
+                            onTap: _clearRoute,
+                            child: Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.close,
+                                  size: 16, color: Colors.grey[400]),
+                            ),
                           ),
                         ],
                       ),
@@ -926,28 +911,26 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                 // Error banner
                 if (_error != null)
                   Positioned(
-                    top: 60,
+                    top: 56,
                     left: 16,
                     right: 16,
                     child: Container(
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[300]!),
+                        color: Colors.orange.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber,
-                              color: Colors.orange[700], size: 20),
+                          Icon(Icons.warning_amber_rounded,
+                              color: Colors.orange[700], size: 18),
                           SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Using cached data',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange[700],
-                              ),
+                          Text(
+                            'Using cached data',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.orange[700],
                             ),
                           ),
                         ],
@@ -959,36 +942,53 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                 Positioned(
                   right: 16,
                   bottom: 320,
-                  child: Column(
-                    children: [
-                      // Route toggle button
-                      _buildRouteButton(),
-                      SizedBox(height: 8),
-                      _buildZoomButton(Icons.add, () {
-                        _mapController?.animateCamera(CameraUpdate.zoomIn());
-                      }),
-                      SizedBox(height: 8),
-                      _buildZoomButton(Icons.remove, () {
-                        _mapController?.animateCamera(CameraUpdate.zoomOut());
-                      }),
-                      SizedBox(height: 8),
-                      _buildZoomButton(Icons.my_location, () {
-                        // Center on rider's current location or default
-                        if (_currentPosition != null) {
-                          _mapController?.animateCamera(
-                            CameraUpdate.newLatLngZoom(
-                              LatLng(_currentPosition!.latitude,
-                                  _currentPosition!.longitude),
-                              16,
-                            ),
-                          );
-                        } else {
-                          _mapController?.animateCamera(
-                            CameraUpdate.newLatLngZoom(_defaultCenter, 14),
-                          );
-                        }
-                      }),
-                    ],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildRouteButton(),
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
+                            color: Colors.grey[200]),
+                        _buildZoomButton(Icons.add, () {
+                          _mapController?.animateCamera(CameraUpdate.zoomIn());
+                        }),
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
+                            color: Colors.grey[200]),
+                        _buildZoomButton(Icons.remove, () {
+                          _mapController?.animateCamera(CameraUpdate.zoomOut());
+                        }),
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
+                            color: Colors.grey[200]),
+                        _buildZoomButton(Icons.my_location, () {
+                          if (_currentPosition != null) {
+                            _mapController?.animateCamera(
+                              CameraUpdate.newLatLngZoom(
+                                LatLng(_currentPosition!.latitude,
+                                    _currentPosition!.longitude),
+                                16,
+                              ),
+                            );
+                          } else {
+                            _mapController?.animateCamera(
+                              CameraUpdate.newLatLngZoom(_defaultCenter, 14),
+                            );
+                          }
+                        }),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -1004,31 +1004,21 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                         color: Colors.white,
                         borderRadius:
                             BorderRadius.vertical(top: Radius.circular(20)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 10,
-                            offset: Offset(0, -2),
-                          ),
-                        ],
                       ),
                       child: Column(
                         children: [
-                          // Drag handle
                           Container(
-                            margin: EdgeInsets.only(top: 12, bottom: 8),
-                            width: 40,
+                            margin: EdgeInsets.only(top: 10, bottom: 8),
+                            width: 48,
                             height: 4,
                             decoration: BoxDecoration(
                               color: Colors.grey[300],
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-
-                          // Header
                           Padding(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 8),
+                                horizontal: 20, vertical: 6),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -1036,7 +1026,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                                   'For Delivery',
                                   style: TextStyle(
                                     fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w700,
                                     color: Colors.grey[900],
                                   ),
                                 ),
@@ -1047,7 +1037,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppColors.statusInTransit
-                                        .withOpacity(0.1),
+                                        .withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -1062,10 +1052,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                               ],
                             ),
                           ),
-
-                          Divider(height: 1, color: Colors.grey[200]),
-
-                          // Delivery list
+                          SizedBox(height: 4),
                           Expanded(
                             child: _deliveryOrders.isEmpty
                                 ? Center(
@@ -1075,35 +1062,25 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                                       children: [
                                         Icon(
                                           Icons.local_shipping_outlined,
-                                          size: 48,
-                                          color: Colors.grey[400],
+                                          size: 40,
+                                          color: Colors.grey[300],
                                         ),
-                                        SizedBox(height: 12),
+                                        SizedBox(height: 8),
                                         Text(
                                           'No delivery orders',
                                           style: TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        SizedBox(height: 4),
-                                        Text(
-                                          'Orders in transit or delivered will appear here',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                                            fontSize: 14,
                                             color: Colors.grey[500],
                                           ),
                                         ),
                                       ],
                                     ),
                                   )
-                                : ListView.separated(
+                                : ListView.builder(
                                     controller: scrollController,
-                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 4),
                                     itemCount: _deliveryOrders.length,
-                                    separatorBuilder: (context, index) =>
-                                        Divider(
-                                            height: 1, color: Colors.grey[200]),
                                     itemBuilder: (context, index) {
                                       final order = _deliveryOrders[index];
                                       final isSelected =
@@ -1124,13 +1101,32 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     );
   }
 
+  Widget _buildAppBarAction(
+      IconData icon, String tooltip, VoidCallback onPressed) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 2),
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Container(
+          padding: EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.statusInTransit.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 18, color: AppColors.statusInTransit),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: 10,
+          height: 10,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
@@ -1141,6 +1137,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
           label,
           style: TextStyle(
             fontSize: 12,
+            fontWeight: FontWeight.w500,
             color: Colors.grey[700],
           ),
         ),
@@ -1149,70 +1146,47 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   }
 
   Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: EdgeInsets.all(12),
-            child: Icon(icon, size: 20, color: Colors.grey[700]),
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: EdgeInsets.all(10),
+          child: Icon(icon, size: 20, color: Colors.grey[700]),
         ),
       ),
     );
   }
 
   Widget _buildRouteButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _showRoute ? AppColors.statusInTransit : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _isLoadingRoute ? null : _toggleRoute,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _showRoute ? AppColors.statusInTransit : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoadingRoute ? null : _toggleRoute,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: EdgeInsets.all(12),
-            child: _isLoadingRoute
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.statusInTransit,
-                      ),
+          child: _isLoadingRoute
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.statusInTransit,
                     ),
-                  )
-                : Icon(
-                    Icons.route,
-                    size: 20,
-                    color:
-                        _showRoute ? Colors.white : AppColors.statusInTransit,
                   ),
-          ),
+                )
+              : Icon(
+                  Icons.route,
+                  size: 20,
+                  color: _showRoute ? Colors.white : AppColors.statusInTransit,
+                ),
         ),
       ),
     );
@@ -1229,52 +1203,53 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     final itemsCount = _getItemsCount(order);
     final deliveryMethodId = _getDeliveryMethodId(order);
     final paymentMethod = _getPaymentMethod(order);
+    final statusColor = _getStatusColor(status);
 
-    return InkWell(
+    return GestureDetector(
       onTap: () => _focusOnOrder(index),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        color: isSelected
-            ? AppColors.statusInTransit.withOpacity(0.08)
-            : Colors.transparent,
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.statusInTransit.withOpacity(0.06)
+              : Colors.grey[50],
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Order number indicator
             Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: _getStatusColor(status).withOpacity(0.15),
+                color: statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Text(
                   '${index + 1}',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _getStatusColor(status),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
                   ),
                 ),
               ),
             ),
             SizedBox(width: 12),
-
-            // Order details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Order code and status
                   Row(
                     children: [
                       Expanded(
                         child: Text(
                           orderCode,
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                             color: Colors.grey[900],
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -1285,29 +1260,25 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(status).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           _formatStatus(status),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: _getStatusColor(status),
+                            color: statusColor,
                           ),
                         ),
                       ),
                     ],
                   ),
                   SizedBox(height: 6),
-                  // Customer name
                   Row(
                     children: [
-                      Icon(
-                        Icons.person,
-                        size: 14,
-                        color: AppColors.statusInTransit,
-                      ),
+                      Icon(Icons.person_outline,
+                          size: 13, color: Colors.grey[500]),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -1322,91 +1293,74 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                       ),
                     ],
                   ),
-                  // Customer contact (only show if delivery_method_id is 1)
                   if (customerContact.isNotEmpty && deliveryMethodId == 1) ...[
                     SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(
-                          Icons.phone_outlined,
-                          size: 13,
-                          color: Colors.grey[500],
-                        ),
+                        Icon(Icons.phone_outlined,
+                            size: 12, color: Colors.grey[400]),
                         SizedBox(width: 4),
                         Text(
                           customerContact,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.grey[500]),
                         ),
                       ],
                     ),
                   ],
                   SizedBox(height: 4),
-                  // Shipping address
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 14,
-                        color: AppColors.statusInTransit,
-                      ),
+                      Icon(Icons.location_on_outlined,
+                          size: 13, color: Colors.grey[500]),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           shippingAddress,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[700],
-                          ),
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.grey[600]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  // Payment method
                   if (paymentMethod.isNotEmpty) ...[
-                    SizedBox(height: 4),
+                    SizedBox(height: 3),
                     Row(
                       children: [
                         Icon(
                           paymentMethod.toLowerCase().contains('cash')
                               ? Icons.money
                               : Icons.credit_card,
-                          size: 12,
-                          color: Colors.grey[600],
+                          size: 11,
+                          color: Colors.grey[400],
                         ),
                         SizedBox(width: 4),
                         Text(
                           _capitalizeFirst(paymentMethod),
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey[600],
+                            color: Colors.grey[500],
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ],
-                  SizedBox(height: 6),
-                  // Delivery status time
+                  SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(
-                        Icons.local_shipping_outlined,
-                        size: 12,
-                        color: AppColors.statusInTransit,
-                      ),
+                      Icon(Icons.schedule,
+                          size: 11, color: AppColors.statusInTransit),
                       SizedBox(width: 4),
                       Text(
-                        'In transit since ${_getOrderedAt(order)}',
+                        'Since ${_getOrderedAt(order)}',
                         style: TextStyle(
                           fontSize: 10,
                           color: AppColors.statusInTransit,
-                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -1414,8 +1368,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                 ],
               ),
             ),
-
-            // Price, items, and action button
+            SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -1423,17 +1376,14 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   _formatPrice(total),
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.deepForestGreen,
                   ),
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 2),
                 Text(
                   '$itemsCount ${itemsCount == 1 ? 'item' : 'items'}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
                 SizedBox(height: 8),
                 ElevatedButton(
@@ -1442,10 +1392,10 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.statusDelivered,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     minimumSize: Size(0, 28),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     elevation: 0,
                   ),
@@ -1454,19 +1404,19 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                     children: [
                       _isUpdatingStatus
                           ? SizedBox(
-                              width: 14,
-                              height: 14,
+                              width: 12,
+                              height: 12,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Colors.white,
                               ),
                             )
-                          : Icon(Icons.check_circle_outline, size: 14),
+                          : Icon(Icons.check_circle_outline, size: 13),
                       SizedBox(width: 4),
                       Text(
                         _isUpdatingStatus ? '...' : 'Delivered',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

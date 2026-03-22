@@ -34,6 +34,11 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   bool _isLoadingProfile = true;
   bool _isLoadingDeliveryMethods = true;
   bool _isLoadingPaymentMethods = true;
+  bool _isLoadingCalculation = true;
+
+  double _subtotal = 0.0;
+  double _handlingFee = 0.0;
+  double _total = 0.0;
 
   // Address selection
   List<AddressModel> _addresses = [];
@@ -51,6 +56,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     _loadUserProfile();
     _loadDeliveryMethods();
     _loadPaymentMethods();
+    _loadOrderCalculation();
   }
 
   @override
@@ -163,26 +169,46 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return priceSnapshot != itemPrice ? itemPrice : priceSnapshot;
   }
 
-  // Standard shipping fee
-  static const double _standardShippingFee = 50.00;
+  Future<void> _loadOrderCalculation() async {
+    try {
+      final orderItems = widget.selectedCartItems.map((cartItem) {
+        return {
+          'cart_id': cartItem['id'] is int
+              ? cartItem['id']
+              : int.tryParse(cartItem['id'].toString()) ?? cartItem['id'],
+          'item_id': cartItem['item_id'].toString(),
+          'shop_id': cartItem['shop_id'].toString(),
+          'quantity': cartItem['quantity'] as int,
+          'price_at_purchase': _getEffectivePrice(cartItem),
+        };
+      }).toList();
 
-  double get _subtotal {
-    return widget.selectedCartItems.fold(0.0, (sum, item) {
-      final effectivePrice = _getEffectivePrice(item);
-      return sum + (effectivePrice * (item['quantity'] as int));
-    });
-  }
+      final orderService = OrderService();
+      final result = await orderService.calculateOrder(items: orderItems);
 
-  double get _shippingFee {
-    return _standardShippingFee;
-  }
-
-  double get _tax {
-    return _subtotal * 0.08; // 8% tax
-  }
-
-  double get _total {
-    return _subtotal + _shippingFee;
+      if (mounted) {
+        if (result['success'] == true) {
+          setState(() {
+            _subtotal = (result['subtotal'] as num).toDouble();
+            _handlingFee = (result['handling_fee'] as num).toDouble();
+            _total = (result['total_amount'] as num).toDouble();
+            _isLoadingCalculation = false;
+          });
+        } else {
+          print('Error calculating order: ${result['message']}');
+          setState(() {
+            _isLoadingCalculation = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading order calculation: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingCalculation = false;
+        });
+      }
+    }
   }
 
   /// Groups selected cart items by shop_id. Returns a list of maps:
@@ -219,13 +245,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return;
     }
 
-    if (_selectedPaymentMethodId == null) {
-      SnackbarHelper.showError(
-        context,
-        'Please select a payment method',
-      );
-      return;
-    }
+    // if (_selectedPaymentMethodId == null) {
+    //   SnackbarHelper.showError(
+    //     context,
+    //     'Please select a payment method',
+    //   );
+    //   return;
+    // }
 
     if (_selectedAddress == null) {
       SnackbarHelper.showError(
@@ -258,7 +284,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       final result = await orderService.createOrder(
         items: orderItems,
         subtotal: _subtotal,
-        shippingFee: _shippingFee,
+        shippingFee: _handlingFee,
         totalAmount: _total,
         shippingAddress: _selectedAddress!.fullAddress,
         shippingAddressId: _selectedAddress!.id,
@@ -266,7 +292,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ? null
             : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
-        paymentMethod: _selectedPaymentMethodId!.toString(),
+        paymentMethod: (_selectedPaymentMethodId ??
+                (_paymentMethods.isNotEmpty ? _paymentMethods.first['id'] : 1))
+            .toString(),
       );
 
       SnackbarHelper.hide(context);
@@ -393,7 +421,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     _buildShippingAddressSection(),
 
                     // Payment Method Section
-                    _buildPaymentMethodSection(),
+                    // _buildPaymentMethodSection(),
 
                     // Order Instructions Section
                     _buildOrderInstructionsSection(),
@@ -1505,18 +1533,35 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           SizedBox(height: 12),
           Divider(height: 1),
           SizedBox(height: 12),
-          _buildSummaryRow('Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
-          SizedBox(height: 8),
-          _buildSummaryRow(
-              'Shipping Fee', '₱${_shippingFee.toStringAsFixed(2)}'),
-          SizedBox(height: 8),
-          Divider(height: 1),
-          SizedBox(height: 12),
-          _buildSummaryRow(
-            'Total',
-            '₱${_total.toStringAsFixed(2)}',
-            isTotal: true,
-          ),
+          if (_isLoadingCalculation)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            _buildSummaryRow('Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
+            SizedBox(height: 8),
+            _buildSummaryRow(
+                'Handling Fee', '₱${_handlingFee.toStringAsFixed(2)}'),
+            SizedBox(height: 8),
+            Divider(height: 1),
+            SizedBox(height: 12),
+            _buildSummaryRow(
+              'Total',
+              '₱${_total.toStringAsFixed(2)}',
+              isTotal: true,
+            ),
+          ],
         ],
       ),
     );
@@ -1550,7 +1595,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16),
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _placeOrder,
+        onPressed: (_isLoading || _isLoadingCalculation) ? null : _placeOrder,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.mediumGreen,
           padding: EdgeInsets.symmetric(vertical: 16),
@@ -1570,7 +1615,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 ),
               )
             : Text(
-                'Place Order - ₱${_total.toStringAsFixed(2)}',
+                _isLoadingCalculation
+                    ? 'Calculating...'
+                    : 'Place Order - ₱${_total.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

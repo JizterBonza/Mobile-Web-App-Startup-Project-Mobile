@@ -38,6 +38,7 @@ class ApiEndpoints {
   static String get getOrderHistory => '$baseUrl/api/orders/history';
   static String get getOrdersByRiderId =>
       '$baseUrl/api/orders/rider/{rider_id}';
+  static String get calculateOrder => '$baseUrl/api/orders/calculate-fee';
 
   // Favorite endpoints
   static String get getFavorites => '$baseUrl/api/favorites';

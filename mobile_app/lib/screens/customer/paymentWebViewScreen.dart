@@ -204,7 +204,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           iconTheme: IconThemeData(color: Colors.grey[700]),
           leading: IconButton(
             icon: Icon(Icons.close),
-            onPressed: _onWillPop,
+            onPressed: () => Navigator.of(context).pop(PaymentResult.cancelled),
           ),
           bottom: _isLoading
               ? PreferredSize(

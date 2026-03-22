@@ -20,8 +20,8 @@ class RiderStatisticsGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
       childAspectRatio: 1.2,
       children: [
         StatCard(
@@ -45,8 +45,8 @@ class RiderStatisticsGrid extends StatelessWidget {
         StatCard(
           title: 'Earnings',
           value: formatPrice(stats['earnings']),
-          icon: Icons.attach_money,
-          color: Colors.green[700]!,
+          icon: Icons.payments,
+          color: Colors.green.shade700,
           onTap: onEarningsTap,
         ),
       ],
