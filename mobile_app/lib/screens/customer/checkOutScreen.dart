@@ -245,14 +245,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return;
     }
 
-    // if (_selectedPaymentMethodId == null) {
-    //   SnackbarHelper.showError(
-    //     context,
-    //     'Please select a payment method',
-    //   );
-    //   return;
-    // }
-
+    // Payment method selection UI is hidden; fall back to the first available
+    // payment method when the user has not explicitly selected one.
     if (_selectedAddress == null) {
       SnackbarHelper.showError(
         context,
@@ -292,9 +286,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ? null
             : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
-        paymentMethod: (_selectedPaymentMethodId ??
-                (_paymentMethods.isNotEmpty ? _paymentMethods.first['id'] : 1))
-            .toString(),
+        paymentMethod: null,
       );
 
       SnackbarHelper.hide(context);
@@ -420,7 +412,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     // Shipping Address Section
                     _buildShippingAddressSection(),
 
-                    // Payment Method Section
+                    // Payment Method Section (hidden per product requirement;
+                    // payment method defaults to the first available option when
+                    // the order is placed).
                     // _buildPaymentMethodSection(),
 
                     // Order Instructions Section
