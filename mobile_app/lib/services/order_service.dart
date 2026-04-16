@@ -11,7 +11,7 @@ class OrderService extends ApiService {
     required List<Map<String, dynamic>> items,
     required String shippingAddress,
     required int? shippingAddressId,
-    required String paymentMethod,
+    String? paymentMethod,
     required double subtotal,
     required double shippingFee,
     required double totalAmount,
@@ -233,6 +233,8 @@ class OrderService extends ApiService {
             'order_detail_updated_at': orderDetail?['updated_at'],
             'user': order['user'],
             'order_items': order['order_items'] ?? [],
+            'order_shops': order['order_shops'] ?? [],
+            'payment': order['payment'],
             'order_id': order['id'],
           };
         }).toList();
