@@ -677,10 +677,15 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final orderedAt = order['ordered_at']?.toString() ?? '';
         final shippingAddress =
             order['shipping_address']?.toString() ?? 'No address';
-        final paymentMethodId = order['payment_method']?.toString();
-        final paymentMethod = paymentMethodId != null && paymentMethodId.isNotEmpty
-            ? (_paymentMethodNames[paymentMethodId] ?? paymentMethodId)
-            : 'N/A';
+
+        // Read payment info from the nested `payment` object returned by the API.
+        final payment = order['payment'] as Map<String, dynamic>?;
+        final rawPaymentMethod = payment?['payment_method']?.toString() ?? '';
+        final rawPaymentStatus = payment?['status']?.toString() ?? '';
+        final paymentMethod = rawPaymentMethod.isNotEmpty
+            ? (_paymentMethodNames[rawPaymentMethod] ?? rawPaymentMethod)
+            : '';
+        final paymentStatus = rawPaymentStatus;
         final orderId =
             order['id']?.toString() ?? order['order_id']?.toString() ?? '';
         final orderItems = order['order_items'] as List? ?? [];
@@ -873,12 +878,22 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                       'Delivery Address',
                       shippingAddress,
                     ),
-                    SizedBox(height: 12),
-                    _buildDetailRow(
-                      Icons.payment_outlined,
-                      'Payment Method',
-                      _capitalizeFirst(paymentMethod),
-                    ),
+                    if (paymentMethod.isNotEmpty) ...[
+                      SizedBox(height: 12),
+                      _buildDetailRow(
+                        Icons.payment_outlined,
+                        'Payment Method',
+                        _capitalizeFirst(paymentMethod),
+                      ),
+                    ],
+                    if (paymentStatus.isNotEmpty) ...[
+                      SizedBox(height: 12),
+                      _buildDetailRow(
+                        Icons.receipt_long_outlined,
+                        'Payment Status',
+                        _capitalizeFirst(paymentStatus),
+                      ),
+                    ],
                   ],
                 ),
               ),
