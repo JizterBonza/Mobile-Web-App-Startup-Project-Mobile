@@ -38,7 +38,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   String _getPaymentMethodDisplayName(String? paymentMethodId) {
-    if (paymentMethodId == null || paymentMethodId.isEmpty) return 'N/A';
+    if (paymentMethodId == null || paymentMethodId.isEmpty) return '';
     return _paymentMethodNames[paymentMethodId] ?? paymentMethodId;
   }
 
@@ -294,9 +294,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             widget.order['order_id']?.toString() ??
             '';
         final canCancel = orderStatus.toLowerCase() == 'pending';
-        final paymentStatus =
-            widget.order['payment_status']?.toString().toLowerCase() ??
-                'pending';
+
+        // Prefer nested `payment` object; fall back to flattened order_detail fields.
+        final payment = widget.order['payment'] as Map<String, dynamic>?;
+        final paymentStatus = (payment?['status']?.toString() ??
+                widget.order['payment_status']?.toString() ??
+                '')
+            .toLowerCase();
+        final paymentMethodRaw = payment?['payment_method']?.toString() ??
+            widget.order['payment_method']?.toString() ??
+            '';
         final canPay = canCancel && paymentStatus != 'paid';
         final orderItems = widget.order['order_items'] as List? ?? [];
         final shippingAddress =
@@ -342,8 +349,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   subtotal: widget.order['subtotal'],
                   shippingFee: widget.order['shipping_fee'],
                   totalAmount: widget.order['total_amount'],
-                  paymentMethod: _getPaymentMethodDisplayName(
-                      widget.order['payment_method']?.toString()),
+                  paymentMethod:
+                      _getPaymentMethodDisplayName(paymentMethodRaw),
                   paymentStatus: paymentStatus,
                 ),
                 SizedBox(height: 24),
