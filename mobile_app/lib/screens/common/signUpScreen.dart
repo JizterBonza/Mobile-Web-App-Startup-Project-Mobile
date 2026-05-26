@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../constants/constants.dart';
 import '../../widgets/form_widgets.dart';
 import '../../services/api_service.dart';
 
@@ -198,7 +199,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               SnackBar(
                                 content:
                                     Text('Please agree to Terms & Conditions'),
-                                backgroundColor: Colors.red[700],
+                                backgroundColor: AppColors.error,
                               ),
                             );
                             return;
@@ -235,7 +236,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 SnackBar(
                                   content: Text(result['message'] ??
                                       'Registration successful!'),
-                                  backgroundColor: Colors.green[700],
+                                  backgroundColor: AppColors.success,
                                 ),
                               );
 
@@ -263,7 +264,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 SnackBar(
                                   content: Text(result['message'] ??
                                       'Registration failed. Please try again.'),
-                                  backgroundColor: Colors.red[700],
+                                  backgroundColor: AppColors.error,
                                 ),
                               );
                             }
@@ -278,7 +279,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               SnackBar(
                                 content:
                                     Text('An error occurred: ${e.toString()}'),
-                                backgroundColor: Colors.red[700],
+                                backgroundColor: AppColors.error,
                               ),
                             );
                           }

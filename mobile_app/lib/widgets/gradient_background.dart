@@ -23,9 +23,9 @@ class GradientBackground extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColors.deepForestGreen, // Deep forest green
-            AppColors.mediumGreen, // Medium green
-            AppColors.freshLeafGreen, // Fresh leaf green
+            AppColors.primaryNavyDark,
+            AppColors.primaryNavy,
+            AppColors.primaryNavyLight,
           ],
         ),
       ),

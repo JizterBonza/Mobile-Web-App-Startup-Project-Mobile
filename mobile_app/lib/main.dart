@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'constants/constants.dart';
 import 'screens/common/loginScreen.dart';
 import 'screens/customer/customerDashboardScreen.dart';
 import 'screens/vendor/vendorDashboardScreen.dart';
@@ -54,10 +55,33 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'AgrifyConnect App',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.primaryNavy,
+            primary: AppColors.primaryNavy,
+            secondary: AppColors.accentAmber,
+            surface: Colors.white,
+            error: AppColors.error,
+          ),
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: AppColors.primaryNavy,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryNavy,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            selectedItemColor: AppColors.primaryNavy,
+            unselectedItemColor: AppColors.textSecondary,
+            backgroundColor: Colors.white,
+          ),
         ),
-        initialRoute: '/',
+        initialRoute: '/customerDashboard',
         routes: {
           '/': (context) => const LoginScreen(),
           '/customerDashboard': (context) => const CustomerDashboardScreen(),

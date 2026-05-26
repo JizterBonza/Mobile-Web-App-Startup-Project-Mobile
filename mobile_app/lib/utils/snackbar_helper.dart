@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/constants.dart';
 
 /// Utility class for showing consistent snackbars throughout the app
 class SnackbarHelper {
@@ -13,7 +14,7 @@ class SnackbarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green[700],
+        backgroundColor: AppColors.success,
         duration: duration,
         behavior: SnackBarBehavior.floating,
       ),
@@ -31,7 +32,7 @@ class SnackbarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red[700],
+        backgroundColor: AppColors.error,
         duration: duration,
         behavior: SnackBarBehavior.floating,
       ),
@@ -49,7 +50,7 @@ class SnackbarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.blue[700],
+        backgroundColor: AppColors.primaryNavyLight,
         duration: duration,
         behavior: SnackBarBehavior.floating,
       ),
@@ -67,7 +68,7 @@ class SnackbarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.orange[700],
+        backgroundColor: AppColors.warning,
         duration: duration,
         behavior: SnackBarBehavior.floating,
       ),

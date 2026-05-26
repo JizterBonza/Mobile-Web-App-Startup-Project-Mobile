@@ -147,7 +147,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       ? _buildErrorState()
                       : RefreshIndicator(
                           onRefresh: _loadShopData,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           child: SingleChildScrollView(
                             physics: AlwaysScrollableScrollPhysics(),
                             child: Column(
@@ -215,7 +215,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 SnackBar(
                   content: Text('Share shop'),
                   duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.mediumGreen,
+                  backgroundColor: AppColors.primaryNavy,
                 ),
               );
             },
@@ -231,7 +231,7 @@ class _ShopScreenState extends State<ShopScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
           ),
           SizedBox(height: 16),
           Text(
@@ -282,7 +282,7 @@ class _ShopScreenState extends State<ShopScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -316,8 +316,8 @@ class _ShopScreenState extends State<ShopScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AppColors.mediumGreen,
-                  AppColors.mediumGreen.withOpacity(0.7),
+                  AppColors.primaryNavy,
+                  AppColors.primaryNavy.withOpacity(0.7),
                 ],
               ),
             ),
@@ -372,21 +372,21 @@ class _ShopScreenState extends State<ShopScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
-                                  color: AppColors.mediumGreen.withOpacity(0.1),
+                                  color: AppColors.primaryNavy.withOpacity(0.1),
                                   child: Icon(
                                     Icons.store,
                                     size: 36,
-                                    color: AppColors.mediumGreen,
+                                    color: AppColors.primaryNavy,
                                   ),
                                 );
                               },
                             )
                           : Container(
-                              color: AppColors.mediumGreen.withOpacity(0.1),
+                              color: AppColors.primaryNavy.withOpacity(0.1),
                               child: Icon(
                                 Icons.store,
                                 size: 36,
-                                color: AppColors.mediumGreen,
+                                color: AppColors.primaryNavy,
                               ),
                             ),
                     ),
@@ -415,7 +415,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         Icon(
                           Icons.verified,
                           size: 22,
-                          color: Colors.blue[600],
+                          color: AppColors.primaryNavyLight,
                         ),
                       ],
                     ],
@@ -451,7 +451,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           Icon(
                             Icons.phone,
                             size: 16,
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                           ),
                           SizedBox(width: 6),
                           Text(
@@ -500,7 +500,7 @@ class _ShopScreenState extends State<ShopScreen> {
           children: [
             _buildStatItem(
               icon: Icons.star,
-              iconColor: Colors.amber[600]!,
+              iconColor: AppColors.accentAmber,
               value: _formatRating(rating),
               label: 'Rating',
             ),
@@ -511,7 +511,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             _buildStatItem(
               icon: Icons.shopping_bag,
-              iconColor: AppColors.mediumGreen,
+              iconColor: AppColors.primaryNavy,
               value: '$totalProducts',
               label: 'Products',
             ),
@@ -522,7 +522,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
             _buildStatItem(
               icon: Icons.rate_review,
-              iconColor: Colors.blue[600]!,
+              iconColor: AppColors.primaryNavyLight!,
               value: '$totalReviews',
               label: 'Reviews',
             ),
@@ -599,7 +599,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       ),
                       SizedBox(width: 8),
                       if (avgRating != null) ...[
-                        Icon(Icons.star, size: 18, color: Colors.amber[600]),
+                        Icon(Icons.star, size: 18, color: AppColors.accentAmber),
                         SizedBox(width: 4),
                         Text(
                           _formatRating(avgRating),
@@ -636,7 +636,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       child: Text(
                         'See All',
                         style: TextStyle(
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -654,7 +654,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                   child: Center(
                     child: CircularProgressIndicator(
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                       strokeWidth: 2,
                     ),
                   ),
@@ -740,14 +740,14 @@ class _ShopScreenState extends State<ShopScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.mediumGreen.withOpacity(0.1),
+                  color: AppColors.primaryNavy.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -775,7 +775,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                 ? Icons.star
                                 : Icons.star_border,
                             size: 14,
-                            color: Colors.amber[600],
+                            color: AppColors.accentAmber,
                           );
                         }),
                         SizedBox(width: 8),
@@ -997,7 +997,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppColors.mediumGreen.withOpacity(0.1),
+                    color: AppColors.primaryNavy.withOpacity(0.1),
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(12),
                     ),
@@ -1015,7 +1015,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                 child: Icon(
                                   Icons.shopping_bag,
                                   size: 40,
-                                  color: AppColors.mediumGreen.withOpacity(0.5),
+                                  color: AppColors.primaryNavy.withOpacity(0.5),
                                 ),
                               );
                             },
@@ -1025,7 +1025,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           child: Icon(
                             Icons.shopping_bag,
                             size: 40,
-                            color: AppColors.mediumGreen.withOpacity(0.5),
+                            color: AppColors.primaryNavy.withOpacity(0.5),
                           ),
                         ),
                 ),
@@ -1055,7 +1055,7 @@ class _ShopScreenState extends State<ShopScreen> {
                           Icon(
                             Icons.star,
                             size: 14,
-                            color: Colors.amber[600],
+                            color: AppColors.accentAmber,
                           ),
                           SizedBox(width: 4),
                           Text(
@@ -1073,7 +1073,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavyDark,
                         ),
                       ),
                     ],

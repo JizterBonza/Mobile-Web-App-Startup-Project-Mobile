@@ -5,6 +5,9 @@ import '../../constants/constants.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
 import '../../utils/status_utils.dart';
+import '../../utils/auth_guard.dart';
+import '../../widgets/login_dialog.dart';
+import '../common/notificationScreen.dart';
 import 'cartScreen.dart';
 import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
@@ -32,6 +35,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   bool _isLoadingOrders = true;
   String? _orderError;
   String? _userName;
+  bool _isGuest = false;
 
   // Suggested Stores
   List<Map<String, dynamic>> _suggestedStores = [];
@@ -103,7 +107,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     if (mounted) {
       setState(() {
-        _showOverlay = itemsProvider.searchResults.isNotEmpty;
+        _showOverlay = query.trim().length >= 2;
       });
     }
   }
@@ -159,9 +163,19 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   Future<void> _loadUserName() async {
     try {
-      _userName = await ApiService.getUserName();
+      final token = await ApiService.getToken();
+      final name = await ApiService.getUserName();
+      if (!mounted) return;
+      setState(() {
+        _userName = name;
+        _isGuest = token == null || token.isEmpty;
+      });
     } catch (e) {
       print('Error loading user name: $e');
+      if (!mounted) return;
+      setState(() {
+        _isGuest = true;
+      });
     }
   }
 
@@ -263,6 +277,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Future<void> _loadRecentOrders({bool useCache = true}) async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _recentOrders = [];
+        _isLoadingOrders = false;
+        _orderError = null;
+      });
+      return;
+    }
+
     final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
 
     if (!mounted) return;
@@ -307,39 +332,49 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           children: [
             RefreshIndicator(
               onRefresh: _onRefresh,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               child: SingleChildScrollView(
                 physics: AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with greeting and profile
-                    _buildHeader(),
-                    SizedBox(height: 24),
+                    // Top navy search header
+                    _buildTopSearchHeader(),
 
-                    // Search bar
-                    _buildSearchBar(),
-                    SizedBox(height: 24),
+                    // Welcome bar
+                    _buildWelcomeBar(),
 
-                    // Categories section
-                    _buildCategoriesSection(),
-                    SizedBox(height: 24),
+                    // Remaining content with horizontal padding
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 24),
 
-                    // Category items (shown when a category is selected)
-                    _buildCategoryItems(),
+                          // Categories section
+                          _buildCategoriesSection(),
+                          SizedBox(height: 24),
 
-                    // Suggested stores
-                    _buildSuggestedStores(),
-                    SizedBox(height: 24),
+                          // Category items (shown when a category is selected)
+                          _buildCategoryItems(),
 
-                    // Featured products
-                    _buildFeaturedProducts(),
-                    SizedBox(height: 24),
+                          // Suggested stores
+                          _buildSuggestedStores(),
+                          SizedBox(height: 24),
 
-                    // Recent orders
-                    _buildRecentOrders(),
-                    SizedBox(height: 24),
+                          // Featured products
+                          _buildFeaturedProducts(),
+                          SizedBox(height: 24),
+
+                          // Recent orders (hidden for guests)
+                          if (!_isGuest) ...[
+                            _buildRecentOrders(),
+                            SizedBox(height: 24),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -352,52 +387,162 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Good Morning!',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            Text(
-              'Welcome Klasmeyt $_userName!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
-              ),
-            ),
-          ],
-        ),
-        GestureDetector(
-          onTap: () {
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(ProfileScreen()),
-            );
-          },
-          child: Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.mediumGreen.withOpacity(0.3)),
-            ),
-            child: Icon(
-              Icons.person,
-              color: AppColors.mediumGreen,
-              size: 28,
+  void _onAuthenticatedTap(VoidCallback action) {
+    if (!requireAuthOrShowLogin(context, isGuest: _isGuest)) return;
+    action();
+  }
+
+  Widget _buildTopSearchHeader() {
+    return Container(
+      color: AppColors.primaryNavy,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: Row(
+        children: [
+          Expanded(child: _buildSearchBar()),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => _onAuthenticatedTap(() {
+              Navigator.push(
+                context,
+                _createFadeRoute(const MyOrderScreen()),
+              );
+            }),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              color: Colors.white,
+              size: 26,
             ),
           ),
-        )
-      ],
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => _onAuthenticatedTap(() {
+              Navigator.push(
+                context,
+                _createFadeRoute(const NotificationScreen()),
+              );
+            }),
+            child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.chat_bubble_outline,
+                  color: Colors.white, size: 26),
+              Positioned(
+                right: -6,
+                top: -6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.accentAmber,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints:
+                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  child: const Text(
+                    '3',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeBar() {
+    final avatar = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.person, color: Colors.grey[600], size: 22),
+    );
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: _isGuest
+          ? Row(
+              children: [
+                avatar,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'You are browsing as',
+                        style:
+                            TextStyle(fontSize: 13, color: Colors.grey[700]),
+                      ),
+                      const Text(
+                        'Guest',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    showLoginDialog(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryNavy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                avatar,
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back,',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                    ),
+                    Text(
+                      _userName ?? 'Customer',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryNavy,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
@@ -413,7 +558,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   //       decoration: InputDecoration(
   //         hintText: 'Search for products...',
   //         border: InputBorder.none,
-  //         prefixIcon: Icon(Icons.search, color: AppColors.mediumGreen),
+  //         prefixIcon: Icon(Icons.search, color: AppColors.primaryNavy),
   //         suffixIcon: Icon(Icons.filter_list, color: Colors.grey[600]),
   //       ),
   //     ),
@@ -425,41 +570,54 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         final isSearching = itemsProvider.isSearching;
 
         return Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.primaryNavy, width: 1),
           ),
           child: TextField(
             controller: _searchController,
             focusNode: _searchFocus,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
-              hintText: 'Search for products...',
+              hintText: 'Search items or store...',
+              isDense: true,
               border: InputBorder.none,
+              contentPadding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+              prefixIconConstraints:
+                  const BoxConstraints(minWidth: 40, minHeight: 40),
+              suffixIconConstraints:
+                  const BoxConstraints(minWidth: 40, minHeight: 40),
               prefixIcon: isSearching
                   ? Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       child: SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                         ),
                       ),
                     )
-                  : Icon(Icons.search, color: AppColors.mediumGreen),
+                  : Icon(Icons.search, color: Colors.grey[600], size: 20),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey[600]),
+                      icon: Icon(Icons.clear,
+                          color: Colors.grey[600], size: 20),
                       onPressed: _clearSearch,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
                     )
-                  : Icon(Icons.filter_list, color: Colors.grey[600]),
+                  : Icon(Icons.filter_list,
+                      color: Colors.grey[600], size: 20),
             ),
             onTap: () {
-              if (itemsProvider.searchResults.isNotEmpty &&
-                  _searchController.text.length >= 2) {
+              if (_searchController.text.trim().length >= 2) {
                 setState(() => _showOverlay = true);
               }
             },
@@ -470,103 +628,127 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildSearchOverlay() {
+    const overlayRadius = 16.0;
+
     return Consumer<ItemsProvider>(
       builder: (context, itemsProvider, child) {
         final searchResults = itemsProvider.searchResults;
+        final query = _searchController.text.trim();
 
-        if (!_showOverlay || searchResults.isEmpty) {
-          return SizedBox.shrink();
+        if (!_showOverlay || query.length < 2 || itemsProvider.isSearching) {
+          return const SizedBox.shrink();
         }
 
         return Positioned(
-          top: 140,
+          top: 86,
           left: 16,
           right: 16,
           child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
+            elevation: 6,
+            shadowColor: Colors.black26,
+            borderRadius: BorderRadius.circular(overlayRadius),
+            color: Colors.white,
             child: Container(
-              constraints: BoxConstraints(maxHeight: 400),
+              constraints: const BoxConstraints(maxHeight: 400),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(overlayRadius),
               ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.symmetric(vertical: 8),
-                itemCount: searchResults.length,
-                separatorBuilder: (context, index) => Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final product = searchResults[index];
+              child: searchResults.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
+                      child: Text(
+                        'No results found for "$query"',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          height: 1.3,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: searchResults.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final product = searchResults[index];
 
-                  // Handle item_images array
-                  final itemImages = product['item_images'];
-                  final hasImage = itemImages != null &&
-                      itemImages is List &&
-                      (itemImages as List).isNotEmpty;
-                  final imageUrl =
-                      hasImage ? (itemImages as List).first.toString() : null;
+                        final itemImages = product['item_images'];
+                        final hasImage = itemImages != null &&
+                            itemImages is List &&
+                            (itemImages as List).isNotEmpty;
+                        final imageUrl = hasImage
+                            ? (itemImages as List).first.toString()
+                            : null;
 
-                  return ListTile(
-                    leading: hasImage
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              imageUrl!,
-                              width: 50,
-                              height: 50,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                        return ListTile(
+                          leading: hasImage
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    imageUrl!,
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) {
+                                      return Container(
+                                        width: 50,
+                                        height: 50,
+                                        color: Colors.grey[200],
+                                        child: const Icon(Icons.shopping_bag,
+                                            color: Colors.grey),
+                                      );
+                                    },
+                                  ),
+                                )
+                              : Container(
                                   width: 50,
                                   height: 50,
-                                  color: Colors.grey[200],
-                                  child: Icon(Icons.shopping_bag,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.shopping_bag,
                                       color: Colors.grey),
-                                );
-                              },
+                                ),
+                          title: Text(
+                            product['item_name'] ?? 'Unknown Product',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
-                          )
-                        : Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.shopping_bag, color: Colors.grey),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                    title: Text(
-                      product['item_name'] ?? 'Unknown Product',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      _formatPrice(product['item_price']),
-                      style: TextStyle(
-                        color: AppColors.mediumGreen,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: () {
-                      // Navigate to product detail
-                      _clearSearch();
-                      _searchFocus.unfocus();
+                          subtitle: Text(
+                            _formatPrice(product['item_price']),
+                            style: const TextStyle(
+                              color: AppColors.primaryNavyDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onTap: () {
+                            _clearSearch();
+                            _searchFocus.unfocus();
 
-                      Navigator.push(
-                        context,
-                        _createFadeRoute(
-                          ProductDetailScreen(productId: product['id']),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+                            Navigator.push(
+                              context,
+                              _createFadeRoute(
+                                ProductDetailScreen(
+                                    productId: product['id']),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
             ),
           ),
         );
@@ -592,7 +774,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             if (_categoryError != null)
               IconButton(
                 icon:
-                    Icon(Icons.refresh, size: 20, color: AppColors.mediumGreen),
+                    Icon(Icons.refresh, size: 20, color: AppColors.primaryNavy),
                 onPressed: _loadCategories,
                 tooltip: 'Retry',
               ),
@@ -604,7 +786,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             height: 100,
             child: Center(
               child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             ),
           )
@@ -655,12 +837,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   margin: EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.mediumGreen.withOpacity(0.15)
+                        ? AppColors.primaryNavy.withOpacity(0.15)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.mediumGreen
+                          ? AppColors.primaryNavy
                           : Colors.grey[300]!,
                       width: isSelected ? 2 : 1,
                     ),
@@ -698,14 +880,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               width: 40,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? AppColors.mediumGreen.withOpacity(0.2)
-                                    : AppColors.mediumGreen.withOpacity(0.1),
+                                    ? AppColors.primaryNavy.withOpacity(0.2)
+                                    : AppColors.primaryNavy.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 category['icon'] ?? Icons.category,
                                 size: 22,
-                                color: AppColors.mediumGreen,
+                                color: AppColors.primaryNavy,
                               ),
                             ),
                             SizedBox(height: 8),
@@ -715,7 +897,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: isSelected
-                                    ? AppColors.mediumGreen
+                                    ? AppColors.primaryNavy
                                     : Colors.grey[800],
                               ),
                               textAlign: TextAlign.center,
@@ -757,7 +939,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             //   child: Text(
             //     'View All',
             //     style: TextStyle(
-            //       color: AppColors.mediumGreen,
+            //       color: AppColors.primaryNavy,
             //       fontWeight: FontWeight.w600,
             //     ),
             //   ),
@@ -770,7 +952,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             height: 160,
             child: Center(
               child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             ),
           )
@@ -846,11 +1028,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               height: 60,
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: AppColors.mediumGreen.withOpacity(0.1),
+                                color: AppColors.primaryNavy.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                     color:
-                                        AppColors.mediumGreen.withOpacity(0.2)),
+                                        AppColors.primaryNavy.withOpacity(0.2)),
                               ),
                               child: hasImage
                                   ? ClipRRect(
@@ -862,7 +1044,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                             (context, error, stackTrace) {
                                           return Icon(
                                             Icons.shopping_bag,
-                                            color: AppColors.mediumGreen,
+                                            color: AppColors.primaryNavy,
                                             size: 24,
                                           );
                                         },
@@ -870,7 +1052,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                     )
                                   : Icon(
                                       Icons.shopping_bag,
-                                      color: AppColors.mediumGreen,
+                                      color: AppColors.primaryNavy,
                                       size: 24,
                                     ),
                             ),
@@ -892,7 +1074,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 Icon(
                                   Icons.star,
                                   size: 12,
-                                  color: Colors.amber[600],
+                                  color: AppColors.accentAmber,
                                 ),
                                 SizedBox(width: 2),
                                 Text(
@@ -910,7 +1092,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.mediumGreen,
+                                color: AppColors.primaryNavyDark,
                               ),
                             ),
                           ],
@@ -981,7 +1163,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 ),
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                 ),
               )
@@ -1001,7 +1183,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       Icon(
                         Icons.error_outline,
                         size: 48,
-                        color: Colors.red[400],
+                        color: AppColors.error,
                       ),
                       SizedBox(height: 8),
                       Text(
@@ -1103,10 +1285,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                   width: double.infinity,
                                   decoration: BoxDecoration(
                                     color:
-                                        AppColors.mediumGreen.withOpacity(0.1),
+                                        AppColors.primaryNavy.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: AppColors.mediumGreen
+                                      color: AppColors.primaryNavy
                                           .withOpacity(0.2),
                                     ),
                                   ),
@@ -1124,7 +1306,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                               return Center(
                                                 child: Icon(
                                                   Icons.shopping_bag,
-                                                  color: AppColors.mediumGreen,
+                                                  color: AppColors.primaryNavy,
                                                   size: 32,
                                                 ),
                                               );
@@ -1134,7 +1316,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                       : Center(
                                           child: Icon(
                                             Icons.shopping_bag,
-                                            color: AppColors.mediumGreen,
+                                            color: AppColors.primaryNavy,
                                             size: 32,
                                           ),
                                         ),
@@ -1164,7 +1346,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                         Icon(
                                           Icons.star,
                                           size: 12,
-                                          color: Colors.amber[600],
+                                          color: AppColors.accentAmber,
                                         ),
                                         SizedBox(width: 2),
                                         Text(
@@ -1184,7 +1366,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.mediumGreen,
+                                        color: AppColors.primaryNavyDark,
                                       ),
                                     ),
                                   ],
@@ -1223,7 +1405,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             if (_storeError != null)
               IconButton(
                 icon:
-                    Icon(Icons.refresh, size: 20, color: AppColors.mediumGreen),
+                    Icon(Icons.refresh, size: 20, color: AppColors.primaryNavy),
                 onPressed: () => _loadSuggestedStores(useCache: false),
                 tooltip: 'Retry',
               )
@@ -1234,7 +1416,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             //       ScaffoldMessenger.of(context).showSnackBar(
             //         SnackBar(
             //           content: Text('View all stores coming soon!'),
-            //           backgroundColor: AppColors.mediumGreen,
+            //           backgroundColor: AppColors.primaryNavy,
             //           duration: Duration(seconds: 1),
             //         ),
             //       );
@@ -1242,7 +1424,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             //     child: Text(
             //       'View All',
             //       style: TextStyle(
-            //         color: AppColors.mediumGreen,
+            //         color: AppColors.primaryNavy,
             //         fontWeight: FontWeight.w600,
             //       ),
             //     ),
@@ -1255,7 +1437,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             height: 140,
             child: Center(
               child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             ),
           )
@@ -1339,10 +1521,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               height: 60,
                               width: 60,
                               decoration: BoxDecoration(
-                                color: AppColors.mediumGreen.withOpacity(0.1),
+                                color: AppColors.primaryNavy.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(30),
                                 border: Border.all(
-                                  color: AppColors.mediumGreen.withOpacity(0.3),
+                                  color: AppColors.primaryNavy.withOpacity(0.3),
                                   width: 2,
                                 ),
                               ),
@@ -1356,7 +1538,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                             (context, error, stackTrace) {
                                           return Icon(
                                             Icons.store,
-                                            color: AppColors.mediumGreen,
+                                            color: AppColors.primaryNavy,
                                             size: 28,
                                           );
                                         },
@@ -1364,7 +1546,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                     )
                                   : Icon(
                                       Icons.store,
-                                      color: AppColors.mediumGreen,
+                                      color: AppColors.primaryNavy,
                                       size: 28,
                                     ),
                             ),
@@ -1389,7 +1571,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 Icon(
                                   Icons.star,
                                   size: 12,
-                                  color: Colors.amber[600],
+                                  color: AppColors.accentAmber,
                                 ),
                                 SizedBox(width: 2),
                                 Text(
@@ -1421,7 +1603,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                               width: double.infinity,
                               padding: EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppColors.mediumGreen.withOpacity(0.1),
+                                color: AppColors.primaryNavy.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -1429,7 +1611,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.mediumGreen,
+                                  color: AppColors.primaryNavy,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -1465,7 +1647,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             if (_orderError != null)
               IconButton(
                 icon:
-                    Icon(Icons.refresh, size: 20, color: AppColors.mediumGreen),
+                    Icon(Icons.refresh, size: 20, color: AppColors.primaryNavy),
                 onPressed: () => _loadRecentOrders(useCache: false),
                 tooltip: 'Retry',
               )
@@ -1480,7 +1662,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 child: Text(
                   'View All',
                   style: TextStyle(
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1498,7 +1680,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             ),
             child: Center(
               child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             ),
           )
@@ -1632,7 +1814,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.mediumGreen,
+                                  color: AppColors.primaryNavyDark,
                                 ),
                               ),
                             ],
@@ -1689,6 +1871,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
+          if (index != 0 && _isGuest) {
+            showLoginDialog(context);
+            return;
+          }
+
           setState(() {
             _selectedIndex = index;
           });
@@ -1696,23 +1883,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           // Handle navigation based on selected index
           if (index == 1) {
             // Cart
-            // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
-            // Navigator.push(
-            //   context,
-            //   _createFadeRoute(CartScreen()),
-            // ).then((_) {
-            //   // Reset to home when returning from cart
-            //   if (mounted) {
-            //     setState(() {
-            //       _selectedIndex = 0;
-            //     });
-            //   }
-            // });
             Navigator.push(
               context,
               _createFadeRoute(CartScreenV2()),
             ).then((_) {
-              // Reset to home when returning from cart
               if (mounted) {
                 setState(() {
                   _selectedIndex = 0;
@@ -1734,7 +1908,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.mediumGreen,
+        selectedItemColor: AppColors.primaryNavy,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [

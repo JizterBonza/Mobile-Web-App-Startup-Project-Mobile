@@ -187,7 +187,7 @@ class _CartScreenState extends State<CartScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[700],
+              backgroundColor: AppColors.error,
             ),
             child: Text('Clear All'),
           ),
@@ -384,13 +384,13 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
             ),
           ),
           SizedBox(height: 24),
@@ -423,7 +423,7 @@ class _CartScreenState extends State<CartScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -475,7 +475,7 @@ class _CartScreenState extends State<CartScreen> {
                       child: Text(
                         'Clear All',
                         style: TextStyle(
-                          color: Colors.red[700],
+                          color: AppColors.error,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -526,7 +526,7 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -536,7 +536,7 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Icon(
                   Icons.store,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                   size: 20,
                 ),
                 SizedBox(width: 8),
@@ -632,7 +632,7 @@ class _CartScreenState extends State<CartScreen> {
                               Icon(
                                 Icons.info_outline,
                                 size: 14,
-                                color: Colors.orange[700],
+                                color: AppColors.warning,
                               ),
                               SizedBox(width: 4),
                               Expanded(
@@ -640,7 +640,7 @@ class _CartScreenState extends State<CartScreen> {
                                   'Select items to see total',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.orange[700],
+                                    color: AppColors.warning,
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -664,7 +664,7 @@ class _CartScreenState extends State<CartScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavyDark,
                             ),
                           ),
                         ],
@@ -699,7 +699,7 @@ class _CartScreenState extends State<CartScreen> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: shopSelectedCount > 0
-                        ? AppColors.mediumGreen
+                        ? AppColors.primaryNavy
                         : Colors.grey[400],
                     padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -749,7 +749,7 @@ class _CartScreenState extends State<CartScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isValidQuantity ? Colors.grey[300]! : Colors.red[300]!,
+          color: isValidQuantity ? Colors.grey[300]! : AppColors.error.withOpacity(0.4),
           width: isValidQuantity ? 1 : 2,
         ),
       ),
@@ -767,7 +767,7 @@ class _CartScreenState extends State<CartScreen> {
                       _toggleItemSelection(itemId);
                     }
                   : null,
-              activeColor: AppColors.mediumGreen,
+              activeColor: AppColors.primaryNavy,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -780,15 +780,15 @@ class _CartScreenState extends State<CartScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.mediumGreen.withOpacity(0.2),
+                color: AppColors.primaryNavy.withOpacity(0.2),
               ),
             ),
             child: Icon(
               Icons.shopping_bag,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 32,
             ),
           ),
@@ -829,7 +829,7 @@ class _CartScreenState extends State<CartScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavyDark,
                         ),
                       ),
                     ],
@@ -840,7 +840,7 @@ class _CartScreenState extends State<CartScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavyDark,
                     ),
                   ),
                 if (!_isQuantityValid(item))
@@ -850,7 +850,7 @@ class _CartScreenState extends State<CartScreen> {
                       'Quantity exceeds available stock (${item['item_quantity']} available)',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.red[700],
+                        color: AppColors.error,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -906,7 +906,7 @@ class _CartScreenState extends State<CartScreen> {
                                   },
                             color: _shouldDisableAdd(item)
                                 ? Colors.grey[400]
-                                : AppColors.mediumGreen,
+                                : AppColors.primaryNavy,
                           ),
                         ],
                       ),
@@ -922,7 +922,7 @@ class _CartScreenState extends State<CartScreen> {
                           fontWeight: FontWeight.bold,
                           color: _isQuantityValid(item)
                               ? Colors.grey[900]
-                              : Colors.red[400],
+                              : AppColors.error,
                         ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
@@ -937,7 +937,7 @@ class _CartScreenState extends State<CartScreen> {
 
           // Remove button
           IconButton(
-            icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+            icon: Icon(Icons.delete_outline, color: AppColors.error),
             onPressed: () {
               _removeItem(index);
             },
@@ -984,7 +984,7 @@ class _CartScreenState extends State<CartScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.mediumGreen,
+        selectedItemColor: AppColors.primaryNavy,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
@@ -1026,7 +1026,7 @@ class _CartScreenState extends State<CartScreen> {
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? AppColors.mediumGreen : Colors.grey[900],
+            color: isTotal ? AppColors.primaryNavyDark : Colors.grey[900],
           ),
         ),
       ],
@@ -1039,7 +1039,7 @@ class _CartScreenState extends State<CartScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
           ),
           SizedBox(height: 16),
           Text(
@@ -1062,7 +1062,7 @@ class _CartScreenState extends State<CartScreen> {
           Icon(
             Icons.error_outline,
             size: 64,
-            color: Colors.red[400],
+            color: AppColors.error,
           ),
           SizedBox(height: 16),
           Text(
@@ -1079,7 +1079,7 @@ class _CartScreenState extends State<CartScreen> {
               _loadCartItems();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

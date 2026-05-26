@@ -184,17 +184,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.mediumGreen.withOpacity(0.3),
+                color: AppColors.primaryNavy.withOpacity(0.3),
                 width: 3,
               ),
             ),
             child: Icon(
               Icons.person,
               size: 50,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
             ),
           ),
           SizedBox(height: 16),
@@ -239,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icon(Icons.edit, size: 18),
             label: Text('Edit Profile'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -305,12 +305,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 20,
             ),
           ),
@@ -428,7 +428,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('${item['title']} functionality coming soon!'),
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
               ),
             );
           }
@@ -440,12 +440,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.mediumGreen.withOpacity(0.1),
+                  color: AppColors.primaryNavy.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   item['icon'],
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                   size: 20,
                 ),
               ),
@@ -490,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red[300]!),
+        border: Border.all(color: AppColors.error.withOpacity(0.4)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -511,7 +511,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[700],
+                      backgroundColor: AppColors.error,
                     ),
                     child: Text('Logout'),
                   ),
@@ -556,7 +556,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SnackBar(
                       content:
                           Text(logoutResult['message'] ?? 'Logout successful!'),
-                      backgroundColor: Colors.green[700],
+                      backgroundColor: AppColors.success,
                     ),
                   );
 
@@ -574,7 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SnackBar(
                       content: Text(logoutResult['message'] ??
                           'Logout failed. Please try again.'),
-                      backgroundColor: Colors.red[700],
+                      backgroundColor: AppColors.error,
                     ),
                   );
                 }
@@ -588,7 +588,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('An error occurred. Please try again.'),
-                    backgroundColor: Colors.red[700],
+                    backgroundColor: AppColors.error,
                   ),
                 );
               }
@@ -601,7 +601,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Icon(
                   Icons.logout,
-                  color: Colors.red[700],
+                  color: AppColors.error,
                 ),
                 SizedBox(width: 8),
                 Text(
@@ -609,7 +609,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.red[700],
+                    color: AppColors.error,
                   ),
                 ),
               ],
@@ -721,7 +721,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.mediumGreen,
+        selectedItemColor: AppColors.primaryNavy,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: _userType == 'rider'

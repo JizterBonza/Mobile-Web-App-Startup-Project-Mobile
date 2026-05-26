@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import '../constants/constants.dart';
 import 'quick_action_button.dart';
 
 class RiderQuickActions extends StatelessWidget {
   final VoidCallback? onPickupMap;
   final VoidCallback? onDeliveryMap;
+  final VoidCallback? onAllDeliveries;
+  final VoidCallback? onEarnings;
 
   const RiderQuickActions({
     super.key,
     this.onPickupMap,
     this.onDeliveryMap,
+    this.onAllDeliveries,
+    this.onEarnings,
   });
 
   @override
@@ -19,12 +24,12 @@ class RiderQuickActions extends StatelessWidget {
         Text(
           'Quick Actions',
           style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
             color: Colors.grey[900],
           ),
         ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
         Row(
           children: [
             if (onPickupMap != null)
@@ -32,24 +37,44 @@ class RiderQuickActions extends StatelessWidget {
                 child: QuickActionButton(
                   label: 'For Pickup',
                   icon: Icons.store_mall_directory_outlined,
-                  color: Colors.teal,
+                  color: AppColors.primaryNavyLight,
                   onTap: onPickupMap!,
                 ),
-              )
-            else
-              Expanded(child: SizedBox()),
-            SizedBox(width: 12),
+              ),
+            SizedBox(width: 10),
             if (onDeliveryMap != null)
               Expanded(
                 child: QuickActionButton(
                   label: 'For Delivery',
                   icon: Icons.delivery_dining,
-                  color: Colors.indigo,
+                  color: AppColors.primaryNavy,
                   onTap: onDeliveryMap!,
                 ),
-              )
-            else
-              Expanded(child: SizedBox()),
+              ),
+          ],
+        ),
+        SizedBox(height: 10),
+        Row(
+          children: [
+            if (onAllDeliveries != null)
+              Expanded(
+                child: QuickActionButton(
+                  label: 'All Deliveries',
+                  icon: Icons.list_alt_outlined,
+                  color: AppColors.textSecondary,
+                  onTap: onAllDeliveries!,
+                ),
+              ),
+            SizedBox(width: 10),
+            if (onEarnings != null)
+              Expanded(
+                child: QuickActionButton(
+                  label: 'Earnings',
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: AppColors.primaryNavy,
+                  onTap: onEarnings!,
+                ),
+              ),
           ],
         ),
       ],

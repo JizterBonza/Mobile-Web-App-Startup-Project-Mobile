@@ -38,7 +38,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   String _getPaymentMethodDisplayName(String? paymentMethodId) {
-    if (paymentMethodId == null || paymentMethodId.isEmpty) return 'N/A';
+    if (paymentMethodId == null || paymentMethodId.isEmpty) return '';
     return _paymentMethodNames[paymentMethodId] ?? paymentMethodId;
   }
 
@@ -76,7 +76,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text('Payment completed successfully!'),
                   ],
                 ),
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -94,7 +94,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text('Payment failed. Please try again.'),
                   ],
                 ),
-                backgroundColor: Colors.red[600],
+                backgroundColor: AppColors.error,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -111,7 +111,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text('Payment cancelled.'),
                   ],
                 ),
-                backgroundColor: Colors.orange[700],
+                backgroundColor: AppColors.warning,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -129,12 +129,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Icon(Icons.error_outline, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                      result['message'] ?? 'Could not initiate payment'),
+                  child:
+                      Text(result['message'] ?? 'Could not initiate payment'),
                 ),
               ],
             ),
-            backgroundColor: Colors.red[600],
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -152,7 +152,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text('An error occurred'),
               ],
             ),
-            backgroundColor: Colors.red[600],
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -172,7 +172,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded,
-                color: Colors.orange[700], size: 28),
+                color: AppColors.warning, size: 28),
             SizedBox(width: 12),
             Text('Cancel Order'),
           ],
@@ -192,7 +192,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -221,7 +221,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.mediumGreen,
+            backgroundColor: AppColors.primaryNavy,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -239,7 +239,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Text(result['message'] ?? 'Failed to cancel order')),
               ],
             ),
-            backgroundColor: Colors.red[600],
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -256,7 +256,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               Text('An error occurred'),
             ],
           ),
-          backgroundColor: Colors.red[600],
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -294,10 +294,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             widget.order['order_id']?.toString() ??
             '';
         final canCancel = orderStatus.toLowerCase() == 'pending';
-        final paymentStatus =
-            widget.order['payment_status']?.toString().toLowerCase() ?? 'pending';
-        final canPay =
-            canCancel && paymentStatus != 'paid';
+
+        // Prefer nested `payment` object; fall back to flattened order_detail fields.
+        final payment = widget.order['payment'] as Map<String, dynamic>?;
+        final paymentStatus = (payment?['status']?.toString() ??
+                widget.order['payment_status']?.toString() ??
+                '')
+            .toLowerCase();
+        final paymentMethodRaw = payment?['payment_method']?.toString() ??
+            widget.order['payment_method']?.toString() ??
+            '';
+        final canPay = canCancel && paymentStatus != 'paid';
         final orderItems = widget.order['order_items'] as List? ?? [];
         final shippingAddress =
             widget.order['shipping_address']?.toString() ?? 'No address';
@@ -342,8 +349,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   subtotal: widget.order['subtotal'],
                   shippingFee: widget.order['shipping_fee'],
                   totalAmount: widget.order['total_amount'],
-                  paymentMethod: _getPaymentMethodDisplayName(
-                      widget.order['payment_method']?.toString()),
+                  paymentMethod:
+                      _getPaymentMethodDisplayName(paymentMethodRaw),
                   paymentStatus: paymentStatus,
                 ),
                 SizedBox(height: 24),
@@ -380,8 +387,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               child: OutlinedButton(
                 onPressed: _isCancelling ? null : () => _cancelOrder(orderId),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red[600],
-                  side: BorderSide(color: Colors.red[400]!),
+                  foregroundColor: AppColors.error,
+                  side: BorderSide(color: AppColors.error.withOpacity(0.6)),
                   padding: EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -393,7 +400,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.red[600],
+                          color: AppColors.error,
                         ),
                       )
                     : Text(
@@ -409,9 +416,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             Expanded(
               child: canPay
                   ? ElevatedButton.icon(
-                      onPressed: _isInitiatingPayment
-                          ? null
-                          : () => _payNow(orderId),
+                      onPressed:
+                          _isInitiatingPayment ? null : () => _payNow(orderId),
                       icon: _isInitiatingPayment
                           ? SizedBox(
                               width: 18,
@@ -430,10 +436,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.mediumGreen,
+                        backgroundColor: AppColors.primaryNavy,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            AppColors.mediumGreen.withOpacity(0.6),
+                            AppColors.primaryNavy.withOpacity(0.6),
                         disabledForegroundColor: Colors.white70,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -447,7 +453,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Contact support coming soon!'),
-                            backgroundColor: AppColors.mediumGreen,
+                            backgroundColor: AppColors.primaryNavy,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -456,7 +462,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.mediumGreen,
+                        backgroundColor: AppColors.primaryNavy,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

@@ -427,7 +427,7 @@ class _DeliveryPhotoPreviewScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -438,7 +438,7 @@ class _DeliveryPhotoPreviewScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
         ),
       );
     }

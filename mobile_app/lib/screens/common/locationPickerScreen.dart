@@ -300,7 +300,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               child: Icon(
                 Icons.location_pin,
                 size: 48,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             ),
           ),
@@ -315,7 +315,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   children: [
                     CircularProgressIndicator(
                       valueColor:
-                          AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                          AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
                     ),
                     SizedBox(height: 16),
                     Text(
@@ -339,20 +339,20 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               child: Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red[50],
+                  color: AppColors.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[300]!),
+                  border: Border.all(color: AppColors.error.withOpacity(0.4)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red[700], size: 20),
+                    Icon(Icons.error_outline, color: AppColors.error, size: 20),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.red[700],
+                          color: AppColors.error,
                         ),
                       ),
                     ),
@@ -362,7 +362,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                           _errorMessage = null;
                         });
                       },
-                      icon: Icon(Icons.close, size: 18, color: Colors.red[700]),
+                      icon: Icon(Icons.close, size: 18, color: AppColors.error),
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(),
                     ),
@@ -401,12 +401,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                         Container(
                           padding: EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.mediumGreen.withOpacity(0.1),
+                            color: AppColors.primaryNavy.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             Icons.location_on,
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                             size: 24,
                           ),
                         ),
@@ -433,7 +433,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                              AppColors.mediumGreen,
+                                              AppColors.primaryNavy,
                                             ),
                                           ),
                                         ),
@@ -496,7 +496,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     ElevatedButton(
                       onPressed: _address.isNotEmpty ? _confirmLocation : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.mediumGreen,
+                        backgroundColor: AppColors.primaryNavy,
                         disabledBackgroundColor: Colors.grey[400],
                         padding: EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

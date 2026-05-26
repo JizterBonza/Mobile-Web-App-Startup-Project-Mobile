@@ -104,7 +104,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: Text('Delete'),
           ),
         ],
@@ -120,7 +120,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
           SnackBar(
             content: Text(result['message'] ?? 'Address deleted'),
             backgroundColor:
-                result['success'] == true ? Colors.green[700] : Colors.red[700],
+                result['success'] == true ? AppColors.success : AppColors.error,
           ),
         );
       }
@@ -136,7 +136,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         SnackBar(
           content: Text(result['message'] ?? 'Default address updated'),
           backgroundColor:
-              result['success'] == true ? Colors.green[700] : Colors.red[700],
+              result['success'] == true ? AppColors.success : AppColors.error,
         ),
       );
     }
@@ -201,7 +201,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
           ),
           SizedBox(height: 16),
           Text(
@@ -226,7 +226,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
             Icon(
               Icons.error_outline,
               size: 60,
-              color: Colors.red[300],
+              color: AppColors.error.withOpacity(0.4),
             ),
             SizedBox(height: 16),
             Text(
@@ -252,7 +252,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -273,13 +273,13 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.mediumGreen.withOpacity(0.1),
+                color: AppColors.primaryNavy.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.location_off_outlined,
                 size: 60,
-                color: AppColors.mediumGreen.withOpacity(0.6),
+                color: AppColors.primaryNavy.withOpacity(0.6),
               ),
             ),
             SizedBox(height: 24),
@@ -307,7 +307,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               icon: Icon(Icons.add_location_alt_outlined),
               label: Text('Add New Address'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -327,7 +327,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadAddresses,
-      color: AppColors.mediumGreen,
+      color: AppColors.primaryNavy,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: addresses.length,
@@ -364,9 +364,9 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected
-              ? AppColors.mediumGreen
+              ? AppColors.primaryNavy
               : (isDefault
-                  ? AppColors.mediumGreen.withOpacity(0.3)
+                  ? AppColors.primaryNavy.withOpacity(0.3)
                   : Colors.grey[300]!),
           width: isSelected ? 2 : 1,
         ),
@@ -427,7 +427,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -449,12 +449,12 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.mediumGreen
+                                ? AppColors.primaryNavy
                                 : Colors.grey[400]!,
                             width: 2,
                           ),
                           color: isSelected
-                              ? AppColors.mediumGreen
+                              ? AppColors.primaryNavy
                               : Colors.transparent,
                         ),
                         child: isSelected
@@ -505,10 +505,10 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                             child: Row(
                               children: [
                                 Icon(Icons.delete_outline,
-                                    size: 20, color: Colors.red[600]),
+                                    size: 20, color: AppColors.error),
                                 SizedBox(width: 12),
                                 Text('Delete',
-                                    style: TextStyle(color: Colors.red[600])),
+                                    style: TextStyle(color: AppColors.error)),
                               ],
                             ),
                           ),
@@ -621,11 +621,11 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
   Color _getLabelColor(String? label) {
     switch (label?.toLowerCase()) {
       case 'home':
-        return AppColors.mediumGreen;
+        return AppColors.primaryNavy;
       case 'office':
-        return Colors.blue[700]!;
+        return AppColors.primaryNavyLight;
       case 'parents house':
-        return Colors.orange[700]!;
+        return AppColors.accentAmberDark;
       default:
         return Colors.grey[700]!;
     }
@@ -661,7 +661,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         child: ElevatedButton(
           onPressed: _selectedAddressId != null ? _confirmSelection : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.mediumGreen,
+            backgroundColor: AppColors.primaryNavy,
             disabledBackgroundColor: Colors.grey[400],
             padding: EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(

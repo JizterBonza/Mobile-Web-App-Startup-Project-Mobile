@@ -11,7 +11,7 @@ class OrderService extends ApiService {
     required List<Map<String, dynamic>> items,
     required String shippingAddress,
     required int? shippingAddressId,
-    required String paymentMethod,
+    String? paymentMethod,
     required double subtotal,
     required double shippingFee,
     required double totalAmount,
@@ -50,7 +50,7 @@ class OrderService extends ApiService {
         'shipping_address_id': shippingAddressId,
         'order_instruction': orderInstruction ?? '',
         'delivery_method_id': deliveryMethodId,
-        'payment_method': paymentMethod,
+        // 'payment_method': paymentMethod,
       };
 
       final response = await http
@@ -99,6 +99,67 @@ class OrderService extends ApiService {
         'success': false,
         'message': 'Network error: ${e.toString()}',
         'data': null,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> calculateOrder({
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {'success': false, 'message': 'Authentication required.'};
+      }
+
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        return {'success': false, 'message': 'User ID not found.'};
+      }
+
+      final uri = Uri.parse(ApiEndpoints.calculateOrder);
+
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'user_id': userId,
+              'items': items,
+            }),
+          )
+          .timeout(
+            Duration(seconds: 15),
+            onTimeout: () {
+              throw TimeoutException('Request timed out after 15 seconds');
+            },
+          );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': responseData['success'] ?? true,
+          'subtotal': (responseData['subtotal'] as num?)?.toDouble() ?? 0.0,
+          'handling_fee':
+              (responseData['handling_fee'] as num?)?.toDouble() ?? 0.0,
+          'total_amount':
+              (responseData['total_amount'] as num?)?.toDouble() ?? 0.0,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Failed to calculate order',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
       };
     }
   }
@@ -165,13 +226,15 @@ class OrderService extends ApiService {
             'drop_location_lat': orderDetail?['drop_location_lat'],
             'drop_location_long': orderDetail?['drop_location_long'],
             'order_instruction': orderDetail?['order_instruction'],
-            'payment_method': orderDetail?['payment_method']?.toString() ?? '',
+            // 'payment_method': orderDetail?['payment_method']?.toString() ?? '',
             'payment_status':
                 orderDetail?['payment_status']?.toString() ?? 'pending',
             'order_detail_created_at': orderDetail?['created_at'],
             'order_detail_updated_at': orderDetail?['updated_at'],
             'user': order['user'],
             'order_items': order['order_items'] ?? [],
+            'order_shops': order['order_shops'] ?? [],
+            'payment': order['payment'],
             'order_id': order['id'],
           };
         }).toList();
@@ -447,13 +510,11 @@ class OrderService extends ApiService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       if (responseData['success'] == true && responseData['data'] != null) {
         final orders = (responseData['data'] as List).map((entry) {
-          final orderData =
-              entry['order'] as Map<String, dynamic>? ?? {};
+          final orderData = entry['order'] as Map<String, dynamic>? ?? {};
           final orderDetail =
               orderData['order_detail'] as Map<String, dynamic>?;
           final user = orderData['user'] as Map<String, dynamic>?;
-          final address =
-              orderDetail?['address'] as Map<String, dynamic>?;
+          final address = orderDetail?['address'] as Map<String, dynamic>?;
           final shop = entry['shop'] as Map<String, dynamic>?;
           final items = entry['items'] as List<dynamic>? ?? [];
 
@@ -474,10 +535,8 @@ class OrderService extends ApiService {
             'order_id': entry['order_id'],
             'order_code': orderDetail?['order_code']?.toString() ?? '',
             'subtotal': orderDetail?['subtotal']?.toString() ?? '0.00',
-            'shipping_fee':
-                orderDetail?['shipping_fee']?.toString() ?? '0.00',
-            'total_amount':
-                orderDetail?['total_amount']?.toString() ?? '0.00',
+            'shipping_fee': orderDetail?['shipping_fee']?.toString() ?? '0.00',
+            'total_amount': orderDetail?['total_amount']?.toString() ?? '0.00',
             'shipping_address':
                 orderDetail?['shipping_address']?.toString() ?? '',
             'address_id': orderDetail?['address_id'],
@@ -485,14 +544,11 @@ class OrderService extends ApiService {
                 address?['latitude'] ?? orderDetail?['drop_location_lat'],
             'drop_location_long':
                 address?['longitude'] ?? orderDetail?['drop_location_long'],
-            'recipient_name':
-                address?['recipient_name']?.toString() ?? '',
-            'recipient_contact':
-                address?['contact_number']?.toString() ?? '',
+            'recipient_name': address?['recipient_name']?.toString() ?? '',
+            'recipient_contact': address?['contact_number']?.toString() ?? '',
             'order_instruction': orderDetail?['order_instruction'],
             'delivery_method_id': orderDetail?['delivery_method_id'],
-            'payment_method':
-                orderDetail?['payment_method']?.toString() ?? '',
+            // 'payment_method': orderDetail?['payment_method']?.toString() ?? '',
             'payment_status':
                 orderDetail?['payment_status']?.toString() ?? 'pending',
             'order_detail_created_at': orderDetail?['created_at'],

@@ -233,7 +233,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.mediumGreen,
+        selectedItemColor: AppColors.primaryNavy,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
@@ -264,7 +264,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
           ),
           SizedBox(height: 16),
           Text(
@@ -289,7 +289,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red[300],
+              color: AppColors.error.withOpacity(0.4),
             ),
             SizedBox(height: 16),
             Text(
@@ -315,7 +315,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
               icon: Icon(Icons.refresh, size: 18),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -380,7 +380,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             icon: Icon(Icons.shopping_bag_outlined, size: 18),
             label: Text('Browse Products'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -431,7 +431,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: product['inStock'] == false
-              ? Colors.orange[300]!
+              ? AppColors.warning.withOpacity(0.5)
               : Colors.grey[300]!,
         ),
       ),
@@ -464,10 +464,10 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                   height: isGrid ? 100 : 140,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppColors.mediumGreen.withOpacity(0.1),
+                    color: AppColors.primaryNavy.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: AppColors.mediumGreen.withOpacity(0.2),
+                      color: AppColors.primaryNavy.withOpacity(0.2),
                     ),
                   ),
                   child: Stack(
@@ -475,7 +475,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       Center(
                         child: Icon(
                           Icons.shopping_bag_outlined,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           size: isGrid ? 28 : 40,
                         ),
                       ),
@@ -503,7 +503,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                               ),
                               child: Icon(
                                 Icons.favorite,
-                                color: Colors.red[600],
+                                color: AppColors.accentAmber,
                                 size: isGrid ? 14 : 18,
                               ),
                             ),
@@ -522,7 +522,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.orange[700],
+                              color: AppColors.warning,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -574,7 +574,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                     Icon(
                       Icons.star,
                       size: isGrid ? 10 : 14,
-                      color: Colors.amber[600],
+                      color: AppColors.accentAmber,
                     ),
                     SizedBox(width: 2),
                     Text(
@@ -603,7 +603,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                             style: TextStyle(
                               fontSize: isGrid ? 12 : 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavy,
                             ),
                           ),
                           if (!isGrid &&
@@ -634,7 +634,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                                   SnackBar(
                                     content: Text(
                                         '${product['name']} added to cart'),
-                                    backgroundColor: AppColors.mediumGreen,
+                                    backgroundColor: AppColors.primaryNavy,
                                     duration: Duration(seconds: 1),
                                   ),
                                 );
@@ -645,7 +645,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           decoration: BoxDecoration(
                             color: product['inStock'] == false
                                 ? Colors.grey[300]
-                                : AppColors.mediumGreen.withOpacity(0.1),
+                                : AppColors.primaryNavy.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -653,7 +653,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                             size: isGrid ? 14 : 18,
                             color: product['inStock'] == false
                                 ? Colors.grey[500]
-                                : AppColors.mediumGreen,
+                                : AppColors.primaryNavy,
                           ),
                         ),
                       ),

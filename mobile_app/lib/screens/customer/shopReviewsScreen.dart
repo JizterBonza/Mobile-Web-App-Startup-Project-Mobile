@@ -99,7 +99,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
 
                   return RefreshIndicator(
                     onRefresh: _refreshReviews,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                     child: CustomScrollView(
                       physics: AlwaysScrollableScrollPhysics(),
                       slivers: [
@@ -197,7 +197,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: AppColors.mediumGreen),
+          CircularProgressIndicator(color: AppColors.primaryNavy),
           SizedBox(height: 16),
           Text(
             'Loading reviews...',
@@ -237,7 +237,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mediumGreen,
+                backgroundColor: AppColors.primaryNavy,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -339,7 +339,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                     return Icon(
                       index < rating.round() ? Icons.star : Icons.star_border,
                       size: 20,
-                      color: Colors.amber[600],
+                      color: AppColors.accentAmber,
                     );
                   }),
                 ),
@@ -380,7 +380,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.star, size: 12, color: Colors.amber[600]),
+                      Icon(Icons.star, size: 12, color: AppColors.accentAmber),
                       SizedBox(width: 8),
                       Expanded(
                         child: ClipRRect(
@@ -389,7 +389,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                             value: percentage,
                             backgroundColor: Colors.grey[200],
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.mediumGreen,
+                              AppColors.primaryNavy,
                             ),
                             minHeight: 8,
                           ),
@@ -449,16 +449,16 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 });
               },
               backgroundColor: Colors.white,
-              selectedColor: AppColors.mediumGreen.withOpacity(0.15),
-              checkmarkColor: AppColors.mediumGreen,
+              selectedColor: AppColors.primaryNavy.withOpacity(0.15),
+              checkmarkColor: AppColors.primaryNavy,
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.mediumGreen : Colors.grey[700],
+                color: isSelected ? AppColors.primaryNavy : Colors.grey[700],
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: isSelected ? AppColors.mediumGreen : Colors.grey[300]!,
+                  color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
                 ),
               ),
             ),
@@ -498,14 +498,14 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.mediumGreen.withOpacity(0.1),
+                  color: AppColors.primaryNavy.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -534,7 +534,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                                 ? Icons.star
                                 : Icons.star_border,
                             size: 16,
-                            color: Colors.amber[600],
+                            color: AppColors.accentAmber,
                           );
                         }),
                         SizedBox(width: 8),

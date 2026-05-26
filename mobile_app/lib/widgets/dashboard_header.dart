@@ -7,6 +7,8 @@ class DashboardHeader extends StatelessWidget {
   final String? subtitle;
   final IconData icon;
   final VoidCallback? onIconTap;
+  final String? userName;
+  final int activeCount;
 
   const DashboardHeader({
     super.key,
@@ -15,56 +17,96 @@ class DashboardHeader extends StatelessWidget {
     this.subtitle,
     this.icon = Icons.store,
     this.onIconTap,
+    this.userName,
+    this.activeCount = 0,
   });
+
+  String _getInitials() {
+    if (userName == null || userName!.isEmpty) return 'R';
+    final parts = userName!.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              greeting,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
-              ),
-            ),
-            if (subtitle != null) ...[
-              SizedBox(height: 4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                subtitle!,
+                greeting,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w400,
                 ),
               ),
+              SizedBox(height: 2),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey[900],
+                ),
+              ),
+              if (subtitle != null) ...[
+                SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: activeCount > 0
+                            ? AppColors.primaryNavy
+                            : Colors.grey[400],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      activeCount > 0
+                          ? '$activeCount active delivery${activeCount == 1 ? '' : 'ies'}'
+                          : 'No active deliveries',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: activeCount > 0
+                            ? AppColors.primaryNavy
+                            : Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
         GestureDetector(
           onTap: onIconTap,
           child: Container(
-            padding: EdgeInsets.all(8),
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.mediumGreen.withOpacity(0.3)),
+              color: AppColors.primaryNavy.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
-              icon,
-              color: AppColors.mediumGreen,
-              size: 28,
+            child: Center(
+              child: Text(
+                _getInitials(),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryNavy,
+                ),
+              ),
             ),
           ),
         ),
@@ -72,5 +114,3 @@ class DashboardHeader extends StatelessWidget {
     );
   }
 }
-
-

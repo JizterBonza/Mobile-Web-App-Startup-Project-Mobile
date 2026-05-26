@@ -127,7 +127,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               foregroundColor: Colors.white,
             ),
             child: Text('Accept'),
@@ -144,7 +144,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
       barrierDismissible: false,
       builder: (context) => Center(
         child: CircularProgressIndicator(
-          color: AppColors.mediumGreen,
+          color: AppColors.primaryNavy,
         ),
       ),
     );
@@ -366,7 +366,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
             child: _isLoading
                 ? Center(
                     child: CircularProgressIndicator(
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                     ),
                   )
                 : _error != null
@@ -402,7 +402,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                               icon: Icon(Icons.refresh),
                               label: Text('Retry'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.mediumGreen,
+                                backgroundColor: AppColors.primaryNavy,
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -443,7 +443,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                             builder: (context, orderStatusProvider, child) {
                               return RefreshIndicator(
                                 onRefresh: _loadAvailableOrders,
-                                color: AppColors.mediumGreen,
+                                color: AppColors.primaryNavy,
                                 child: ListView.builder(
                                   padding: EdgeInsets.all(16),
                                   itemCount: _filteredOrders.length,
@@ -458,7 +458,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: AppColors.mediumGreen
+                                          color: AppColors.primaryNavy
                                               .withOpacity(0.3),
                                           width: 2,
                                         ),
@@ -492,7 +492,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                                                 label: Text('Accept Delivery'),
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
-                                                      AppColors.mediumGreen,
+                                                      AppColors.primaryNavy,
                                                   foregroundColor: Colors.white,
                                                   padding: EdgeInsets.symmetric(
                                                     vertical: 16,
@@ -530,14 +530,14 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
           _selectedFilter = value;
         });
       },
-      selectedColor: AppColors.mediumGreen.withOpacity(0.2),
-      checkmarkColor: AppColors.mediumGreen,
+      selectedColor: AppColors.primaryNavy.withOpacity(0.2),
+      checkmarkColor: AppColors.primaryNavy,
       labelStyle: TextStyle(
-        color: isSelected ? AppColors.mediumGreen : Colors.grey[700],
+        color: isSelected ? AppColors.primaryNavy : Colors.grey[700],
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
       ),
       side: BorderSide(
-        color: isSelected ? AppColors.mediumGreen : Colors.grey[300]!,
+        color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
         width: isSelected ? 2 : 1,
       ),
     );
@@ -660,7 +660,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
               _acceptDelivery(order);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               foregroundColor: Colors.white,
             ),
             child: Text('Accept Delivery'),

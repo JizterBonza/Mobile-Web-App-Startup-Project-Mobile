@@ -28,7 +28,7 @@ class ProductInventoryItem extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isLowStock ? Colors.orange[300]! : Colors.grey[300]!,
+          color: isLowStock ? AppColors.warning.withOpacity(0.5) : Colors.grey[300]!,
           width: isLowStock ? 2 : 1,
         ),
       ),
@@ -38,13 +38,13 @@ class ProductInventoryItem extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.mediumGreen.withOpacity(0.2)),
+              border: Border.all(color: AppColors.primaryNavy.withOpacity(0.2)),
             ),
             child: Icon(
               Icons.inventory_2_outlined,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 28,
             ),
           ),
@@ -70,7 +70,7 @@ class ProductInventoryItem extends StatelessWidget {
                         padding:
                             EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.orange[100],
+                          color: AppColors.warning.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -78,7 +78,7 @@ class ProductInventoryItem extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange[700],
+                            color: AppColors.warning,
                           ),
                         ),
                       ),
@@ -105,7 +105,7 @@ class ProductInventoryItem extends StatelessWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: isLowStock
-                                ? Colors.orange[700]
+                                ? AppColors.warning
                                 : Colors.grey[700],
                           ),
                         ),
@@ -123,7 +123,7 @@ class ProductInventoryItem extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                       ),
                     ),
                   ],
@@ -160,9 +160,9 @@ class ProductInventoryItem extends StatelessWidget {
                 PopupMenuItem(
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      Icon(Icons.delete_outline, size: 18, color: AppColors.error),
                       SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
+                      Text('Delete', style: TextStyle(color: AppColors.error)),
                     ],
                   ),
                   value: 'delete',

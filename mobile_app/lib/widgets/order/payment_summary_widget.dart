@@ -39,77 +39,81 @@ class PaymentSummaryWidget extends StatelessWidget {
               color: Colors.grey[900],
             ),
           ),
-          SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Payment Method',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              Row(
-                children: [
-                  Icon(
-                    paymentMethod.toLowerCase().contains('cash')
-                        ? Icons.money
-                        : Icons.credit_card,
-                    size: 18,
-                    color: AppColors.mediumGreen,
+          if (paymentMethod.isNotEmpty) ...[
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Payment Method',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
                   ),
-                  SizedBox(width: 6),
-                  Text(
-                    OrderHelpers.capitalizeFirst(paymentMethod),
+                ),
+                Row(
+                  children: [
+                    Icon(
+                      paymentMethod.toLowerCase().contains('cash')
+                          ? Icons.money
+                          : Icons.credit_card,
+                      size: 18,
+                      color: AppColors.primaryNavy,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      OrderHelpers.capitalizeFirst(paymentMethod),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[900],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+          if (paymentStatus.isNotEmpty) ...[
+            SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Payment Status',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: paymentStatus.toLowerCase() == 'paid'
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.accentAmber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    OrderHelpers.capitalizeFirst(paymentStatus),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[900],
+                      color: paymentStatus.toLowerCase() == 'paid'
+                          ? AppColors.success
+                          : AppColors.accentAmberDark,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Payment Status',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
                 ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: paymentStatus.toLowerCase() == 'paid'
-                      ? AppColors.mediumGreen.withOpacity(0.1)
-                      : Colors.amber[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  OrderHelpers.capitalizeFirst(paymentStatus),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: paymentStatus.toLowerCase() == 'paid'
-                        ? AppColors.mediumGreen
-                        : Colors.amber[800],
-                  ),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           SizedBox(height: 16),
           Divider(color: Colors.grey[200]),
           SizedBox(height: 16),
           _buildPriceRow('Subtotal', subtotal),
           SizedBox(height: 10),
-          _buildPriceRow('Shipping Fee', shippingFee),
+          _buildPriceRow('Handling Fee', shippingFee),
           SizedBox(height: 16),
           Divider(color: Colors.grey[300]),
           SizedBox(height: 16),
@@ -129,7 +133,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavyDark,
                 ),
               ),
             ],

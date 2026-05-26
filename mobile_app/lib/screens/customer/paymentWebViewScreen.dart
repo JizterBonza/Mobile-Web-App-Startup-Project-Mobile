@@ -141,7 +141,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 28),
+            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 28),
             SizedBox(width: 12),
             Text('Cancel Payment?'),
           ],
@@ -156,7 +156,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             child: Text(
               'Stay',
               style: TextStyle(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -166,7 +166,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             child: Text(
               'Leave',
               style: TextStyle(
-                color: Colors.red[600],
+                color: AppColors.error,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -204,7 +204,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           iconTheme: IconThemeData(color: Colors.grey[700]),
           leading: IconButton(
             icon: Icon(Icons.close),
-            onPressed: _onWillPop,
+            onPressed: () => Navigator.of(context).pop(PaymentResult.cancelled),
           ),
           bottom: _isLoading
               ? PreferredSize(
@@ -212,7 +212,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   child: LinearProgressIndicator(
                     value: _loadingProgress / 100,
                     backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
                   ),
                 )
               : null,
@@ -232,12 +232,12 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             Container(
               padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.red[50],
+                color: AppColors.error.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.error_outline,
-                color: Colors.red[400],
+                color: AppColors.error,
                 size: 48,
               ),
             ),
@@ -289,7 +289,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   icon: Icon(Icons.refresh, size: 18),
                   label: Text('Retry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.mediumGreen,
+                    backgroundColor: AppColors.primaryNavy,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(
