@@ -53,7 +53,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(Icons.refresh,
-                          size: 18, color: AppColors.mediumGreen),
+                          size: 18, color: AppColors.primaryNavy),
                     ),
                   ),
                 GestureDetector(
@@ -64,7 +64,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
                       'View All',
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -88,7 +88,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                 ),
               ),
             ),

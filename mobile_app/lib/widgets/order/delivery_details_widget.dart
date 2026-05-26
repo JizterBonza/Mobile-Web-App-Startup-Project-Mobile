@@ -58,13 +58,13 @@ class DeliveryDetailsWidget extends StatelessWidget {
         Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.mediumGreen.withOpacity(0.1),
+            color: AppColors.primaryNavy.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
             size: 20,
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
           ),
         ),
         SizedBox(width: 14),

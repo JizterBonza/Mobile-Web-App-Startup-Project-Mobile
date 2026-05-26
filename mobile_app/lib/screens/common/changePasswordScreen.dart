@@ -53,7 +53,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             SnackBar(
               content:
                   Text(result['message'] ?? 'Password changed successfully!'),
-              backgroundColor: Colors.green[700],
+              backgroundColor: AppColors.success,
             ),
           );
           Navigator.pop(context, true); // Return true to indicate success
@@ -64,7 +64,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             SnackBar(
               content: Text(result['message'] ??
                   'Failed to change password. Please try again.'),
-              backgroundColor: Colors.red[700],
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -78,7 +78,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('An error occurred: ${e.toString()}'),
-            backgroundColor: Colors.red[700],
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -123,17 +123,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: AppColors.mediumGreen.withOpacity(0.1),
+                        color: AppColors.primaryNavy.withOpacity(0.1),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.mediumGreen.withOpacity(0.3),
+                          color: AppColors.primaryNavy.withOpacity(0.3),
                           width: 2,
                         ),
                       ),
                       child: Icon(
                         Icons.lock_outline,
                         size: 40,
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                       ),
                     ),
                     SizedBox(height: 16),
@@ -186,13 +186,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       decoration: InputDecoration(
                         labelText: 'Current Password',
                         prefixIcon: Icon(Icons.lock_outline,
-                            color: AppColors.mediumGreen),
+                            color: AppColors.primaryNavy),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isCurrentPasswordVisible
                                 ? Icons.visibility
                                 : Icons.visibility_off,
-                            color: AppColors.textSecondaryGrey,
+                            color: AppColors.textSecondary,
                           ),
                           onPressed: () {
                             setState(() {
@@ -204,20 +204,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                              color: AppColors.mediumGreen, width: 2),
+                              color: AppColors.primaryNavy, width: 2),
                         ),
                         filled: true,
-                        fillColor: AppColors.lightGreyBackground,
+                        fillColor: AppColors.surfaceMuted,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -234,13 +234,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       decoration: InputDecoration(
                         labelText: 'New Password',
                         prefixIcon: Icon(Icons.lock_outline,
-                            color: AppColors.mediumGreen),
+                            color: AppColors.primaryNavy),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isNewPasswordVisible
                                 ? Icons.visibility
                                 : Icons.visibility_off,
-                            color: AppColors.textSecondaryGrey,
+                            color: AppColors.textSecondary,
                           ),
                           onPressed: () {
                             setState(() {
@@ -251,20 +251,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                              color: AppColors.mediumGreen, width: 2),
+                              color: AppColors.primaryNavy, width: 2),
                         ),
                         filled: true,
-                        fillColor: AppColors.lightGreyBackground,
+                        fillColor: AppColors.surfaceMuted,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -287,13 +287,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       decoration: InputDecoration(
                         labelText: 'Re-enter New Password',
                         prefixIcon: Icon(Icons.lock_outline,
-                            color: AppColors.mediumGreen),
+                            color: AppColors.primaryNavy),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isConfirmPasswordVisible
                                 ? Icons.visibility
                                 : Icons.visibility_off,
-                            color: AppColors.textSecondaryGrey,
+                            color: AppColors.textSecondary,
                           ),
                           onPressed: () {
                             setState(() {
@@ -305,20 +305,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide:
-                              BorderSide(color: AppColors.inputBorderGrey),
+                              BorderSide(color: AppColors.borderDefault),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                              color: AppColors.mediumGreen, width: 2),
+                              color: AppColors.primaryNavy, width: 2),
                         ),
                         filled: true,
-                        fillColor: AppColors.lightGreyBackground,
+                        fillColor: AppColors.surfaceMuted,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {

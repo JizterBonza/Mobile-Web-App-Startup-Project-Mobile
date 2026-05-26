@@ -65,7 +65,7 @@ class DashboardHeader extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         color: activeCount > 0
-                            ? AppColors.mediumGreen
+                            ? AppColors.primaryNavy
                             : Colors.grey[400],
                         shape: BoxShape.circle,
                       ),
@@ -78,7 +78,7 @@ class DashboardHeader extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         color: activeCount > 0
-                            ? AppColors.mediumGreen
+                            ? AppColors.primaryNavy
                             : Colors.grey[500],
                         fontWeight: FontWeight.w500,
                       ),
@@ -95,7 +95,7 @@ class DashboardHeader extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.08),
+              color: AppColors.primaryNavy.withOpacity(0.08),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
@@ -104,7 +104,7 @@ class DashboardHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                 ),
               ),
             ),

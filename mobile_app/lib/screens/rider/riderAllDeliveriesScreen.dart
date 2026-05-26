@@ -221,7 +221,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.mediumGreen,
+            backgroundColor: AppColors.primaryNavy,
           ),
         );
         await _loadOrders(useCache: false);
@@ -229,7 +229,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Failed to update status'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -237,7 +237,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating status: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -302,7 +302,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Invalid order ID'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -319,7 +319,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Unable to find "In Transit" status. Please try again.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -335,7 +335,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Invalid order ID'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -360,7 +360,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Delivery photo is required'),
-              backgroundColor: Colors.orange,
+              backgroundColor: AppColors.warning,
             ),
           );
           return;
@@ -369,7 +369,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error accessing camera: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         return;
@@ -426,7 +426,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: AppColors.mediumGreen),
+                    CircularProgressIndicator(color: AppColors.primaryNavy),
                     SizedBox(height: 16),
                     if (provider.totalToUpload > 0)
                       Text(
@@ -461,12 +461,12 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           final total = data?['total'] ?? 0;
 
           if (successCount == total) {
-            backgroundColor = AppColors.mediumGreen;
+            backgroundColor = AppColors.primaryNavy;
           } else {
-            backgroundColor = Colors.orange;
+            backgroundColor = AppColors.warning;
           }
         } else {
-          backgroundColor = Colors.red;
+          backgroundColor = AppColors.error;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -486,7 +486,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error during upload: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -507,7 +507,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     if (orders.isEmpty) {
       return RefreshIndicator(
         onRefresh: _onRefresh,
-        color: AppColors.mediumGreen,
+        color: AppColors.primaryNavy,
         child: SingleChildScrollView(
           physics: AlwaysScrollableScrollPhysics(),
           child: Container(
@@ -524,7 +524,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.mediumGreen,
+      color: AppColors.primaryNavy,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
@@ -602,11 +602,11 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.mediumGreen,
+                                  color: AppColors.primaryNavy,
                                 ),
                               )
                             : Icon(Icons.cloud_upload,
-                                color: AppColors.mediumGreen),
+                                color: AppColors.primaryNavy),
                         onPressed: podProvider.isUploading
                             ? null
                             : _uploadPendingPhotos,
@@ -616,7 +616,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                   ),
                   if (_orderError != null)
                     IconButton(
-                      icon: Icon(Icons.refresh, color: AppColors.mediumGreen),
+                      icon: Icon(Icons.refresh, color: AppColors.primaryNavy),
                       onPressed: () => _loadOrders(useCache: false),
                       tooltip: 'Retry',
                     ),
@@ -634,9 +634,9 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                labelColor: AppColors.mediumGreen,
+                labelColor: AppColors.primaryNavy,
                 unselectedLabelColor: Colors.grey[600],
-                indicatorColor: AppColors.mediumGreen,
+                indicatorColor: AppColors.primaryNavy,
                 indicatorWeight: 3,
                 labelStyle: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -654,7 +654,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
               child: _isLoadingOrders
                   ? Center(
                       child: CircularProgressIndicator(
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                       ),
                     )
                   : Consumer<OrderStatusProvider>(
@@ -685,7 +685,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           currentIndex: 1, // Deliveries tab is selected
           onTap: _onNavTap,
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.mediumGreen,
+          selectedItemColor: AppColors.primaryNavy,
           unselectedItemColor: Colors.grey[600],
           backgroundColor: Colors.white,
           items: [

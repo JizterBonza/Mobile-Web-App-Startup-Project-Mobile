@@ -440,7 +440,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
           ),
           SizedBox(height: 16),
           Text(
@@ -478,7 +478,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.shopping_bag_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -521,7 +521,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         children: [
           Icon(
             Icons.store_outlined,
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
             size: 18,
           ),
           SizedBox(width: 6),
@@ -561,15 +561,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.mediumGreen.withOpacity(0.2),
+                color: AppColors.primaryNavy.withOpacity(0.2),
               ),
             ),
             child: Icon(
               Icons.shopping_bag,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 24,
             ),
           ),
@@ -614,7 +614,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
             ),
           ),
         ],
@@ -644,7 +644,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.local_shipping_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -669,7 +669,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                        AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
                   ),
                 ),
               ),
@@ -678,16 +678,16 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange[50],
+                color: AppColors.accentAmber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange[200]!),
+                border: Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.warning_amber_outlined,
                     size: 20,
-                    color: Colors.orange[700],
+                    color: AppColors.warning,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -695,7 +695,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                       'No delivery methods available. Please try again later.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.orange[800],
+                        color: AppColors.accentAmberDark,
                       ),
                     ),
                   ),
@@ -735,7 +735,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                         children: [
                           Icon(
                             _getDeliveryMethodIcon(description),
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                             size: 20,
                           ),
                           SizedBox(width: 12),
@@ -769,10 +769,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.mediumGreen.withOpacity(0.05),
+                color: AppColors.primaryNavy.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.mediumGreen.withOpacity(0.2),
+                  color: AppColors.primaryNavy.withOpacity(0.2),
                 ),
               ),
               child: Row(
@@ -780,7 +780,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   Icon(
                     Icons.info_outline,
                     size: 16,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -836,7 +836,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.location_on_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -856,7 +856,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 icon: Icon(Icons.add, size: 18),
                 label: Text('Add New'),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.mediumGreen,
+                  foregroundColor: AppColors.primaryNavy,
                   padding: EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
@@ -876,10 +876,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       child: Container(
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.mediumGreen.withOpacity(0.05),
+          color: AppColors.primaryNavy.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.mediumGreen.withOpacity(0.3),
+            color: AppColors.primaryNavy.withOpacity(0.3),
             width: 1.5,
           ),
         ),
@@ -889,12 +889,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.mediumGreen.withOpacity(0.1),
+                color: AppColors.primaryNavy.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_location_alt_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 24,
               ),
             ),
@@ -907,7 +907,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -923,7 +923,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Spacer(),
             Icon(
               Icons.arrow_forward_ios,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 16,
             ),
           ],
@@ -986,12 +986,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           Container(
             padding: EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               _getLabelIcon(address.label),
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 16,
             ),
           ),
@@ -1017,7 +1017,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1055,7 +1055,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       children: [
         Icon(
           _getLabelIcon(address.label),
-          color: AppColors.mediumGreen,
+          color: AppColors.primaryNavy,
           size: 18,
         ),
         SizedBox(width: 8),
@@ -1078,10 +1078,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.mediumGreen.withOpacity(0.05),
+        color: AppColors.primaryNavy.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColors.mediumGreen.withOpacity(0.2),
+          color: AppColors.primaryNavy.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -1198,7 +1198,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.payment_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1218,7 +1218,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               child: Padding(
                 padding: EdgeInsets.all(20),
                 child: CircularProgressIndicator(
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                 ),
               ),
             )
@@ -1262,11 +1262,11 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.mediumGreen.withOpacity(0.1)
+                ? AppColors.primaryNavy.withOpacity(0.1)
                 : Colors.grey[50],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? AppColors.mediumGreen : Colors.grey[300]!,
+              color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -1280,7 +1280,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     _selectedPaymentMethodId = value;
                   });
                 },
-                activeColor: AppColors.mediumGreen,
+                activeColor: AppColors.primaryNavy,
               ),
               SizedBox(width: 8),
               Expanded(
@@ -1329,7 +1329,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.note_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1351,7 +1351,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                           fontSize: 14,
                           fontWeight: FontWeight.normal,
                           color: _isContactlessDelivery
-                              ? Colors.red[600]
+                              ? AppColors.error
                               : Colors.grey[600],
                         ),
                       ),
@@ -1366,16 +1366,16 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange[50],
+                color: AppColors.accentAmber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.orange[200]!),
+                border: Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.info_outline,
                     size: 16,
-                    color: Colors.orange[700],
+                    color: AppColors.warning,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -1383,7 +1383,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                       'Please provide instructions for contactless delivery (e.g., where to leave the package)',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.orange[800],
+                        color: AppColors.accentAmberDark,
                       ),
                     ),
                   ),
@@ -1408,15 +1408,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.mediumGreen, width: 2),
+                borderSide: BorderSide(color: AppColors.primaryNavy, width: 2),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.red[400]!, width: 1),
+                borderSide: BorderSide(color: AppColors.error.withOpacity(0.6), width: 1),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.red[400]!, width: 2),
+                borderSide: BorderSide(color: AppColors.error.withOpacity(0.6), width: 2),
               ),
               filled: true,
               fillColor: Colors.grey[50],
@@ -1459,7 +1459,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.receipt_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1537,7 +1537,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+                        AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
                   ),
                 ),
               ),
@@ -1578,7 +1578,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? AppColors.mediumGreen : Colors.grey[900],
+            color: isTotal ? AppColors.primaryNavy : Colors.grey[900],
           ),
         ),
       ],
@@ -1591,7 +1591,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       child: ElevatedButton(
         onPressed: (_isLoading || _isLoadingCalculation) ? null : _placeOrder,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.mediumGreen,
+          backgroundColor: AppColors.primaryNavy,
           padding: EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

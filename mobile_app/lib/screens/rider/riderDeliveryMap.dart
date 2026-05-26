@@ -398,7 +398,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
               Text('Waiting for your location...'),
             ],
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -431,7 +431,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('No in-transit orders available for routing'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -462,7 +462,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('No valid delivery locations found'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.warning,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -519,7 +519,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not calculate route. Check your API key.'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -529,7 +529,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error calculating route: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -704,7 +704,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Delivery photo is required'),
-              backgroundColor: Colors.orange,
+              backgroundColor: AppColors.warning,
             ),
           );
           return;
@@ -713,7 +713,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error accessing camera: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         return;
@@ -828,7 +828,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                         _buildLegendItem(
                             AppColors.statusInTransit, 'In Transit'),
                         if (_isLocationEnabled)
-                          _buildLegendItem(Colors.orange, 'You'),
+                          _buildLegendItem(AppColors.accentAmber, 'You'),
                       ],
                     ),
                   ),
@@ -917,20 +917,20 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                     child: Container(
                       padding: EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.08),
+                        color: AppColors.accentAmber.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.warning_amber_rounded,
-                              color: Colors.orange[700], size: 18),
+                              color: AppColors.warning, size: 18),
                           SizedBox(width: 8),
                           Text(
                             'Using cached data',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: Colors.orange[700],
+                              color: AppColors.warning,
                             ),
                           ),
                         ],
@@ -1377,7 +1377,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.deepForestGreen,
+                    color: AppColors.primaryNavyDark,
                   ),
                 ),
                 SizedBox(height: 2),

@@ -5,6 +5,7 @@ import '../../provider/provider.dart';
 import '../../services/cart_services.dart';
 import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
+import '../../utils/auth_guard.dart';
 import '../../utils/snackbar_helper.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -87,6 +88,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _toggleFavorite() async {
     if (_isTogglingFavorite) return;
 
+    if (!await requireAuth(context)) return;
+
     setState(() {
       _isTogglingFavorite = true;
     });
@@ -94,12 +97,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     try {
       final userId = await ApiService.getUserId();
       if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          SnackbarHelper.showError(
-            context,
-            'Please login to add items to favorites',
-          );
-        }
         setState(() {
           _isTogglingFavorite = false;
         });
@@ -288,7 +285,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           //   padding: EdgeInsets.symmetric(
                           //       horizontal: 12, vertical: 6),
                           //   decoration: BoxDecoration(
-                          //     color: AppColors.mediumGreen.withOpacity(0.1),
+                          //     color: AppColors.primaryNavy.withOpacity(0.1),
                           //     borderRadius: BorderRadius.circular(20),
                           //   ),
                           //   child: Text(
@@ -296,7 +293,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           //     style: TextStyle(
                           //       fontSize: 12,
                           //       fontWeight: FontWeight.w600,
-                          //       color: AppColors.mediumGreen,
+                          //       color: AppColors.primaryNavy,
                           //     ),
                           //   ),
                           // ),
@@ -320,7 +317,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Row(
                                 children: [
                                   Icon(Icons.star,
-                                      color: Colors.amber[600], size: 20),
+                                      color: AppColors.accentAmber, size: 20),
                                   SizedBox(width: 4),
                                   Text(
                                     productRating.toStringAsFixed(1),
@@ -356,13 +353,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: productStock > 0
-                                      ? Colors.green[50]
-                                      : Colors.red[50],
+                                      ? AppColors.success.withOpacity(0.1)
+                                      : AppColors.error.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: productStock > 0
-                                        ? Colors.green[300]!
-                                        : Colors.red[300]!,
+                                        ? AppColors.success.withOpacity(0.4)
+                                        : AppColors.error.withOpacity(0.4),
                                   ),
                                 ),
                                 child: Row(
@@ -374,8 +371,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                           : Icons.cancel,
                                       size: 14,
                                       color: productStock > 0
-                                          ? Colors.green[700]
-                                          : Colors.red[700],
+                                          ? AppColors.success
+                                          : AppColors.error,
                                     ),
                                     SizedBox(width: 4),
                                     Text(
@@ -386,8 +383,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: productStock > 0
-                                            ? Colors.green[700]
-                                            : Colors.red[700],
+                                            ? AppColors.success
+                                            : AppColors.error,
                                       ),
                                     ),
                                   ],
@@ -405,7 +402,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 style: TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.mediumGreen,
+                                  color: AppColors.primaryNavyDark,
                                 ),
                               ),
                               SizedBox(width: 8),
@@ -477,13 +474,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _isFavorite ? Colors.red : Colors.grey[800]!,
+                        _isFavorite ? AppColors.error : Colors.grey[800]!,
                       ),
                     ),
                   )
                 : Icon(
                     _isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: _isFavorite ? Colors.red : Colors.grey[800],
+                    color: _isFavorite ? AppColors.error : Colors.grey[800],
                   ),
             onPressed: _isTogglingFavorite ? null : _toggleFavorite,
           ),
@@ -494,7 +491,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 SnackBar(
                   content: Text('Share product'),
                   duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.mediumGreen,
+                  backgroundColor: AppColors.primaryNavy,
                 ),
               );
             },
@@ -519,12 +516,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             itemBuilder: (context, index) {
               return Container(
-                color: AppColors.mediumGreen.withOpacity(0.1),
+                color: AppColors.primaryNavy.withOpacity(0.1),
                 child: Center(
                   child: Icon(
                     Icons.image,
                     size: 100,
-                    color: AppColors.mediumGreen.withOpacity(0.5),
+                    color: AppColors.primaryNavy.withOpacity(0.5),
                   ),
                 ),
                 // In real implementation, use Image.network(_sampleImages[index])
@@ -548,7 +545,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _selectedImageIndex == index
-                        ? AppColors.mediumGreen
+                        ? AppColors.primaryNavy
                         : Colors.white.withOpacity(0.5),
                   ),
                 ),
@@ -619,7 +616,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.mediumGreen),
+          Icon(icon, size: 18, color: AppColors.primaryNavy),
           SizedBox(width: 12),
           Text(
             text,
@@ -691,7 +688,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Text(
                       _showAllReviews ? 'Show Less' : 'View All',
                       style: TextStyle(
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -704,7 +701,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Padding(
                   padding: EdgeInsets.all(32),
                   child: CircularProgressIndicator(
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                 ),
               )
@@ -714,7 +711,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   padding: EdgeInsets.all(32),
                   child: Column(
                     children: [
-                      Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      Icon(Icons.error_outline, color: AppColors.error, size: 48),
                       SizedBox(height: 8),
                       Text(
                         'Failed to load reviews',
@@ -772,7 +769,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   ? Icons.star
                                   : Icons.star_border,
                               size: 16,
-                              color: Colors.amber[600],
+                              color: AppColors.accentAmber,
                             );
                           }),
                         ),
@@ -833,7 +830,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             textAlign: TextAlign.right,
           ),
           SizedBox(width: 4),
-          Icon(Icons.star, size: 14, color: Colors.amber[600]),
+          Icon(Icons.star, size: 14, color: AppColors.accentAmber),
           SizedBox(width: 8),
           Expanded(
             child: ClipRRect(
@@ -841,7 +838,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: LinearProgressIndicator(
                 value: percentage,
                 backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.amber[600]!),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentAmber!),
                 minHeight: 6,
               ),
             ),
@@ -889,11 +886,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.mediumGreen.withOpacity(0.2),
+                backgroundColor: AppColors.primaryNavy.withOpacity(0.2),
                 child: Text(
                   username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -918,7 +915,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           Icon(
                             Icons.verified,
                             size: 14,
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                           ),
                         ],
                       ],
@@ -932,7 +929,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 ? Icons.star
                                 : Icons.star_border,
                             size: 14,
-                            color: Colors.amber[600],
+                            color: AppColors.accentAmber,
                           );
                         }),
                         if (formattedDate.isNotEmpty) ...[
@@ -1001,7 +998,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Container(
                       height: 120,
                       decoration: BoxDecoration(
-                        color: AppColors.mediumGreen.withOpacity(0.1),
+                        color: AppColors.primaryNavy.withOpacity(0.1),
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(12),
                         ),
@@ -1009,7 +1006,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       child: Center(
                         child: Icon(
                           Icons.shopping_bag,
-                          color: AppColors.mediumGreen,
+                          color: AppColors.primaryNavy,
                           size: 40,
                         ),
                       ),
@@ -1035,7 +1032,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavyDark,
                             ),
                           ),
                         ],
@@ -1052,20 +1049,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart(double price) async {
+    if (!await requireAuth(context)) return;
+
     setState(() {
       _isAddingToCart = true;
     });
 
     try {
-      // Get user ID
       final userId = await ApiService.getUserId();
       if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          SnackbarHelper.showError(
-            context,
-            'Please login to add items to cart',
-          );
-        }
         setState(() {
           _isAddingToCart = false;
         });
@@ -1183,7 +1175,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.mediumGreen,
+                  backgroundColor: AppColors.primaryNavy,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

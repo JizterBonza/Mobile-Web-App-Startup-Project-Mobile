@@ -58,7 +58,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                           ? Icons.money
                           : Icons.credit_card,
                       size: 18,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                     ),
                     SizedBox(width: 6),
                     Text(
@@ -90,8 +90,8 @@ class PaymentSummaryWidget extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: paymentStatus.toLowerCase() == 'paid'
-                        ? AppColors.mediumGreen.withOpacity(0.1)
-                        : Colors.amber[50],
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.accentAmber.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -100,8 +100,8 @@ class PaymentSummaryWidget extends StatelessWidget {
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: paymentStatus.toLowerCase() == 'paid'
-                          ? AppColors.mediumGreen
-                          : Colors.amber[800],
+                          ? AppColors.success
+                          : AppColors.accentAmberDark,
                     ),
                   ),
                 ),
@@ -133,7 +133,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavyDark,
                 ),
               ),
             ],

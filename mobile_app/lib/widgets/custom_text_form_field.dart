@@ -40,30 +40,30 @@ class CustomTextFormField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
-        prefixIcon: Icon(prefixIcon, color: AppColors.mediumGreen),
+        prefixIcon: Icon(prefixIcon, color: AppColors.primaryNavy),
         suffixIcon: suffixIcon != null
             ? IconButton(
                 icon: Icon(
                   suffixIcon,
-                  color: AppColors.textSecondaryGrey,
+                  color: AppColors.textSecondary,
                 ),
                 onPressed: onSuffixIconPressed,
               )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.inputBorderGrey),
+          borderSide: BorderSide(color: AppColors.borderDefault),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.inputBorderGrey),
+          borderSide: BorderSide(color: AppColors.borderDefault),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.mediumGreen, width: 2),
+          borderSide: BorderSide(color: AppColors.primaryNavy, width: 2),
         ),
         filled: true,
-        fillColor: AppColors.lightGreyBackground,
+        fillColor: AppColors.surfaceMuted,
       ),
       validator: validator,
     );

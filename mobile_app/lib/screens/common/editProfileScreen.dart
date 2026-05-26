@@ -125,7 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SnackBar(
               content:
                   Text(result['message'] ?? 'Profile updated successfully!'),
-              backgroundColor: Colors.green[700],
+              backgroundColor: AppColors.success,
             ),
           );
           Navigator.pop(context, true); // Return true to indicate success
@@ -136,7 +136,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SnackBar(
               content: Text(result['message'] ??
                   'Failed to update profile. Please try again.'),
-              backgroundColor: Colors.red[700],
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -150,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('An error occurred: ${e.toString()}'),
-            backgroundColor: Colors.red[700],
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -200,10 +200,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Container(
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.mediumGreen.withOpacity(0.05),
+          color: AppColors.primaryNavy.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.mediumGreen.withOpacity(0.3),
+            color: AppColors.primaryNavy.withOpacity(0.3),
             width: 1.5,
             style: BorderStyle.solid,
           ),
@@ -214,12 +214,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.mediumGreen.withOpacity(0.1),
+                color: AppColors.primaryNavy.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_location_alt_outlined,
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
                 size: 24,
               ),
             ),
@@ -232,7 +232,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -248,7 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Spacer(),
             Icon(
               Icons.arrow_forward_ios,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
               size: 16,
             ),
           ],
@@ -262,10 +262,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.mediumGreen.withOpacity(0.05),
+        color: AppColors.primaryNavy.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.mediumGreen.withOpacity(0.3),
+          color: AppColors.primaryNavy.withOpacity(0.3),
           width: 1.5,
         ),
       ),
@@ -278,12 +278,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.mediumGreen.withOpacity(0.1),
+                  color: AppColors.primaryNavy.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _getLabelIcon(address.label),
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                   size: 20,
                 ),
               ),
@@ -307,7 +307,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           padding:
                               EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -350,7 +350,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Icon(
                     Icons.edit_outlined,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                     size: 18,
                   ),
                 ),
@@ -475,7 +475,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: _isInitialLoading
           ? Center(
               child: CircularProgressIndicator(
-                color: AppColors.mediumGreen,
+                color: AppColors.primaryNavy,
               ),
             )
           : SingleChildScrollView(
@@ -499,17 +499,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: AppColors.mediumGreen.withOpacity(0.1),
+                              color: AppColors.primaryNavy.withOpacity(0.1),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.mediumGreen.withOpacity(0.3),
+                                color: AppColors.primaryNavy.withOpacity(0.3),
                                 width: 2,
                               ),
                             ),
                             child: Icon(
                               Icons.person,
                               size: 40,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavy,
                             ),
                           ),
                           SizedBox(height: 16),

@@ -38,7 +38,7 @@ class OrderItemsWidget extends StatelessWidget {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.mediumGreen.withOpacity(0.1),
+                    color: AppColors.primaryNavy.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -46,7 +46,7 @@ class OrderItemsWidget extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                     ),
                   ),
                 ),
@@ -109,10 +109,10 @@ class OrderItemsWidget extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: AppColors.mediumGreen.withOpacity(0.1),
+                  color: AppColors.primaryNavy.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AppColors.mediumGreen.withOpacity(0.2),
+                    color: AppColors.primaryNavy.withOpacity(0.2),
                   ),
                 ),
                 child: hasImage
@@ -124,7 +124,7 @@ class OrderItemsWidget extends StatelessWidget {
                           errorBuilder: (context, error, stackTrace) {
                             return Icon(
                               Icons.shopping_bag,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavy,
                               size: 24,
                             );
                           },
@@ -132,7 +132,7 @@ class OrderItemsWidget extends StatelessWidget {
                       )
                     : Icon(
                         Icons.shopping_bag,
-                        color: AppColors.mediumGreen,
+                        color: AppColors.primaryNavy,
                         size: 24,
                       ),
               ),
@@ -168,7 +168,7 @@ class OrderItemsWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                 ),
               ),
             ],

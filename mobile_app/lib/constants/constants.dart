@@ -19,30 +19,37 @@ class AppConfig {
 class AppColors {
   AppColors._();
 
-  // Brand greens
-  static const Color deepForestGreen = Color(0xFF2D5016);
-  static const Color mediumGreen = Color(0xFF4A7C2C);
-  static const Color freshLeafGreen = Color(0xFF6B9E3E);
+  // Primary navy brand palette
+  static const Color primaryNavy      = Color(0xFF1A2A5C);
+  static const Color primaryNavyDark  = Color(0xFF0F1B40);
+  static const Color primaryNavyLight = Color(0xFF2C3E80);
 
-  // Neutrals and helpers
-  static const Color lightGreyBackground =
-      Color(0xFFFAFAFA); // approx Colors.grey[50]
-  static const Color inputBorderGrey =
-      Color(0xFFE0E0E0); // approx Colors.grey[300]
-  static const Color textSecondaryGrey =
-      Color(0xFF757575); // approx Colors.grey[600]
-  static const Color textTertiaryGrey =
-      Color(0xFF616161); // approx Colors.grey[700]
+  // Accent amber
+  static const Color accentAmber      = Color(0xFFF5A623);
+  static const Color accentAmberDark  = Color(0xFFE89500);
 
-  // Order Status Colors
-  static const Color statusPending = Color(0xFFF57C00); // Orange
-  static const Color statusProcessing = Color(0xFF1976D2); // Blue
-  static const Color statusReadyForPickup =
-      Color(0xFF4A7C2C); // Green (mediumGreen)
-  static const Color statusInTransit = Color(0xFF1565C0); // Blue 800
-  static const Color statusDelivered = Color(0xFF4A7C2C); // Green (mediumGreen)
-  static const Color statusCancelled = Color(0xFFD32F2F); // Red
-  static const Color statusDefault = Color(0xFF757575); // Grey
+  // Surface / background
+  static const Color surfaceLight     = Color(0xFFF1F3F5);
+  static const Color surfaceMuted     = Color(0xFFFAFAFA);
+  static const Color borderDefault    = Color(0xFFE5E7EB);
+
+  // Text
+  static const Color textPrimary      = Color(0xFF1F2937);
+  static const Color textSecondary    = Color(0xFF6B7280);
+
+  // Semantic feedback
+  static const Color success          = Color(0xFF2E7D32);
+  static const Color warning          = Color(0xFFF57C00);
+  static const Color error            = Color(0xFFD32F2F);
+
+  // Order status semantic aliases
+  static const Color statusPending        = warning;
+  static const Color statusProcessing     = primaryNavyLight;
+  static const Color statusReadyForPickup = success;
+  static const Color statusInTransit      = primaryNavyLight;
+  static const Color statusDelivered      = success;
+  static const Color statusCancelled      = error;
+  static const Color statusDefault        = textSecondary;
 }
 
 /// Helper class for consistent order status colors across the app
@@ -62,26 +69,21 @@ class OrderStatusColors {
       case 'in transit':
         return AppColors.statusInTransit;
       case 'delivered':
+      case 'shipped':
         return AppColors.statusDelivered;
       case 'cancelled':
+      case 'canceled':
         return AppColors.statusCancelled;
       default:
         return AppColors.statusDefault;
     }
   }
 
-  /// Get background color (with opacity) for status badges
-  static Color getBackgroundColor(String status) {
-    return getColor(status).withOpacity(0.15);
-  }
-
   /// Format status text for display
   static String formatStatus(String status) {
-    // Handle hyphenated status
     if (status.toLowerCase() == 'in-transit') {
       return 'In Transit';
     }
-    // Capitalize each word
     return status
         .split(' ')
         .map((word) => word.isNotEmpty

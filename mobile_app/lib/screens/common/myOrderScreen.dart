@@ -154,7 +154,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         title: Row(
           children: [
             Icon(Icons.warning_amber_rounded,
-                color: Colors.orange[700], size: 28),
+                color: AppColors.warning, size: 28),
             SizedBox(width: 12),
             Text('Cancel Order'),
           ],
@@ -174,7 +174,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[600],
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -203,7 +203,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.mediumGreen,
+            backgroundColor: AppColors.primaryNavy,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -222,7 +222,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     child: Text(result['message'] ?? 'Failed to cancel order')),
               ],
             ),
-            backgroundColor: Colors.red[600],
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -239,7 +239,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
               Text('An error occurred'),
             ],
           ),
-          backgroundColor: Colors.red[600],
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -271,7 +271,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.star_rounded, color: Colors.amber[600], size: 28),
+              Icon(Icons.star_rounded, color: AppColors.accentAmber, size: 28),
               SizedBox(width: 12),
               Text('Rate Your Order'),
             ],
@@ -302,7 +302,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                             ? Icons.star_rounded
                             : Icons.star_outline_rounded,
                         size: 40,
-                        color: Colors.amber[600],
+                        color: AppColors.accentAmber,
                       ),
                     ),
                   );
@@ -324,7 +324,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 style: TextStyle(
                   color: selectedRating == 0
                       ? Colors.grey[500]
-                      : Colors.amber[700],
+                      : AppColors.accentAmberDark,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -347,7 +347,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide:
-                        BorderSide(color: AppColors.mediumGreen, width: 2),
+                        BorderSide(color: AppColors.primaryNavy, width: 2),
                   ),
                 ),
               ),
@@ -383,7 +383,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 Text('Please login to submit a review'),
                               ],
                             ),
-                            backgroundColor: Colors.red[600],
+                            backgroundColor: AppColors.error,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -417,7 +417,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 Text('Thank you for your rating!'),
                               ],
                             ),
-                            backgroundColor: AppColors.mediumGreen,
+                            backgroundColor: AppColors.primaryNavy,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -437,7 +437,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 ),
                               ],
                             ),
-                            backgroundColor: Colors.red[600],
+                            backgroundColor: AppColors.error,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -446,7 +446,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber[600],
+                backgroundColor: AppColors.accentAmber,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.grey[300],
                 shape: RoundedRectangleBorder(
@@ -498,9 +498,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
-              labelColor: AppColors.mediumGreen,
+              labelColor: AppColors.primaryNavy,
               unselectedLabelColor: Colors.grey[600],
-              indicatorColor: AppColors.mediumGreen,
+              indicatorColor: AppColors.primaryNavy,
               indicatorWeight: 3,
               labelStyle: TextStyle(
                 fontWeight: FontWeight.w600,
@@ -542,7 +542,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
             strokeWidth: 3,
           ),
           SizedBox(height: 16),
@@ -565,7 +565,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.mediumGreen,
+      color: AppColors.primaryNavy,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
@@ -579,7 +579,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   Widget _buildEmptyState(String? error) {
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.mediumGreen,
+      color: AppColors.primaryNavy,
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Container(
@@ -591,7 +591,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Container(
                   padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.mediumGreen.withOpacity(0.1),
+                    color: AppColors.primaryNavy.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -600,7 +600,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                         : Icons.receipt_long_outlined,
                     size: 64,
                     color:
-                        error != null ? Colors.red[400] : AppColors.mediumGreen,
+                        error != null ? AppColors.error : AppColors.primaryNavy,
                   ),
                 ),
                 SizedBox(height: 24),
@@ -633,7 +633,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     icon: Icon(Icons.refresh, size: 20),
                     label: Text('Retry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.mediumGreen,
+                      backgroundColor: AppColors.primaryNavy,
                       foregroundColor: Colors.white,
                       padding:
                           EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -823,7 +823,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: AppColors.mediumGreen,
+                                  color: AppColors.primaryNavy,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -857,7 +857,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                             '+${orderItems.length - 3} more items',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.mediumGreen,
+                              color: AppColors.primaryNavy,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -922,7 +922,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.mediumGreen,
+                            color: AppColors.primaryNavy,
                           ),
                         ),
                       ],
@@ -935,7 +935,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 ? null
                                 : () => _cancelOrder(orderId),
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.red[600],
+                              foregroundColor: AppColors.error,
                               padding: EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 8),
                             ),
@@ -945,7 +945,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.red[600],
+                                      color: AppColors.error,
                                     ),
                                   )
                                 : Text(
@@ -966,7 +966,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                               style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.amber[600],
+                              backgroundColor: AppColors.accentAmber,
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
@@ -992,7 +992,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.mediumGreen,
+                            backgroundColor: AppColors.primaryNavy,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),
@@ -1025,13 +1025,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.mediumGreen.withOpacity(0.1),
+            color: AppColors.primaryNavy.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
             size: 16,
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
           ),
         ),
         SizedBox(width: 12),

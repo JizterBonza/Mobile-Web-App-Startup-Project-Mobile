@@ -92,7 +92,7 @@ class FormSectionHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppColors.deepForestGreen,
+            color: AppColors.primaryNavyDark,
           ),
           textAlign: TextAlign.center,
         ),
@@ -145,11 +145,11 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         labelText: widget.labelText,
         hintText: widget.hintText,
-        prefixIcon: Icon(Icons.lock_outline, color: AppColors.mediumGreen),
+        prefixIcon: Icon(Icons.lock_outline, color: AppColors.primaryNavy),
         suffixIcon: IconButton(
           icon: Icon(
             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-            color: AppColors.textSecondaryGrey,
+            color: AppColors.textSecondary,
           ),
           onPressed: () {
             setState(() {
@@ -159,18 +159,18 @@ class _PasswordFieldState extends State<PasswordField> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.inputBorderGrey),
+          borderSide: BorderSide(color: AppColors.borderDefault),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.inputBorderGrey),
+          borderSide: BorderSide(color: AppColors.borderDefault),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.mediumGreen, width: 2),
+          borderSide: BorderSide(color: AppColors.primaryNavy, width: 2),
         ),
         filled: true,
-        fillColor: AppColors.lightGreyBackground,
+        fillColor: AppColors.surfaceMuted,
       ),
       validator: widget.validator,
     );
@@ -204,7 +204,7 @@ class TermsCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.mediumGreen,
+            activeColor: AppColors.primaryNavy,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
@@ -227,7 +227,7 @@ class TermsCheckbox extends StatelessWidget {
                   linkText,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
                   ),
@@ -259,7 +259,7 @@ class ForgotPasswordLink extends StatelessWidget {
         child: Text(
           'Forgot Password?',
           style: TextStyle(
-            color: AppColors.mediumGreen,
+            color: AppColors.primaryNavy,
             fontWeight: FontWeight.w600,
           ),
         ),

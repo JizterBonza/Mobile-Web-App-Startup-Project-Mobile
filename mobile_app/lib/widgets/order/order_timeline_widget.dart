@@ -60,12 +60,12 @@ class OrderTimelineWidget extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         color: isCompleted
-                            ? AppColors.mediumGreen
+                            ? AppColors.success
                             : Colors.grey[200],
                         shape: BoxShape.circle,
                         border: isCurrent
                             ? Border.all(
-                                color: AppColors.mediumGreen,
+                                color: AppColors.success,
                                 width: 3,
                               )
                             : null,
@@ -97,7 +97,7 @@ class OrderTimelineWidget extends StatelessWidget {
                               'Current status',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.mediumGreen,
+                                color: AppColors.success,
                               ),
                             ),
                         ],
@@ -107,7 +107,7 @@ class OrderTimelineWidget extends StatelessWidget {
                       Icon(
                         Icons.check_circle,
                         size: 20,
-                        color: AppColors.mediumGreen,
+                        color: AppColors.success,
                       ),
                   ],
                 ),
@@ -117,7 +117,7 @@ class OrderTimelineWidget extends StatelessWidget {
                     width: 2,
                     height: 30,
                     color: isCompleted && currentIndex > index
-                        ? AppColors.mediumGreen
+                        ? AppColors.success
                         : Colors.grey[200],
                   ),
               ],
@@ -154,12 +154,12 @@ class OrderTimelineWidget extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red[50],
+                  color: AppColors.error.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.cancel,
-                  color: Colors.red[600],
+                  color: AppColors.error,
                   size: 24,
                 ),
               ),
@@ -173,7 +173,7 @@ class OrderTimelineWidget extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.red[600],
+                        color: AppColors.error,
                       ),
                     ),
                     SizedBox(height: 4),

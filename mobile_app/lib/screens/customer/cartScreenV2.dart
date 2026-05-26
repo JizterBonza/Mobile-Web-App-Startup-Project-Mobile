@@ -312,7 +312,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[700],
+              backgroundColor: AppColors.error,
             ),
             child:
                 const Text('Clear All', style: TextStyle(color: Colors.white)),
@@ -433,7 +433,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
               child: Text(
                 'Clear All',
                 style: TextStyle(
-                  color: Colors.red[700],
+                  color: AppColors.error,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -448,7 +448,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       onRefresh: _loadCartItems,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                       child: ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: _zones.length,
@@ -466,7 +466,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.mediumGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
           ),
           const SizedBox(height: 16),
           Text(
@@ -483,7 +483,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.red[400]),
+          Icon(Icons.error_outline, size: 64, color: AppColors.error),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -497,7 +497,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           ElevatedButton(
             onPressed: _loadCartItems,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -525,13 +525,13 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.mediumGreen,
+              color: AppColors.primaryNavy,
             ),
           ),
           const SizedBox(height: 24),
@@ -559,7 +559,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.mediumGreen,
+              backgroundColor: AppColors.primaryNavy,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -596,7 +596,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.mediumGreen.withOpacity(0.1),
+              color: AppColors.primaryNavy.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -612,7 +612,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 const SizedBox(width: 12),
                 Icon(
                   Icons.location_on,
-                  color: AppColors.mediumGreen,
+                  color: AppColors.primaryNavy,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -644,7 +644,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.mediumGreen,
+                    color: AppColors.primaryNavy,
                   ),
                 ),
               ],
@@ -677,7 +677,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 onPressed:
                     selectedCount > 0 ? () => _handleZoneCheckout(zone) : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.mediumGreen,
+                  backgroundColor: AppColors.primaryNavy,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey[400],
                   disabledForegroundColor: Colors.white,
@@ -742,7 +742,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 const SizedBox(width: 12),
                 Icon(
                   Icons.store,
-                  color: AppColors.freshLeafGreen,
+                  color: AppColors.accentAmber,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -806,9 +806,9 @@ class _CartScreenV2State extends State<CartScreenV2> {
         color: Colors.grey[50],
         border: Border.all(
           color: !isValid
-              ? Colors.red[300]!
+              ? AppColors.error.withOpacity(0.4)
               : item.isSelected
-                  ? AppColors.mediumGreen
+                  ? AppColors.primaryNavy
                   : Colors.grey[300]!,
           width: !isValid || item.isSelected ? 2 : 1,
         ),
@@ -863,7 +863,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavyDark,
                     ),
                   ),
                 ] else
@@ -872,7 +872,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavyDark,
                     ),
                   ),
 
@@ -884,16 +884,16 @@ class _CartScreenV2State extends State<CartScreenV2> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
+                        color: AppColors.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red[200]!),
+                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
                       ),
                       child: Text(
                         'Out of stock',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Colors.red[700],
+                          color: AppColors.error,
                         ),
                       ),
                     ),
@@ -905,7 +905,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                       'Only ${item.stock} available',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.red[700],
+                        color: AppColors.error,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -959,7 +959,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                                     zoneId, shopId, item.id, item.quantity + 1),
                             color: item.quantity >= item.stock
                                 ? Colors.grey[400]
-                                : AppColors.mediumGreen,
+                                : AppColors.primaryNavy,
                           ),
                         ],
                       ),
@@ -972,7 +972,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: item.isSelected
-                              ? AppColors.mediumGreen
+                              ? AppColors.primaryNavy
                               : Colors.grey[700],
                         ),
                       ),
@@ -984,7 +984,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
 
           // Delete button
           IconButton(
-            icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+            icon: Icon(Icons.delete_outline, color: AppColors.error),
             onPressed: () => _removeItem(zoneId, shopId, item.id),
             tooltip: 'Remove item',
           ),
@@ -1008,15 +1008,15 @@ class _CartScreenV2State extends State<CartScreenV2> {
           color: !enabled
               ? Colors.grey[200]
               : value
-                  ? AppColors.mediumGreen
+                  ? AppColors.primaryNavy
                   : isIndeterminate
-                      ? AppColors.mediumGreen.withOpacity(0.5)
+                      ? AppColors.primaryNavy.withOpacity(0.5)
                       : Colors.white,
           border: Border.all(
             color: !enabled
                 ? Colors.grey[400]!
                 : value || isIndeterminate
-                    ? AppColors.mediumGreen
+                    ? AppColors.primaryNavy
                     : Colors.grey[400]!,
             width: 2,
           ),

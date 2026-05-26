@@ -402,7 +402,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
         return RefreshIndicator(
           onRefresh: _onRefresh,
-          color: AppColors.mediumGreen,
+          color: AppColors.primaryNavy,
           child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.all(16),
@@ -544,7 +544,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _onRefresh,
-                      color: AppColors.mediumGreen,
+                      color: AppColors.primaryNavy,
                       child: ListView.builder(
                         padding: EdgeInsets.all(16),
                         itemCount: completedDeliveries.length,
@@ -599,7 +599,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.mediumGreen,
+        selectedItemColor: AppColors.primaryNavy,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
@@ -635,7 +635,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Invalid order ID'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -668,7 +668,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.mediumGreen,
+            backgroundColor: AppColors.primaryNavy,
           ),
         );
         await _loadOrders(useCache: false);
@@ -676,7 +676,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Failed to update status'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -684,7 +684,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating status: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
