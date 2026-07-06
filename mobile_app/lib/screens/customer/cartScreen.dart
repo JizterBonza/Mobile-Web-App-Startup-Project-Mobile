@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
+import '../../utils/cart_item_pricing.dart';
 import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
-import 'favoriteScreen.dart';
-import '../common/profileScreen.dart';
 import 'checkOutScreen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -16,8 +15,6 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  int _selectedIndex = 1; // Cart tab
-
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -48,11 +45,8 @@ class _CartScreenState extends State<CartScreen> {
     return 'Shop $shopId';
   }
 
-  // Get effective price - use item_price if different from price_snapshot
   double _getEffectivePrice(Map<String, dynamic> item) {
-    final priceSnapshot = double.parse(item['price_snapshot'].toString());
-    final itemPrice = double.parse(item['item_price'].toString());
-    return priceSnapshot != itemPrice ? itemPrice : priceSnapshot;
+    return CartItemPricing.fromCartMap(item).effectivePrice;
   }
 
   // Check if item quantity exceeds available stock
@@ -328,7 +322,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Shopping Cart',
@@ -349,30 +343,6 @@ class _CartScreenState extends State<CartScreen> {
               : _cartItems.isEmpty
                   ? _buildEmptyCart()
                   : _buildCartContent(),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
-  }
-
-  PageRoute _createFadeRoute(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curvedAnimation,
-          child: ScaleTransition(
-            scale:
-                Tween<double>(begin: 0.98, end: 1.0).animate(curvedAnimation),
-            child: child,
-          ),
-        );
-      },
-      transitionDuration: Duration(milliseconds: 150),
-      reverseTransitionDuration: Duration(milliseconds: 150),
     );
   }
 
@@ -384,13 +354,13 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
             ),
           ),
           SizedBox(height: 24),
@@ -423,7 +393,7 @@ class _CartScreenState extends State<CartScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -526,7 +496,7 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -536,7 +506,7 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Icon(
                   Icons.store,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   size: 20,
                 ),
                 SizedBox(width: 8),
@@ -579,7 +549,7 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: AppColors.surfaceLight,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(12),
                 bottomRight: Radius.circular(12),
@@ -664,7 +634,7 @@ class _CartScreenState extends State<CartScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryNavyDark,
+                              color: AppColors.primaryGreenDark,
                             ),
                           ),
                         ],
@@ -699,7 +669,7 @@ class _CartScreenState extends State<CartScreen> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: shopSelectedCount > 0
-                        ? AppColors.primaryNavy
+                        ? AppColors.primaryGreen
                         : Colors.grey[400],
                     padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -767,7 +737,7 @@ class _CartScreenState extends State<CartScreen> {
                       _toggleItemSelection(itemId);
                     }
                   : null,
-              activeColor: AppColors.primaryNavy,
+              activeColor: AppColors.primaryGreen,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -780,15 +750,15 @@ class _CartScreenState extends State<CartScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.primaryNavy.withOpacity(0.2),
+                color: AppColors.primaryGreen.withOpacity(0.2),
               ),
             ),
             child: Icon(
               Icons.shopping_bag,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 32,
             ),
           ),
@@ -810,39 +780,11 @@ class _CartScreenState extends State<CartScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 8),
-                if (double.parse(item['price_snapshot'].toString()) !=
-                    double.parse(item['item_price'].toString()))
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Price at add to cart: ₱${double.parse(item['price_snapshot'].toString()).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Current price: ₱${double.parse(item['item_price'].toString()).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryNavyDark,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Text(
-                    '₱${_getEffectivePrice(item).toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryNavyDark,
-                    ),
-                  ),
+                CartItemPriceDisplay(
+                  pricing: CartItemPricing.fromCartMap(item),
+                  primaryFontSize: 18,
+                  strikethroughFontSize: 14,
+                ),
                 if (!_isQuantityValid(item))
                   Padding(
                     padding: EdgeInsets.only(top: 4),
@@ -906,7 +848,7 @@ class _CartScreenState extends State<CartScreen> {
                                   },
                             color: _shouldDisableAdd(item)
                                 ? Colors.grey[400]
-                                : AppColors.primaryNavy,
+                                : AppColors.primaryGreen,
                           ),
                         ],
                       ),
@@ -947,68 +889,6 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          // Handle navigation based on selected index
-          if (index == 0) {
-            // Home
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(CustomerDashboardScreen()),
-            );
-          } else if (index == 2) {
-            // Favorites
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(FavoriteScreen()),
-            );
-          } else if (index == 3) {
-            // Profile
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(ProfileScreen()),
-            );
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
-        unselectedItemColor: Colors.grey[600],
-        backgroundColor: Colors.white,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1026,7 +906,7 @@ class _CartScreenState extends State<CartScreen> {
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? AppColors.primaryNavyDark : Colors.grey[900],
+            color: isTotal ? AppColors.primaryGreenDark : Colors.grey[900],
           ),
         ),
       ],
@@ -1039,7 +919,7 @@ class _CartScreenState extends State<CartScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
           ),
           SizedBox(height: 16),
           Text(
@@ -1079,7 +959,7 @@ class _CartScreenState extends State<CartScreen> {
               _loadCartItems();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

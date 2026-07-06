@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import '../services/api_service.dart';
+import '../services/google_auth_service.dart';
+import '../utils/auth_navigation.dart';
+import '../utils/snackbar_helper.dart';
 import 'form_widgets.dart';
 
-Future<void> showSignUpDialog(BuildContext context) {
+Future<void> showSignUpDialog(
+  BuildContext context, {
+  VoidCallback? onLoginSuccess,
+}) {
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
-    builder: (_) => const SignUpDialog(),
+    builder: (_) => SignUpDialog(onLoginSuccess: onLoginSuccess),
   );
 }
 
 class SignUpDialog extends StatefulWidget {
-  const SignUpDialog({super.key});
+  final VoidCallback? onLoginSuccess;
+
+  const SignUpDialog({super.key, this.onLoginSuccess});
 
   @override
   State<SignUpDialog> createState() => _SignUpDialogState();
@@ -32,6 +40,11 @@ class _SignUpDialogState extends State<SignUpDialog> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  bool _isGoogleSigningIn = false;
+
+  PostLoginNavigation get _navigation => widget.onLoginSuccess != null
+      ? PostLoginNavigation.refreshInPlace
+      : PostLoginNavigation.navigateToDashboard;
 
   @override
   void dispose() {
@@ -71,7 +84,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide:
-            const BorderSide(color: AppColors.primaryNavy, width: 1.5),
+            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -109,6 +122,47 @@ class _SignUpDialogState extends State<SignUpDialog> {
         letterSpacing: 0.6,
       ),
     );
+  }
+
+  Future<void> _handleGoogleSignUp() async {
+    setState(() => _isGoogleSigningIn = true);
+
+    try {
+      final result = await GoogleAuthService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (result['cancelled'] == true) {
+        setState(() => _isGoogleSigningIn = false);
+        return;
+      }
+
+      if (result['success'] == true) {
+        await completeAuthNavigation(
+          context: context,
+          result: result,
+          resetLoading: () {
+            if (mounted) setState(() => _isGoogleSigningIn = false);
+          },
+          onCloseDialog: () => Navigator.of(context).pop(),
+          navigation: _navigation,
+          onLoginSuccess: widget.onLoginSuccess,
+        );
+      } else {
+        setState(() => _isGoogleSigningIn = false);
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Google sign-in failed.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isGoogleSigningIn = false);
+      SnackbarHelper.showError(
+        context,
+        'An error occurred. Please try again.',
+      );
+    }
   }
 
   Future<void> _handleSignUp() async {
@@ -214,7 +268,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryNavyDark,
+                        color: AppColors.primaryGreenDark,
                       ),
                     ),
                   ),
@@ -246,11 +300,19 @@ class _SignUpDialogState extends State<SignUpDialog> {
               Divider(color: Colors.grey[200], height: 1),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: () {},
-                icon: _buildGoogleLogo(),
-                label: const Text(
-                  'Sign up with Google',
-                  style: TextStyle(
+                onPressed: (_isLoading || _isGoogleSigningIn)
+                    ? null
+                    : _handleGoogleSignUp,
+                icon: _isGoogleSigningIn
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : _buildGoogleLogo(),
+                label: Text(
+                  _isGoogleSigningIn ? 'Signing up...' : 'Sign up with Google',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
@@ -490,9 +552,9 @@ class _SignUpDialogState extends State<SignUpDialog> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleSignUp,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavyDark,
+                  backgroundColor: AppColors.primaryGreenDark,
                   disabledBackgroundColor:
-                      AppColors.primaryNavyDark.withOpacity(0.5),
+                      AppColors.primaryGreenDark.withOpacity(0.5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -532,7 +594,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryNavyDark,
+                        color: AppColors.primaryGreenDark,
                       ),
                     ),
                   ),

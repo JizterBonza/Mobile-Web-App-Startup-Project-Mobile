@@ -365,7 +365,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: _getCurrentView(),
       ),
@@ -402,7 +402,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
         return RefreshIndicator(
           onRefresh: _onRefresh,
-          color: AppColors.primaryNavy,
+          color: AppColors.primaryGreen,
           child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.all(16),
@@ -544,7 +544,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                     )
                   : RefreshIndicator(
                       onRefresh: _onRefresh,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       child: ListView.builder(
                         padding: EdgeInsets.all(16),
                         itemCount: completedDeliveries.length,
@@ -599,7 +599,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
+        selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
@@ -668,7 +668,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
           ),
         );
         await _loadOrders(useCache: false);

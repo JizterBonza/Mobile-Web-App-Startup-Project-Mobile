@@ -45,14 +45,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               children: [
                 Icon(
                   Icons.check_circle,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   size: 28,
                 ),
                 SizedBox(width: 12),
                 Text(
                   'Email Sent',
                   style: TextStyle(
-                    color: AppColors.primaryNavyDark,
+                    color: AppColors.primaryGreenDark,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -74,7 +74,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Text(
                   'OK',
                   style: TextStyle(
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

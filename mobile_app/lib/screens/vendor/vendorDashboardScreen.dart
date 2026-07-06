@@ -193,7 +193,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: _getCurrentView(),
       ),
@@ -274,13 +274,13 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
           title: 'Total Orders',
           value: '${_stats['totalOrders']}',
           icon: Icons.shopping_bag_outlined,
-          color: AppColors.primaryNavyLight,
+          color: AppColors.primaryGreenLight,
         ),
         StatCard(
           title: 'Revenue',
           value: '₱${_stats['revenue'].toStringAsFixed(2)}',
           icon: Icons.attach_money,
-          color: AppColors.primaryNavy,
+          color: AppColors.primaryGreen,
         ),
         StatCard(
           title: 'Products',
@@ -317,12 +317,12 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               child: QuickActionButton(
                 label: 'Add Product',
                 icon: Icons.add_circle_outline,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Add product functionality coming soon!'),
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                     ),
                   );
                 },
@@ -333,7 +333,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               child: QuickActionButton(
                 label: 'View Orders',
                 icon: Icons.list_alt,
-                color: AppColors.primaryNavyLight,
+                color: AppColors.primaryGreenLight,
                 onTap: () {
                   setState(() {
                     _selectedIndex = 1; // Switch to Orders tab
@@ -384,7 +384,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               child: Text(
                 'View All',
                 style: TextStyle(
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -457,7 +457,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                     SnackBar(
                       content: Text(
                           'Update order status functionality coming soon!'),
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                     ),
                   );
                 },
@@ -465,7 +465,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('View details functionality coming soon!'),
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                     ),
                   );
                 },
@@ -509,12 +509,12 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               ),
               IconButton(
                 icon: Icon(Icons.add_circle_outline,
-                    color: AppColors.primaryNavy),
+                    color: AppColors.primaryGreen),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Add product functionality coming soon!'),
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                     ),
                   );
                 },
@@ -534,7 +534,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Edit functionality coming soon!'),
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                     ),
                   );
                 },
@@ -570,13 +570,13 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.person_outline,
               size: 64,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
             ),
           ),
           SizedBox(height: 24),
@@ -607,7 +607,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
             icon: Icon(Icons.person),
             label: Text('Go to Profile'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -767,7 +767,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryNavy.withOpacity(0.1),
+                        color: AppColors.primaryGreen.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
@@ -776,7 +776,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
                       ),
@@ -813,7 +813,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
                       ],
@@ -844,7 +844,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
+        selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [

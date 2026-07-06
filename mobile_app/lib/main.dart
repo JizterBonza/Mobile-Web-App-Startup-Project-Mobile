@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'constants/constants.dart';
 import 'screens/common/loginScreen.dart';
@@ -32,7 +33,32 @@ void main() async {
   // Note: Uncomment the adapter registration above after running build_runner
   await Hive.openBox<OrderStatus>('order_statuses');
 
+  // Warm the SVG cache for the customer bottom-nav icons so they paint
+  // instantly on first render and never blank out during navigation.
+  await _precacheCustomerNavIcons();
+
   runApp(const MyApp());
+}
+
+Future<void> _precacheCustomerNavIcons() async {
+  const navIcons = [
+    'assets/icons/home.svg',
+    'assets/icons/favorite.svg',
+    'assets/icons/klasrum.svg',
+    'assets/icons/orders.svg',
+    'assets/icons/notif.svg',
+  ];
+  for (final asset in navIcons) {
+    try {
+      final loader = SvgAssetLoader(asset);
+      await svg.cache.putIfAbsent(
+        loader.cacheKey(null),
+        () => loader.loadBytes(null),
+      );
+    } catch (_) {
+      // Ignore precache failures; icons will still load lazily on demand.
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -57,26 +83,26 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primaryNavy,
-            primary: AppColors.primaryNavy,
+            seedColor: AppColors.primaryGreen,
+            primary: AppColors.primaryGreen,
             secondary: AppColors.accentAmber,
             surface: Colors.white,
             error: AppColors.error,
           ),
-          scaffoldBackgroundColor: Colors.white,
+          scaffoldBackgroundColor: AppColors.surfaceLight,
           appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
             foregroundColor: Colors.white,
             elevation: 0,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
             ),
           ),
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            selectedItemColor: AppColors.primaryNavy,
+            selectedItemColor: AppColors.primaryGreen,
             unselectedItemColor: AppColors.textSecondary,
             backgroundColor: Colors.white,
           ),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
+import '../../utils/cart_item_pricing.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'checkOutScreen.dart';
 import 'customerDashboardScreen.dart';
 
@@ -92,12 +94,32 @@ class _CartScreenV2State extends State<CartScreenV2> {
       }
 
       final priceSnapshot =
-          double.tryParse(cartItem['price_snapshot'].toString()) ?? 0.0;
-      final itemPrice = double.tryParse(item['item_price'].toString()) ?? 0.0;
+          CartItemPricing.parseDouble(cartItem['price_snapshot']);
+      final itemPrice = CartItemPricing.parseDouble(item['item_price']);
       final stock = int.tryParse(item['item_quantity'].toString()) ?? 0;
       final quantity = cartItem['quantity'] is int
           ? cartItem['quantity'] as int
           : int.tryParse(cartItem['quantity'].toString()) ?? 1;
+
+      double? discountedPrice;
+      if (cartItem['discounted_price'] != null) {
+        discountedPrice =
+            CartItemPricing.parseDouble(cartItem['discounted_price']);
+      }
+      final discountDetails = cartItem['discount_details'];
+      if (discountedPrice == null && discountDetails is Map) {
+        final nested = discountDetails['discounted_price'];
+        if (nested != null) {
+          discountedPrice = CartItemPricing.parseDouble(nested);
+        }
+      }
+
+      double? discountPercent;
+      if (discountDetails is Map &&
+          discountDetails['discount_percent'] != null) {
+        discountPercent =
+            CartItemPricing.parseDouble(discountDetails['discount_percent']);
+      }
 
       shopData.items.add(ItemData(
         id: cartItem['id'].toString(),
@@ -105,6 +127,9 @@ class _CartScreenV2State extends State<CartScreenV2> {
         name: item['item_name']?.toString() ?? 'Unknown Item',
         price: itemPrice,
         priceSnapshot: priceSnapshot,
+        discountedPrice: discountedPrice,
+        discountStatus: cartItem['discount_status']?.toString(),
+        discountPercent: discountPercent,
         stock: stock,
         quantity: quantity,
       ));
@@ -383,6 +408,16 @@ class _CartScreenV2State extends State<CartScreenV2> {
             'item_name': item.name,
             'item_price': item.price.toStringAsFixed(2),
             'item_quantity': item.stock.toString(),
+            if (item.discountedPrice != null)
+              'discounted_price': item.discountedPrice!.toStringAsFixed(2),
+            if (item.discountStatus != null)
+              'discount_status': item.discountStatus,
+            if (item.discountPercent != null)
+              'discount_details': {
+                'discount_percent': item.discountPercent!.toStringAsFixed(2),
+                if (item.discountedPrice != null)
+                  'discounted_price': item.discountedPrice!.toStringAsFixed(2),
+              },
           });
         }
       }
@@ -417,15 +452,21 @@ class _CartScreenV2State extends State<CartScreenV2> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.grey[700]),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
           'Shopping Cart',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
+            color: Colors.grey[900],
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         actions: [
           if (!_isLoading && _zones.isNotEmpty)
             TextButton(
@@ -448,7 +489,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       onRefresh: _loadCartItems,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       child: ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: _zones.length,
@@ -461,21 +502,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading cart items...',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
+    return const GenericListSkeleton(count: 4, itemHeight: 100);
   }
 
   Widget _buildErrorState() {
@@ -497,7 +524,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           ElevatedButton(
             onPressed: _loadCartItems,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -525,13 +552,13 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
             ),
           ),
           const SizedBox(height: 24),
@@ -559,7 +586,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -596,7 +623,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -612,7 +639,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 const SizedBox(width: 12),
                 Icon(
                   Icons.location_on,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -644,7 +671,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
               ],
@@ -677,7 +704,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 onPressed:
                     selectedCount > 0 ? () => _handleZoneCheckout(zone) : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavy,
+                  backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey[400],
                   disabledForegroundColor: Colors.white,
@@ -726,7 +753,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: AppColors.surfaceLight,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
@@ -796,19 +823,18 @@ class _CartScreenV2State extends State<CartScreenV2> {
 
   Widget _buildItemCard(String zoneId, String shopId, ItemData item) {
     final lineTotal = item.effectivePrice * item.quantity;
-    final hasPriceChanged = item.priceSnapshot != item.price;
     final isValid = item.isQuantityValid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: AppColors.surfaceLight,
         border: Border.all(
           color: !isValid
               ? AppColors.error.withOpacity(0.4)
               : item.isSelected
-                  ? AppColors.primaryNavy
+                  ? AppColors.primaryGreen
                   : Colors.grey[300]!,
           width: !isValid || item.isSelected ? 2 : 1,
         ),
@@ -848,33 +874,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 const SizedBox(height: 6),
 
                 // Price display
-                if (hasPriceChanged) ...[
-                  Text(
-                    'Added at ₱${item.priceSnapshot.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                      decoration: TextDecoration.lineThrough,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '₱${item.price.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryNavyDark,
-                    ),
-                  ),
-                ] else
-                  Text(
-                    '₱${item.effectivePrice.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryNavyDark,
-                    ),
-                  ),
+                CartItemPriceDisplay(pricing: item.pricing),
 
                 // Stock warning
                 if (item.isOutOfStock)
@@ -886,7 +886,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
                       decoration: BoxDecoration(
                         color: AppColors.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                        border:
+                            Border.all(color: AppColors.error.withOpacity(0.3)),
                       ),
                       child: Text(
                         'Out of stock',
@@ -959,7 +960,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                                     zoneId, shopId, item.id, item.quantity + 1),
                             color: item.quantity >= item.stock
                                 ? Colors.grey[400]
-                                : AppColors.primaryNavy,
+                                : AppColors.primaryGreen,
                           ),
                         ],
                       ),
@@ -972,7 +973,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: item.isSelected
-                              ? AppColors.primaryNavy
+                              ? AppColors.primaryGreen
                               : Colors.grey[700],
                         ),
                       ),
@@ -1008,15 +1009,15 @@ class _CartScreenV2State extends State<CartScreenV2> {
           color: !enabled
               ? Colors.grey[200]
               : value
-                  ? AppColors.primaryNavy
+                  ? AppColors.primaryGreen
                   : isIndeterminate
-                      ? AppColors.primaryNavy.withOpacity(0.5)
+                      ? AppColors.primaryGreen.withOpacity(0.5)
                       : Colors.white,
           border: Border.all(
             color: !enabled
                 ? Colors.grey[400]!
                 : value || isIndeterminate
-                    ? AppColors.primaryNavy
+                    ? AppColors.primaryGreen
                     : Colors.grey[400]!,
             width: 2,
           ),
@@ -1076,6 +1077,9 @@ class ItemData {
   final String name;
   final double price;
   final double priceSnapshot;
+  final double? discountedPrice;
+  final String? discountStatus;
+  final double? discountPercent;
   final int stock;
   int quantity;
   bool isSelected;
@@ -1086,12 +1090,23 @@ class ItemData {
     required this.name,
     required this.price,
     required this.priceSnapshot,
+    this.discountedPrice,
+    this.discountStatus,
+    this.discountPercent,
     required this.stock,
     required this.quantity,
     this.isSelected = false,
   });
 
-  double get effectivePrice => priceSnapshot != price ? price : priceSnapshot;
+  CartItemPricing get pricing => CartItemPricing(
+        priceSnapshot: priceSnapshot,
+        itemPrice: price,
+        discountedPrice: discountedPrice,
+        discountStatus: discountStatus,
+        discountPercent: discountPercent,
+      );
+
+  double get effectivePrice => pricing.effectivePrice;
 
   bool get isQuantityValid => quantity <= stock && stock > 0;
 

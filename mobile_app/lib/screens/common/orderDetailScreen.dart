@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
@@ -9,6 +10,7 @@ import '../../widgets/order/order_timeline_widget.dart';
 import '../../widgets/order/order_items_widget.dart';
 import '../../widgets/order/delivery_details_widget.dart';
 import '../../widgets/order/payment_summary_widget.dart';
+import '../../widgets/order/order_helpers.dart';
 import '../customer/paymentWebViewScreen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -59,6 +61,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           MaterialPageRoute(
             builder: (context) => PaymentWebViewScreen(
               checkoutUrl: result['checkout_url'].toString(),
+              orderId: orderId,
             ),
           ),
         );
@@ -76,7 +79,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text('Payment completed successfully!'),
                   ],
                 ),
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -221,7 +224,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -297,10 +300,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
         // Prefer nested `payment` object; fall back to flattened order_detail fields.
         final payment = widget.order['payment'] as Map<String, dynamic>?;
-        final paymentStatus = (payment?['status']?.toString() ??
-                widget.order['payment_status']?.toString() ??
-                '')
-            .toLowerCase();
+        final paymentStatus =
+            OrderHelpers.resolvePaymentStatus(widget.order).toLowerCase();
         final paymentMethodRaw = payment?['payment_method']?.toString() ??
             widget.order['payment_method']?.toString() ??
             '';
@@ -312,7 +313,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         final showBottomBar = canCancel || canPay;
 
         return Scaffold(
-          backgroundColor: Colors.grey[50],
+          backgroundColor: AppColors.surfaceLight,
           appBar: AppBar(
             title: Text(
               'Order Details',
@@ -325,6 +326,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             iconTheme: IconThemeData(color: Colors.grey[700]),
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: Colors.white,
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+            ),
           ),
           body: SingleChildScrollView(
             child: Column(
@@ -346,9 +352,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
                 SizedBox(height: 16),
                 PaymentSummaryWidget(
-                  subtotal: widget.order['subtotal'],
-                  shippingFee: widget.order['shipping_fee'],
-                  totalAmount: widget.order['total_amount'],
+                  order: widget.order,
                   paymentMethod:
                       _getPaymentMethodDisplayName(paymentMethodRaw),
                   paymentStatus: paymentStatus,
@@ -436,10 +440,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryNavy,
+                        backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            AppColors.primaryNavy.withOpacity(0.6),
+                            AppColors.primaryGreen.withOpacity(0.6),
                         disabledForegroundColor: Colors.white70,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -453,7 +457,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Contact support coming soon!'),
-                            backgroundColor: AppColors.primaryNavy,
+                            backgroundColor: AppColors.primaryGreen,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -462,7 +466,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryNavy,
+                        backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

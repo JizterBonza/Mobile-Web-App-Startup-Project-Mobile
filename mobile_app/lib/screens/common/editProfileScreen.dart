@@ -5,6 +5,7 @@ import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/form_widgets.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'editAddressScreen.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -200,10 +201,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Container(
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primaryNavy.withOpacity(0.05),
+          color: AppColors.primaryGreen.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primaryNavy.withOpacity(0.3),
+            color: AppColors.primaryGreen.withOpacity(0.3),
             width: 1.5,
             style: BorderStyle.solid,
           ),
@@ -214,12 +215,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primaryNavy.withOpacity(0.1),
+                color: AppColors.primaryGreen.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_location_alt_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 24,
               ),
             ),
@@ -232,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -248,7 +249,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Spacer(),
             Icon(
               Icons.arrow_forward_ios,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 16,
             ),
           ],
@@ -262,10 +263,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryNavy.withOpacity(0.05),
+        color: AppColors.primaryGreen.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.primaryNavy.withOpacity(0.3),
+          color: AppColors.primaryGreen.withOpacity(0.3),
           width: 1.5,
         ),
       ),
@@ -278,12 +279,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryNavy.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _getLabelIcon(address.label),
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   size: 20,
                 ),
               ),
@@ -307,7 +308,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           padding:
                               EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -350,7 +351,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Icon(
                     Icons.edit_outlined,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                     size: 18,
                   ),
                 ),
@@ -458,7 +459,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Edit Profile',
@@ -473,11 +474,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         iconTheme: IconThemeData(color: Colors.grey[700]),
       ),
       body: _isInitialLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primaryNavy,
-              ),
-            )
+          ? const GenericListSkeleton(count: 5, itemHeight: 56)
           : SingleChildScrollView(
               padding: EdgeInsets.all(16),
               child: Form(
@@ -499,17 +496,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: AppColors.primaryNavy.withOpacity(0.1),
+                              color: AppColors.primaryGreen.withOpacity(0.1),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.primaryNavy.withOpacity(0.3),
+                                color: AppColors.primaryGreen.withOpacity(0.3),
                                 width: 2,
                               ),
                             ),
                             child: Icon(
                               Icons.person,
                               size: 40,
-                              color: AppColors.primaryNavy,
+                              color: AppColors.primaryGreen,
                             ),
                           ),
                           SizedBox(height: 16),

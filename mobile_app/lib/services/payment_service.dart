@@ -131,6 +131,62 @@ class PaymentService extends ApiService {
     }
   }
 
+  /// Check whether an order has been paid.
+  Future<Map<String, dynamic>> getPaymentStatus({
+    required String orderId,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login.',
+        };
+      }
+
+      final uri = Uri.parse(
+        ApiEndpoints.paymentStatus.replaceAll('{orderId}', orderId),
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(
+        Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 15 seconds');
+        },
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'order_id': responseData['order_id'],
+          'is_paid': responseData['is_paid'] == true,
+          'payment_status': responseData['payment_status']?.toString(),
+          'payment': responseData['payment'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message']?.toString() ??
+              'Failed to check payment status',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
   /// Returns a map of payment method ID (as string) -> display name.
   /// Use this to show payment method name instead of ID on order details.
   static Future<Map<String, String>> getPaymentMethodNames() async {

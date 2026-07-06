@@ -7,11 +7,16 @@ import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
+import '../../utils/customer_nav.dart';
 import '../../utils/status_utils.dart';
+import '../../widgets/order/order_helpers.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'orderDetailScreen.dart';
 
 class MyOrderScreen extends StatefulWidget {
-  const MyOrderScreen({super.key});
+  final bool showCustomerBottomNav;
+
+  const MyOrderScreen({super.key, this.showCustomerBottomNav = false});
 
   @override
   State<MyOrderScreen> createState() => _MyOrderScreenState();
@@ -23,6 +28,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   final OrderService _orderService = OrderService();
   final ShopsService _shopsService = ShopsService();
   bool _isCancelling = false;
+  bool _isGuest = true;
   Map<String, String> _paymentMethodNames = {};
 
   final List<Map<String, dynamic>> _statusTabs = [
@@ -39,9 +45,22 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     super.initState();
     _tabController = TabController(length: _statusTabs.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadGuestState();
       _loadOrders();
       _loadPaymentMethodNames();
     });
+  }
+
+  Future<void> _loadGuestState() async {
+    try {
+      final token = await ApiService.getToken();
+      if (!mounted) return;
+      setState(() {
+        _isGuest = token == null || token.isEmpty;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isGuest = true);
+    }
   }
 
   Future<void> _loadPaymentMethodNames() async {
@@ -203,7 +222,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -347,7 +366,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide:
-                        BorderSide(color: AppColors.primaryNavy, width: 2),
+                        BorderSide(color: AppColors.primaryGreen, width: 2),
                   ),
                 ),
               ),
@@ -417,7 +436,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 Text('Thank you for your rating!'),
                               ],
                             ),
-                            backgroundColor: AppColors.primaryNavy,
+                            backgroundColor: AppColors.primaryGreen,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -473,7 +492,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'My Orders',
@@ -498,9 +517,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
             child: TabBar(
               controller: _tabController,
               isScrollable: true,
-              labelColor: AppColors.primaryNavy,
+              labelColor: AppColors.primaryGreen,
               unselectedLabelColor: Colors.grey[600],
-              indicatorColor: AppColors.primaryNavy,
+              indicatorColor: AppColors.primaryGreen,
               indicatorWeight: 3,
               labelStyle: TextStyle(
                 fontWeight: FontWeight.w600,
@@ -533,29 +552,22 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           );
         },
       ),
+      bottomNavigationBar: widget.showCustomerBottomNav
+          ? buildCustomerBottomNavigationBar(
+              context: context,
+              currentIndex: CustomerNavIndex.orders,
+              isGuest: _isGuest,
+              onLoginSuccess: () {
+                _loadGuestState();
+                _loadOrders(useCache: false);
+              },
+            )
+          : null,
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: AppColors.primaryNavy,
-            strokeWidth: 3,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Loading orders...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const OrderListSkeleton();
   }
 
   Widget _buildOrdersList(List<Map<String, dynamic>> orders, String? error) {
@@ -565,7 +577,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryNavy,
+      color: AppColors.primaryGreen,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
@@ -579,7 +591,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   Widget _buildEmptyState(String? error) {
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryNavy,
+      color: AppColors.primaryGreen,
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Container(
@@ -591,7 +603,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Container(
                   padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryNavy.withOpacity(0.1),
+                    color: AppColors.primaryGreen.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -600,7 +612,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                         : Icons.receipt_long_outlined,
                     size: 64,
                     color:
-                        error != null ? AppColors.error : AppColors.primaryNavy,
+                        error != null ? AppColors.error : AppColors.primaryGreen,
                   ),
                 ),
                 SizedBox(height: 24),
@@ -633,7 +645,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     icon: Icon(Icons.refresh, size: 20),
                     label: Text('Retry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryNavy,
+                      backgroundColor: AppColors.primaryGreen,
                       foregroundColor: Colors.white,
                       padding:
                           EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -678,14 +690,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final shippingAddress =
             order['shipping_address']?.toString() ?? 'No address';
 
-        // Read payment info from the nested `payment` object returned by the API.
+        // Resolve payment status from nested payment and order_detail fields.
         final payment = order['payment'] as Map<String, dynamic>?;
         final rawPaymentMethod = payment?['payment_method']?.toString() ?? '';
-        final rawPaymentStatus = payment?['status']?.toString() ?? '';
         final paymentMethod = rawPaymentMethod.isNotEmpty
             ? (_paymentMethodNames[rawPaymentMethod] ?? rawPaymentMethod)
             : '';
-        final paymentStatus = rawPaymentStatus;
+        final paymentStatus = OrderHelpers.resolvePaymentStatus(order);
         final orderId =
             order['id']?.toString() ?? order['order_id']?.toString() ?? '';
         final orderItems = order['order_items'] as List? ?? [];
@@ -823,7 +834,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryNavy,
+                                  color: AppColors.primaryGreen,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -857,7 +868,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                             '+${orderItems.length - 3} more items',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.primaryNavy,
+                              color: AppColors.primaryGreen,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -888,11 +899,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     ],
                     if (paymentStatus.isNotEmpty) ...[
                       SizedBox(height: 12),
-                      _buildDetailRow(
-                        Icons.receipt_long_outlined,
-                        'Payment Status',
-                        _capitalizeFirst(paymentStatus),
-                      ),
+                      _buildPaymentStatusRow(paymentStatus),
                     ],
                   ],
                 ),
@@ -922,7 +929,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
                       ],
@@ -992,7 +999,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryNavy,
+                            backgroundColor: AppColors.primaryGreen,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),
@@ -1018,6 +1025,64 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
   }
 
+  Widget _buildPaymentStatusRow(String paymentStatus) {
+    final isPaid = paymentStatus.toLowerCase() == 'paid';
+    final badgeColor = isPaid ? AppColors.success : AppColors.accentAmberDark;
+    final badgeBackground =
+        isPaid ? AppColors.success.withOpacity(0.12) : AppColors.accentAmber.withOpacity(0.12);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: badgeBackground,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.receipt_long_outlined,
+            size: 16,
+            color: badgeColor,
+          ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Payment Status',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(height: 4),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeBackground,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: badgeColor.withOpacity(0.25)),
+                ),
+                child: Text(
+                  OrderHelpers.formatPaymentStatus(paymentStatus),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1025,13 +1090,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.primaryNavy.withOpacity(0.1),
+            color: AppColors.primaryGreen.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
             size: 16,
-            color: AppColors.primaryNavy,
+            color: AppColors.primaryGreen,
           ),
         ),
         SizedBox(width: 12),

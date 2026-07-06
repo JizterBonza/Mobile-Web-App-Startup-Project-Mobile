@@ -3,23 +3,22 @@ import '../../constants/constants.dart';
 import 'order_helpers.dart';
 
 class PaymentSummaryWidget extends StatelessWidget {
-  final dynamic subtotal;
-  final dynamic shippingFee;
-  final dynamic totalAmount;
+  final Map<String, dynamic> order;
   final String paymentMethod;
   final String paymentStatus;
 
   const PaymentSummaryWidget({
     super.key,
-    required this.subtotal,
-    required this.shippingFee,
-    required this.totalAmount,
+    required this.order,
     required this.paymentMethod,
     required this.paymentStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    final subtotal = OrderHelpers.orderField(order, 'subtotal');
+    final totalAmount = OrderHelpers.orderField(order, 'total_amount');
+
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16),
       padding: EdgeInsets.all(20),
@@ -58,7 +57,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                           ? Icons.money
                           : Icons.credit_card,
                       size: 18,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                     ),
                     SizedBox(width: 6),
                     Text(
@@ -95,7 +94,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    OrderHelpers.capitalizeFirst(paymentStatus),
+                    OrderHelpers.formatPaymentStatus(paymentStatus),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -112,8 +111,7 @@ class PaymentSummaryWidget extends StatelessWidget {
           Divider(color: Colors.grey[200]),
           SizedBox(height: 16),
           _buildPriceRow('Subtotal', subtotal),
-          SizedBox(height: 10),
-          _buildPriceRow('Handling Fee', shippingFee),
+          ..._buildFeeBreakdownRows(),
           SizedBox(height: 16),
           Divider(color: Colors.grey[300]),
           SizedBox(height: 16),
@@ -133,7 +131,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryNavyDark,
+                  color: AppColors.primaryGreenDark,
                 ),
               ),
             ],
@@ -143,7 +141,123 @@ class PaymentSummaryWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceRow(String label, dynamic price) {
+  List<Widget> _buildFeeBreakdownRows() {
+    final rows = <Widget>[];
+    final isPickup = OrderHelpers.orderFeeFlag(order, 'is_pickup');
+    final shippingFee = OrderHelpers.orderFeeAmount(order, 'shipping_fee');
+    final deliveryBaseFee =
+        OrderHelpers.orderFeeAmount(order, 'delivery_base_fee');
+    final deliveryKmFee = OrderHelpers.orderFeeAmount(order, 'delivery_km_fee');
+    final deliveryDistanceKm =
+        OrderHelpers.orderFeeAmount(order, 'delivery_distance_km');
+    final isReducedBase = OrderHelpers.orderFeeFlag(order, 'is_reduced_base');
+    final heavySurcharge = OrderHelpers.orderFeeAmount(order, 'heavy_surcharge');
+    final heavySurchargeUnits =
+        OrderHelpers.orderFeeCount(order, 'heavy_surcharge_units');
+    final totalWeightKg = OrderHelpers.orderFeeAmount(order, 'total_weight_kg');
+    final multiStoreFee = OrderHelpers.orderFeeAmount(order, 'multi_store_fee');
+    final movPenaltyFee = OrderHelpers.orderFeeAmount(order, 'mov_penalty_fee');
+    final totalFees = OrderHelpers.orderFeeAmount(order, 'total_fees');
+    final storeCount = OrderHelpers.orderFeeCount(order, 'store_count');
+
+    void addFeeRow(String label, double amount, {String? subtitle}) {
+      if (amount <= 0) return;
+      rows.add(SizedBox(height: 10));
+      rows.add(_buildPriceRow(label, amount, subtitle: subtitle));
+    }
+
+    if (!isPickup && shippingFee > 0) {
+      final deliveryParts = <String>[];
+      if (deliveryBaseFee > 0 || deliveryKmFee > 0) {
+        deliveryParts.add(
+          '₱${deliveryBaseFee.toStringAsFixed(0)} base + '
+          '₱${deliveryKmFee.toStringAsFixed(0)}/km',
+        );
+      }
+      if (deliveryDistanceKm > 0) {
+        deliveryParts.add('${deliveryDistanceKm.toStringAsFixed(1)} km');
+      }
+      if (isReducedBase) {
+        deliveryParts.add('reduced base');
+      }
+      addFeeRow(
+        'Delivery Fee',
+        shippingFee,
+        subtitle: deliveryParts.isNotEmpty ? deliveryParts.join(' · ') : null,
+      );
+    }
+
+    addFeeRow(
+      'Heavy Item Surcharge',
+      heavySurcharge,
+      subtitle: heavySurcharge > 0
+          ? '${totalWeightKg.toStringAsFixed(1)} kg · $heavySurchargeUnits units'
+          : null,
+    );
+    addFeeRow(
+      'Multi-Store Fee',
+      multiStoreFee,
+      subtitle: multiStoreFee > 0 && storeCount > 1
+          ? '$storeCount stores'
+          : null,
+    );
+    addFeeRow('Minimum Order Fee', movPenaltyFee);
+
+    if (rows.isEmpty && totalFees > 0) {
+      rows.add(SizedBox(height: 10));
+      rows.add(_buildPriceRow('Fees', totalFees));
+    } else if (rows.isEmpty && shippingFee > 0) {
+      rows.add(SizedBox(height: 10));
+      rows.add(_buildPriceRow('Handling Fee', shippingFee));
+    }
+
+    return rows;
+  }
+
+  Widget _buildPriceRow(
+    String label,
+    dynamic price, {
+    String? subtitle,
+  }) {
+    if (subtitle != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            OrderHelpers.formatPrice(price),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

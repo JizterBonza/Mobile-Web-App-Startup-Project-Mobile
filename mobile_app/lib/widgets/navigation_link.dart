@@ -29,7 +29,7 @@ class NavigationLink extends StatelessWidget {
           child: Text(
             linkText,
             style: TextStyle(
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -752,7 +752,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Delivery Map',
@@ -1213,7 +1213,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.statusInTransit.withOpacity(0.06)
-              : Colors.grey[50],
+              : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -1377,7 +1377,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primaryNavyDark,
+                    color: AppColors.primaryGreenDark,
                   ),
                 ),
                 SizedBox(height: 2),

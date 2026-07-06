@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
+import '../utils/item_discount_fields.dart';
 import '../services/api_service.dart';
 
 class FavoriteService extends ApiService {
@@ -72,6 +73,7 @@ class FavoriteService extends ApiService {
             "total_reviews": item['total_reviews'] ?? 0,
             "sold_count": item['sold_count'] ?? 0,
             "shop_id": item['shop_id'],
+            ...discountFieldsFromItem(item),
 
             // Additional fields for UI compatibility
             "name": item['item_name'],

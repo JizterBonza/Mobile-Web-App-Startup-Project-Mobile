@@ -7,6 +7,7 @@ import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic productId;
@@ -285,7 +286,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           //   padding: EdgeInsets.symmetric(
                           //       horizontal: 12, vertical: 6),
                           //   decoration: BoxDecoration(
-                          //     color: AppColors.primaryNavy.withOpacity(0.1),
+                          //     color: AppColors.primaryGreen.withOpacity(0.1),
                           //     borderRadius: BorderRadius.circular(20),
                           //   ),
                           //   child: Text(
@@ -293,7 +294,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           //     style: TextStyle(
                           //       fontSize: 12,
                           //       fontWeight: FontWeight.w600,
-                          //       color: AppColors.primaryNavy,
+                          //       color: AppColors.primaryGreen,
                           //     ),
                           //   ),
                           // ),
@@ -402,7 +403,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 style: TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryNavyDark,
+                                  color: AppColors.primaryGreenDark,
                                 ),
                               ),
                               SizedBox(width: 8),
@@ -491,7 +492,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 SnackBar(
                   content: Text('Share product'),
                   duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.primaryNavy,
+                  backgroundColor: AppColors.primaryGreen,
                 ),
               );
             },
@@ -516,12 +517,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             itemBuilder: (context, index) {
               return Container(
-                color: AppColors.primaryNavy.withOpacity(0.1),
+                color: AppColors.primaryGreen.withOpacity(0.1),
                 child: Center(
                   child: Icon(
                     Icons.image,
                     size: 100,
-                    color: AppColors.primaryNavy.withOpacity(0.5),
+                    color: AppColors.primaryGreen.withOpacity(0.5),
                   ),
                 ),
                 // In real implementation, use Image.network(_sampleImages[index])
@@ -545,7 +546,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _selectedImageIndex == index
-                        ? AppColors.primaryNavy
+                        ? AppColors.primaryGreen
                         : Colors.white.withOpacity(0.5),
                   ),
                 ),
@@ -584,7 +585,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         Container(
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
+            color: AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[200]!),
           ),
@@ -616,7 +617,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.primaryNavy),
+          Icon(icon, size: 18, color: AppColors.primaryGreen),
           SizedBox(width: 12),
           Text(
             text,
@@ -688,7 +689,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Text(
                       _showAllReviews ? 'Show Less' : 'View All',
                       style: TextStyle(
-                        color: AppColors.primaryNavy,
+                        color: AppColors.primaryGreen,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -697,13 +698,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             SizedBox(height: 16),
             if (isLoading)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryNavy,
-                  ),
-                ),
+              const ListRowsSkeleton(
+                count: 3,
+                padding: EdgeInsets.zero,
               )
             else if (error != null)
               Center(
@@ -746,7 +743,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Container(
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: AppColors.surfaceLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey[200]!),
                 ),
@@ -886,11 +883,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.primaryNavy.withOpacity(0.2),
+                backgroundColor: AppColors.primaryGreen.withOpacity(0.2),
                 child: Text(
                   username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -915,7 +912,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           Icon(
                             Icons.verified,
                             size: 14,
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                           ),
                         ],
                       ],
@@ -998,7 +995,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Container(
                       height: 120,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryNavy.withOpacity(0.1),
+                        color: AppColors.primaryGreen.withOpacity(0.1),
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(12),
                         ),
@@ -1006,7 +1003,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       child: Center(
                         child: Icon(
                           Icons.shopping_bag,
-                          color: AppColors.primaryNavy,
+                          color: AppColors.primaryGreen,
                           size: 40,
                         ),
                       ),
@@ -1032,7 +1029,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryNavyDark,
+                              color: AppColors.primaryGreenDark,
                             ),
                           ),
                         ],
@@ -1175,7 +1172,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavy,
+                  backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

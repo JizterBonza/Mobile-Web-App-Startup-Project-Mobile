@@ -105,6 +105,8 @@ class OrderService extends ApiService {
 
   Future<Map<String, dynamic>> calculateOrder({
     required List<Map<String, dynamic>> items,
+    int? shippingAddressId,
+    int? deliveryMethodId,
   }) async {
     try {
       final token = await ApiService.getToken();
@@ -130,6 +132,10 @@ class OrderService extends ApiService {
             body: jsonEncode({
               'user_id': userId,
               'items': items,
+              if (shippingAddressId != null)
+                'shipping_address_id': shippingAddressId,
+              if (deliveryMethodId != null)
+                'delivery_method_id': deliveryMethodId,
             }),
           )
           .timeout(
@@ -142,13 +148,32 @@ class OrderService extends ApiService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        double toDouble(dynamic value) =>
+            (value as num?)?.toDouble() ?? 0.0;
+        int toInt(dynamic value) => (value as num?)?.toInt() ?? 0;
+
         return {
           'success': responseData['success'] ?? true,
-          'subtotal': (responseData['subtotal'] as num?)?.toDouble() ?? 0.0,
-          'handling_fee':
-              (responseData['handling_fee'] as num?)?.toDouble() ?? 0.0,
-          'total_amount':
-              (responseData['total_amount'] as num?)?.toDouble() ?? 0.0,
+          'subtotal': toDouble(responseData['subtotal']),
+          'delivery_base_fee': toDouble(responseData['delivery_base_fee']),
+          'delivery_km_fee': toDouble(responseData['delivery_km_fee']),
+          'delivery_distance_km':
+              toDouble(responseData['delivery_distance_km']),
+          'is_reduced_base': responseData['is_reduced_base'] == true,
+          'shipping_fee': toDouble(responseData['shipping_fee']),
+          'heavy_surcharge': toDouble(responseData['heavy_surcharge']),
+          'heavy_surcharge_units': toInt(responseData['heavy_surcharge_units']),
+          'total_weight_kg': toDouble(responseData['total_weight_kg']),
+          'multi_store_fee': toDouble(responseData['multi_store_fee']),
+          'mov_penalty_fee': toDouble(responseData['mov_penalty_fee']),
+          'total_fees': toDouble(responseData['total_fees']),
+          'total_amount': toDouble(responseData['total_amount']),
+          'store_count': toInt(responseData['store_count']),
+          'is_pickup': responseData['is_pickup'] == true,
+          'per_store': (responseData['per_store'] as List?)
+                  ?.map((store) => Map<String, dynamic>.from(store as Map))
+                  .toList() ??
+              [],
         };
       } else {
         return {
@@ -220,6 +245,25 @@ class OrderService extends ApiService {
             'order_code': orderDetail?['order_code']?.toString() ?? '',
             'subtotal': orderDetail?['subtotal']?.toString() ?? '0.00',
             'shipping_fee': orderDetail?['shipping_fee']?.toString() ?? '0.00',
+            'delivery_base_fee':
+                orderDetail?['delivery_base_fee']?.toString() ?? '0.00',
+            'delivery_km_fee':
+                orderDetail?['delivery_km_fee']?.toString() ?? '0.00',
+            'delivery_distance_km':
+                orderDetail?['delivery_distance_km']?.toString() ?? '0.00',
+            'is_reduced_base': orderDetail?['is_reduced_base'] ?? false,
+            'heavy_surcharge':
+                orderDetail?['heavy_surcharge']?.toString() ?? '0.00',
+            'heavy_surcharge_units': orderDetail?['heavy_surcharge_units'] ?? 0,
+            'total_weight_kg':
+                orderDetail?['total_weight_kg']?.toString() ?? '0.00',
+            'multi_store_fee':
+                orderDetail?['multi_store_fee']?.toString() ?? '0.00',
+            'mov_penalty_fee':
+                orderDetail?['mov_penalty_fee']?.toString() ?? '0.00',
+            'total_fees': orderDetail?['total_fees']?.toString() ?? '0.00',
+            'store_count': orderDetail?['store_count'] ?? 0,
+            'is_pickup': orderDetail?['is_pickup'] ?? false,
             'total_amount': orderDetail?['total_amount']?.toString() ?? '0.00',
             'shipping_address':
                 orderDetail?['shipping_address']?.toString() ?? '',

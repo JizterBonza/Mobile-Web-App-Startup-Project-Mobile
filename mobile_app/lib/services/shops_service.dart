@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/url.dart';
+import '../utils/item_discount_fields.dart';
 import '../services/api_service.dart';
 
 /// Service for managing shops/stores with API fetching
@@ -228,6 +229,7 @@ class ShopsService extends ApiService {
             "average_rating": item['average_rating'],
             "total_reviews": item['total_reviews'] ?? 0,
             "sold_count": item['sold_count'] ?? 0,
+            ...discountFieldsFromItem(item),
           };
         }).toList();
       }

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
+import '../utils/url.dart';
+import '../utils/item_discount_fields.dart';
 import '../services/api_service.dart';
 
 /// Service for managing items/products with API fetching
@@ -25,7 +27,19 @@ class ItemsService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
       if (data['success'] == true && data['data'] != null) {
+        final baseUrl = Url.getUrl();
         return (data['data'] as List).map((item) {
+          List<String>? fullImageUrls;
+          if (item['item_images'] != null && item['item_images'] is List) {
+            fullImageUrls = (item['item_images'] as List).map((imagePath) {
+              final path = imagePath.toString();
+              if (path.startsWith('http')) {
+                return path;
+              }
+              return '$baseUrl$path';
+            }).toList();
+          }
+
           return {
             "id": item['id'],
             "shop_id": item['shop_id'],
@@ -34,9 +48,12 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
-            "item_images": item['item_images'],
+            "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
+            "shop_name": item['shop_name'],
+            "sold_count": item['sold_count'] ?? 0,
+            ...discountFieldsFromItem(item),
           };
         }).toList();
       }
@@ -158,7 +175,19 @@ class ItemsService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
       if (data['success'] == true && data['data'] != null) {
+        final baseUrl = Url.getUrl();
         return (data['data'] as List).map((item) {
+          List<String>? fullImageUrls;
+          if (item['item_images'] != null && item['item_images'] is List) {
+            fullImageUrls = (item['item_images'] as List).map((imagePath) {
+              final path = imagePath.toString();
+              if (path.startsWith('http')) {
+                return path;
+              }
+              return '$baseUrl$path';
+            }).toList();
+          }
+
           return {
             "id": item['id'],
             "shop_id": item['shop_id'],
@@ -167,15 +196,142 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
-            "item_images": item['item_images'],
+            "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
+            "shop_name": item['shop_name'],
+            "sold_count": item['sold_count'] ?? 0,
+            ...discountFieldsFromItem(item),
           };
         }).toList();
       }
     } else {
       throw Exception(
           'Failed to load items by category: ${response.statusCode}');
+    }
+    return [];
+  }
+
+  /// Fetch on-sale items from API
+  Future<List<Map<String, dynamic>>> fetchItemsOnSale() async {
+    final response = await http.get(
+      Uri.parse(ApiEndpoints.getItemsOnSale),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${await ApiService.getToken()}',
+      },
+    ).timeout(
+      Duration(seconds: 15),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 15 seconds');
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['success'] == true && data['data'] != null) {
+        final baseUrl = Url.getUrl();
+        return (data['data'] as List).map((item) {
+          List<String>? fullImageUrls;
+          if (item['item_images'] != null && item['item_images'] is List) {
+            fullImageUrls = (item['item_images'] as List).map((imagePath) {
+              final path = imagePath.toString();
+              if (path.startsWith('http')) {
+                return path;
+              }
+              return '$baseUrl$path';
+            }).toList();
+          }
+
+          return {
+            "id": item['id'],
+            "shop_id": item['shop_id'],
+            "item_name": item['item_name'],
+            "item_description": item['item_description'],
+            "item_price": item['item_price'],
+            "item_quantity": item['item_quantity'],
+            "category": item['category'],
+            "item_images": fullImageUrls ?? item['item_images'],
+            "item_status": item['item_status'],
+            "average_rating": item['average_rating'],
+            ...discountFieldsFromItem(item),
+            "shop_name": item['shop_name'],
+            "sold_count": item['sold_count'] ?? 0,
+            "total_reviews": item['total_reviews'] ?? 0,
+          };
+        }).toList();
+      }
+    } else {
+      throw Exception('Failed to load on-sale items: ${response.statusCode}');
+    }
+    return [];
+  }
+
+  /// Fetch items the current user has previously ordered.
+  Future<List<Map<String, dynamic>>> fetchOrderedItemsByUserId() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final userId = await ApiService.getUserId();
+    if (userId == null || userId.isEmpty) {
+      throw Exception('User ID not found. Please login again.');
+    }
+
+    final response = await http.get(
+      Uri.parse(
+        ApiEndpoints.getOrderedItemsByUserId.replaceAll('{user_id}', userId),
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['success'] == true && data['data'] != null) {
+        final baseUrl = Url.getUrl();
+        return (data['data'] as List).map((item) {
+          List<String>? fullImageUrls;
+          if (item['item_images'] != null && item['item_images'] is List) {
+            fullImageUrls = (item['item_images'] as List).map((imagePath) {
+              final path = imagePath.toString();
+              if (path.startsWith('http')) {
+                return path;
+              }
+              return '$baseUrl$path';
+            }).toList();
+          }
+
+          return {
+            "id": item['id'],
+            "shop_id": item['shop_id'],
+            "item_name": item['item_name'],
+            "item_description": item['item_description'],
+            "item_price": item['item_price'],
+            "item_quantity": item['item_quantity'],
+            "category": item['category'],
+            "item_images": fullImageUrls ?? item['item_images'],
+            "item_status": item['item_status'],
+            "average_rating": item['average_rating'],
+            "shop_name": item['shop_name'],
+            "sold_count": item['sold_count'] ?? 0,
+            ...discountFieldsFromItem(item),
+          };
+        }).toList();
+      }
+    } else {
+      throw Exception(
+          'Failed to load ordered items: ${response.statusCode}');
     }
     return [];
   }
@@ -219,6 +375,7 @@ class ItemsService extends ApiService {
             "item_images": item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
+            ...discountFieldsFromItem(item),
           };
         }).toList();
       }

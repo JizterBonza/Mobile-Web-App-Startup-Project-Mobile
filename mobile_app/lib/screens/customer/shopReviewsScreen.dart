@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 
 class ShopReviewsScreen extends StatefulWidget {
   final dynamic shopId;
@@ -71,7 +72,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: Column(
           children: [
@@ -99,7 +100,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
 
                   return RefreshIndicator(
                     onRefresh: _refreshReviews,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                     child: CustomScrollView(
                       physics: AlwaysScrollableScrollPhysics(),
                       slivers: [
@@ -193,19 +194,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: AppColors.primaryNavy),
-          SizedBox(height: 16),
-          Text(
-            'Loading reviews...',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
+    return const ListRowsSkeleton(count: 8);
   }
 
   Widget _buildErrorState(String error) {
@@ -237,7 +226,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -389,7 +378,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                             value: percentage,
                             backgroundColor: Colors.grey[200],
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primaryNavy,
+                              AppColors.primaryGreen,
                             ),
                             minHeight: 8,
                           ),
@@ -449,16 +438,16 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 });
               },
               backgroundColor: Colors.white,
-              selectedColor: AppColors.primaryNavy.withOpacity(0.15),
-              checkmarkColor: AppColors.primaryNavy,
+              selectedColor: AppColors.primaryGreen.withOpacity(0.15),
+              checkmarkColor: AppColors.primaryGreen,
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.primaryNavy : Colors.grey[700],
+                color: isSelected ? AppColors.primaryGreen : Colors.grey[700],
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
+                  color: isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
                 ),
               ),
             ),
@@ -498,14 +487,14 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryNavy.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),

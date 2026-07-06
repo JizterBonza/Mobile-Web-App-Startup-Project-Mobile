@@ -8,6 +8,7 @@ import '../../services/order_service.dart';
 import '../../provider/provider.dart';
 import '../../provider/pod_provider.dart';
 import '../../widgets/order_item_card.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import '../../widgets/view_header.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/order_details_dialog.dart';
@@ -221,7 +222,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
           ),
         );
         await _loadOrders(useCache: false);
@@ -426,7 +427,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: AppColors.primaryNavy),
+                    CircularProgressIndicator(color: AppColors.primaryGreen),
                     SizedBox(height: 16),
                     if (provider.totalToUpload > 0)
                       Text(
@@ -461,7 +462,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           final total = data?['total'] ?? 0;
 
           if (successCount == total) {
-            backgroundColor = AppColors.primaryNavy;
+            backgroundColor = AppColors.primaryGreen;
           } else {
             backgroundColor = AppColors.warning;
           }
@@ -507,7 +508,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     if (orders.isEmpty) {
       return RefreshIndicator(
         onRefresh: _onRefresh,
-        color: AppColors.primaryNavy,
+        color: AppColors.primaryGreen,
         child: SingleChildScrollView(
           physics: AlwaysScrollableScrollPhysics(),
           child: Container(
@@ -524,7 +525,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryNavy,
+      color: AppColors.primaryGreen,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
@@ -581,7 +582,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: Column(
           children: [
@@ -602,11 +603,11 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppColors.primaryNavy,
+                                  color: AppColors.primaryGreen,
                                 ),
                               )
                             : Icon(Icons.cloud_upload,
-                                color: AppColors.primaryNavy),
+                                color: AppColors.primaryGreen),
                         onPressed: podProvider.isUploading
                             ? null
                             : _uploadPendingPhotos,
@@ -616,7 +617,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
                   ),
                   if (_orderError != null)
                     IconButton(
-                      icon: Icon(Icons.refresh, color: AppColors.primaryNavy),
+                      icon: Icon(Icons.refresh, color: AppColors.primaryGreen),
                       onPressed: () => _loadOrders(useCache: false),
                       tooltip: 'Retry',
                     ),
@@ -634,9 +635,9 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                labelColor: AppColors.primaryNavy,
+                labelColor: AppColors.primaryGreen,
                 unselectedLabelColor: Colors.grey[600],
-                indicatorColor: AppColors.primaryNavy,
+                indicatorColor: AppColors.primaryGreen,
                 indicatorWeight: 3,
                 labelStyle: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -652,11 +653,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
             ),
             Expanded(
               child: _isLoadingOrders
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryNavy,
-                      ),
-                    )
+                  ? const OrderListSkeleton()
                   : Consumer<OrderStatusProvider>(
                       builder: (context, orderStatusProvider, child) {
                         return TabBarView(
@@ -685,7 +682,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           currentIndex: 1, // Deliveries tab is selected
           onTap: _onNavTap,
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primaryNavy,
+          selectedItemColor: AppColors.primaryGreen,
           unselectedItemColor: Colors.grey[600],
           backgroundColor: Colors.white,
           items: [

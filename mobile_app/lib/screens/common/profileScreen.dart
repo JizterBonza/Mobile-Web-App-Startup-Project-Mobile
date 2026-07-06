@@ -10,13 +10,11 @@ import '../../provider/order_status_provider.dart';
 import '../../provider/orders_provider.dart';
 import '../../provider/shops_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/google_auth_service.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'loginScreen.dart';
 import '../customer/customerDashboardScreen.dart';
 import '../rider/riderDashboardScreen.dart';
-// TEMPORARILY COMMENTED OUT - Using CartScreenV2 instead
-// import '../customer/cartScreen.dart';
-import '../customer/cartScreenV2.dart';
-import '../customer/favoriteScreen.dart';
 import 'editProfileScreen.dart';
 import 'changePasswordScreen.dart';
 import 'myOrderScreen.dart';
@@ -124,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: widget.hideBottomNavigation
           ? null
           : AppBar(
@@ -139,6 +137,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
               iconTheme: IconThemeData(color: Colors.grey[700]),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _navigateToCustomerHome,
+              ),
             ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -163,8 +165,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar:
-          widget.hideBottomNavigation ? null : _buildBottomNavigationBar(),
+      bottomNavigationBar: _shouldShowBottomNavigationBar()
+          ? _buildBottomNavigationBar()
+          : null,
     );
   }
 
@@ -184,22 +187,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primaryNavy.withOpacity(0.3),
+                color: AppColors.primaryGreen.withOpacity(0.3),
                 width: 3,
               ),
             ),
             child: Icon(
               Icons.person,
               size: 50,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
             ),
           ),
           SizedBox(height: 16),
           _isLoading
-              ? CircularProgressIndicator()
+              ? const AppSkeletonizer(
+                  child: Column(
+                    children: [
+                      SkeletonBox(width: 140, height: 22),
+                      SizedBox(height: 8),
+                      SkeletonBox(width: 180, height: 14),
+                    ],
+                  ),
+                )
               : Column(
                   children: [
                     Text(
@@ -239,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icon(Icons.edit, size: 18),
             label: Text('Edit Profile'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -273,10 +284,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             border: Border.all(color: Colors.grey[300]!),
           ),
           child: _isLoading
-              ? Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: CircularProgressIndicator(),
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: AppSkeletonizer(
+                    child: Column(
+                      children: [
+                        SkeletonBox(width: double.infinity, height: 16),
+                        SizedBox(height: 16),
+                        SkeletonBox(width: double.infinity, height: 16),
+                        SizedBox(height: 16),
+                        SkeletonBox(width: double.infinity, height: 16),
+                      ],
+                    ),
                   ),
                 )
               : Column(
@@ -305,12 +324,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 20,
             ),
           ),
@@ -428,7 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('${item['title']} functionality coming soon!'),
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
               ),
             );
           }
@@ -440,12 +459,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryNavy.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   item['icon'],
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   size: 20,
                 ),
               ),
@@ -530,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
 
               try {
-                // Call logout API
+                await GoogleAuthService.signOutFromGoogle();
                 final logoutResult = await ApiService.logout();
 
                 // Dismiss loading indicator
@@ -620,6 +639,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  bool _shouldShowBottomNavigationBar() {
+    if (widget.hideBottomNavigation) return false;
+    return _userType == 'rider';
+  }
+
+  void _navigateToCustomerHome() {
+    if (_userType == 'rider') {
+      Navigator.pushReplacement(
+        context,
+        _createFadeRoute(RiderDashboardScreen()),
+      );
+      return;
+    }
+
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      _createFadeRoute(const CustomerDashboardScreen()),
+    );
+  }
+
   PageRoute _createFadeRoute(Widget page) {
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -659,114 +703,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
           });
 
           // Handle navigation based on selected index and user type
-          if (_userType == 'rider') {
-            // Rider navigation
-            if (index == 0) {
-              // Home
-              Navigator.pushReplacement(
-                context,
-                _createFadeRoute(RiderDashboardScreen()),
-              );
-            } else if (index == 1) {
-              // Deliveries - switch to deliveries tab in rider dashboard
-              Navigator.pushReplacement(
-                context,
-                _createFadeRoute(RiderDashboardScreen()),
-              );
-            } else if (index == 2) {
-              // History - switch to history tab in rider dashboard
-              Navigator.pushReplacement(
-                context,
-                _createFadeRoute(RiderDashboardScreen()),
-              );
-            }
-            // index == 3 is Profile, stay on current screen
-          } else {
-            // Customer navigation
-            if (index == 0) {
-              // Home
-              Navigator.pushReplacement(
-                context,
-                _createFadeRoute(CustomerDashboardScreen()),
-              );
-            } else if (index == 1) {
-              // Cart
-              // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
-              // Navigator.push(
-              //   context,
-              //   _createFadeRoute(CartScreen()),
-              // ).then((_) {
-              //   // Keep profile selected when returning
-              //   setState(() {
-              //     _selectedIndex = 3;
-              //   });
-              // });
-              Navigator.push(
-                context,
-                _createFadeRoute(CartScreenV2()),
-              ).then((_) {
-                // Keep profile selected when returning
-                setState(() {
-                  _selectedIndex = 3;
-                });
-              });
-            } else if (index == 2) {
-              // Favorites
-              Navigator.pushReplacement(
-                context,
-                _createFadeRoute(FavoriteScreen()),
-              );
-            }
-            // index == 3 is Profile, stay on current screen
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(RiderDashboardScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(RiderDashboardScreen()),
+            );
+          } else if (index == 2) {
+            Navigator.pushReplacement(
+              context,
+              _createFadeRoute(RiderDashboardScreen()),
+            );
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
+        selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
-        items: _userType == 'rider'
-            ? [
-                // Rider navigation
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home_outlined),
-                  activeIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.local_shipping_outlined),
-                  activeIcon: Icon(Icons.local_shipping),
-                  label: 'Deliveries',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.history_outlined),
-                  activeIcon: Icon(Icons.history),
-                  label: 'History',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  activeIcon: Icon(Icons.person),
-                  label: 'Profile',
-                ),
-              ]
-            : [
-                // Customer navigation
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.shopping_cart),
-                  label: 'Cart',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.favorite),
-                  label: 'Favorites',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person),
-                  label: 'Profile',
-                ),
-              ],
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_shipping_outlined),
+            activeIcon: Icon(Icons.local_shipping),
+            label: 'Deliveries',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history_outlined),
+            activeIcon: Icon(Icons.history),
+            label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

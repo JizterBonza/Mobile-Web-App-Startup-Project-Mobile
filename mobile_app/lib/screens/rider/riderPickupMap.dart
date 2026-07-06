@@ -443,7 +443,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
             Polyline(
               polylineId: PolylineId('pickup_route'),
               points: route.polylinePoints,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               width: 5,
               patterns: [],
             ),
@@ -466,7 +466,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                     'Pickup Route: ${route.totalDistance} • ${route.totalDuration}'),
               ],
             ),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 4),
           ),
@@ -647,7 +647,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Pickup Map',
@@ -673,7 +673,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppColors.primaryNavy),
+                  CircularProgressIndicator(color: AppColors.primaryGreen),
                   SizedBox(height: 16),
                   Text(
                     'Loading pickup orders...',
@@ -780,12 +780,12 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                           Container(
                             padding: EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: AppColors.primaryNavy.withOpacity(0.1),
+                              color: AppColors.primaryGreen.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               Icons.route,
-                              color: AppColors.primaryNavy,
+                              color: AppColors.primaryGreen,
                               size: 18,
                             ),
                           ),
@@ -816,7 +816,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                     '${_currentRoute!.legs.length} shops',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: AppColors.primaryNavy,
+                                      color: AppColors.primaryGreen,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -929,7 +929,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                   ),
                                   decoration: BoxDecoration(
                                     color:
-                                        AppColors.primaryNavy.withOpacity(0.08),
+                                        AppColors.primaryGreen.withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -937,7 +937,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.primaryNavy,
+                                      color: AppColors.primaryGreen,
                                     ),
                                   ),
                                 ),
@@ -1003,10 +1003,10 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         icon: Container(
           padding: EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: AppColors.primaryNavy.withOpacity(0.08),
+            color: AppColors.primaryGreen.withOpacity(0.08),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: AppColors.primaryNavy),
+          child: Icon(icon, size: 18, color: AppColors.primaryGreen),
         ),
       ),
     );
@@ -1061,7 +1061,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: _showRoute
-                ? AppColors.primaryNavy
+                ? AppColors.primaryGreen
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
@@ -1072,14 +1072,14 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primaryNavy,
+                      AppColors.primaryGreen,
                     ),
                   ),
                 )
               : Icon(
                   Icons.route,
                   size: 20,
-                  color: _showRoute ? Colors.white : AppColors.primaryNavy,
+                  color: _showRoute ? Colors.white : AppColors.primaryGreen,
                 ),
         ),
       ),
@@ -1106,8 +1106,8 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primaryNavy.withOpacity(0.06)
-              : Colors.grey[50],
+              ? AppColors.primaryGreen.withOpacity(0.06)
+              : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -1172,7 +1172,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   Row(
                     children: [
                       Icon(Icons.store_outlined, size: 13,
-                          color: AppColors.primaryNavy),
+                          color: AppColors.primaryGreen),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -1180,7 +1180,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primaryNavyDark,
+                            color: AppColors.primaryGreenDark,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1278,7 +1278,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primaryNavyDark,
+                    color: AppColors.primaryGreenDark,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -1313,7 +1313,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                         child: ElevatedButton(
                           onPressed: () => _handlePickup(order),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryNavy,
+                            backgroundColor: AppColors.primaryGreen,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
@@ -1432,12 +1432,12 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primaryNavy.withOpacity(0.1),
+                color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.inventory_2_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 24,
               ),
             ),
@@ -1494,7 +1494,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                     Row(
                       children: [
                         Icon(Icons.store,
-                            size: 16, color: AppColors.primaryNavy),
+                            size: 16, color: AppColors.primaryGreen),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -1523,7 +1523,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                 SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
+                    color: AppColors.surfaceLight,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey[200]!),
                   ),
@@ -1558,7 +1558,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                   height: 32,
                                   decoration: BoxDecoration(
                                     color:
-                                        AppColors.primaryNavy.withOpacity(0.1),
+                                        AppColors.primaryGreen.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Center(
@@ -1567,7 +1567,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryNavy,
+                                        color: AppColors.primaryGreen,
                                       ),
                                     ),
                                   ),
@@ -1604,7 +1604,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
-                                              color: AppColors.primaryNavyDark,
+                                              color: AppColors.primaryGreenDark,
                                             ),
                                           ),
                                         ],
@@ -1650,7 +1650,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
               _confirmPickup(order);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -1698,7 +1698,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: AppColors.primaryNavy),
+              CircularProgressIndicator(color: AppColors.primaryGreen),
               SizedBox(height: 16),
               Text(
                 'Updating order status...',
@@ -1753,7 +1753,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                 Text('Order picked up successfully!'),
               ],
             ),
-            backgroundColor: AppColors.primaryNavy,
+            backgroundColor: AppColors.primaryGreen,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

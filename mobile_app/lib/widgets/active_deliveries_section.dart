@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import 'order_item_card.dart';
+import 'skeletons/app_skeletons.dart';
 
 class ActiveDeliveriesSection extends StatelessWidget {
   final List<Map<String, dynamic>> deliveries;
@@ -53,7 +54,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(Icons.refresh,
-                          size: 18, color: AppColors.primaryNavy),
+                          size: 18, color: AppColors.primaryGreen),
                     ),
                   ),
                 GestureDetector(
@@ -64,7 +65,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
                       'View All',
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.primaryNavy,
+                        color: AppColors.primaryGreen,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -76,28 +77,12 @@ class ActiveDeliveriesSection extends StatelessWidget {
         ),
         SizedBox(height: 12),
         if (isLoading)
-          Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primaryNavy,
-                ),
-              ),
-            ),
-          )
+          const OrderListSkeleton(count: 3, padding: EdgeInsets.zero)
         else if (deliveries.isEmpty)
           Container(
             padding: EdgeInsets.symmetric(vertical: 32),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: AppColors.surfaceLight,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(

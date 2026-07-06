@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 class CategoryService extends ApiService {
   // Map of category names to icons
   static final Map<String, IconData> categoryIcons = {
-    'Health': Icons.health_and_safety,
+    'Accessories': Icons.shopping_bag_outlined,
     'Feeds': Icons.category,
+    'Health': Icons.health_and_safety,
     'Tools': Icons.build,
-    'Accessories': Icons.shopping_cart_rounded,
   };
 
   /// Fetch categories from API

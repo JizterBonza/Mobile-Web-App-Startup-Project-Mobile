@@ -8,6 +8,8 @@ class ApiEndpoints {
   // Authentication endpoints
   static String get register => '$baseUrl/api/register';
   static String get login => '$baseUrl/api/login';
+  static String get refresh => '$baseUrl/api/refresh';
+  static String get googleToken => '$baseUrl/api/auth/google/token';
   static String get logout => '$baseUrl/api/logout';
   static String get forgotPassword => '$baseUrl/api/forgot-password';
   static String get resetPassword => '$baseUrl/api/reset-password';
@@ -27,6 +29,7 @@ class ApiEndpoints {
   static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
   static String get getSearchItem => '$baseUrl/api/items/search';
   static String get getItemsByCategory => '$baseUrl/api/items';
+  static String get getItemsOnSale => '$baseUrl/api/items/on-sale';
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -39,6 +42,8 @@ class ApiEndpoints {
   static String get getOrdersByRiderId =>
       '$baseUrl/api/orders/rider/{rider_id}';
   static String get calculateOrder => '$baseUrl/api/orders/calculate-fee';
+  static String get getOrderedItemsByUserId =>
+      '$baseUrl/api/items/ordered/user/{user_id}';
 
   // Favorite endpoints
   static String get getFavorites => '$baseUrl/api/favorites';
@@ -97,4 +102,6 @@ class ApiEndpoints {
   static String get paymentCheckout => '$baseUrl/api/payment/checkout';
   static String get paymentCheckoutUrl =>
       '$baseUrl/api/payment/checkout-url/{orderId}';
+  static String get paymentStatus =>
+      '$baseUrl/api/payment/status/{orderId}';
 }

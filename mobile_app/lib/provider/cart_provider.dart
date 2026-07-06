@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/cart_services.dart';
 import '../services/api_service.dart';
+import '../utils/cart_item_pricing.dart';
 
 /// Provider for managing cart state and caching
 class CartProvider with ChangeNotifier {
@@ -18,11 +19,9 @@ class CartProvider with ChangeNotifier {
   bool get fromCache => _fromCache;
   Set<String> get selectedItems => _selectedItems;
 
-  /// Get effective price - use item_price if different from price_snapshot
+  /// Get effective price using snapshot, live price, and discount fields.
   double _getEffectivePrice(Map<String, dynamic> item) {
-    final priceSnapshot = double.parse(item['price_snapshot'].toString());
-    final itemPrice = double.parse(item['item_price'].toString());
-    return priceSnapshot != itemPrice ? itemPrice : priceSnapshot;
+    return CartItemPricing.fromCartMap(item).effectivePrice;
   }
 
   /// Check if item quantity exceeds available stock

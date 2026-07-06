@@ -55,7 +55,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide:
-            const BorderSide(color: AppColors.primaryNavy, width: 1.5),
+            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -107,14 +107,14 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
             children: [
               const Icon(
                 Icons.check_circle,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 28,
               ),
               const SizedBox(width: 12),
               const Text(
                 'Email Sent',
                 style: TextStyle(
-                  color: AppColors.primaryNavyDark,
+                  color: AppColors.primaryGreenDark,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -136,7 +136,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               child: const Text(
                 'OK',
                 style: TextStyle(
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -171,7 +171,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryNavyDark,
+                        color: AppColors.primaryGreenDark,
                       ),
                     ),
                   ),
@@ -230,9 +230,9 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleSendResetLink,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavyDark,
+                  backgroundColor: AppColors.primaryGreenDark,
                   disabledBackgroundColor:
-                      AppColors.primaryNavyDark.withOpacity(0.5),
+                      AppColors.primaryGreenDark.withOpacity(0.5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -272,7 +272,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryNavyDark,
+                        color: AppColors.primaryGreenDark,
                       ),
                     ),
                   ),

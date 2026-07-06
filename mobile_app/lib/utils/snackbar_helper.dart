@@ -50,7 +50,7 @@ class SnackbarHelper {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: AppColors.primaryNavyLight,
+        backgroundColor: AppColors.primaryGreenLight,
         duration: duration,
         behavior: SnackBarBehavior.floating,
       ),

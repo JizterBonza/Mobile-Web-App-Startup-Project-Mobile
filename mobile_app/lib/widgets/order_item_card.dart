@@ -46,12 +46,12 @@ class OrderItemCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               Icons.shopping_bag_outlined,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 20,
             ),
           ),
@@ -97,7 +97,7 @@ class OrderItemCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             ],
@@ -208,7 +208,7 @@ class OrderItemCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             ],
@@ -222,14 +222,14 @@ class OrderItemCard extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: onUpdateStatus,
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppColors.primaryNavy),
+                        side: BorderSide(color: AppColors.primaryGreen),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: Text(
                         actionButtonLabel ?? 'Update Status',
-                        style: TextStyle(color: AppColors.primaryNavy),
+                        style: TextStyle(color: AppColors.primaryGreen),
                       ),
                     ),
                   ),
@@ -240,7 +240,7 @@ class OrderItemCard extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: onViewDetails,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryNavy,
+                        backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
