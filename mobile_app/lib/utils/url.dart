@@ -4,5 +4,6 @@ class Url {
   static String getUrl() {
     return dotenv.env['TEST_URL']!;
     //return dotenv.env['DEV_URL']!;
+    // return dotenv.env['MOBILE_LOCAL_URL']!;
   }
 }

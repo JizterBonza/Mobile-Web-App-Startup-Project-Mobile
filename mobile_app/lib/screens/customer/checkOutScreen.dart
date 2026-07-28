@@ -5,6 +5,7 @@ import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
 import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
+import '../../services/voucher_service.dart';
 import '../../utils/cart_item_pricing.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -27,6 +28,7 @@ class CheckOutScreen extends StatefulWidget {
 class _CheckOutScreenState extends State<CheckOutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _orderInstructionController = TextEditingController();
+  final _voucherController = TextEditingController();
 
   int? _selectedPaymentMethodId;
   int? _selectedDeliveryMethodId;
@@ -37,6 +39,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   bool _isLoadingDeliveryMethods = true;
   bool _isLoadingPaymentMethods = true;
   bool _isLoadingCalculation = true;
+  bool _isValidatingVoucher = false;
 
   double _subtotal = 0.0;
   double _deliveryBaseFee = 0.0;
@@ -51,9 +54,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   double _movPenaltyFee = 0.0;
   double _totalFees = 0.0;
   double _total = 0.0;
+  double _voucherDiscount = 0.0;
+  bool _voucherDiscountIncludedInTotal = false;
   int _storeCount = 0;
   bool _isPickup = false;
   int _calculationRequestId = 0;
+
+  String? _appliedVoucherCode;
+  String? _voucherSuccessMessage;
+  String? _voucherErrorMessage;
 
   // Address selection
   List<AddressModel> _addresses = [];
@@ -76,7 +85,16 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   @override
   void dispose() {
     _orderInstructionController.dispose();
+    _voucherController.dispose();
     super.dispose();
+  }
+
+  double get _displayTotal {
+    if (_voucherDiscount > 0 && !_voucherDiscountIncludedInTotal) {
+      final adjusted = _total - _voucherDiscount;
+      return adjusted < 0 ? 0 : adjusted;
+    }
+    return _total;
   }
 
   Future<void> _loadUserProfile() async {
@@ -232,11 +250,14 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         items: orderItems,
         shippingAddressId: _selectedAddress?.id,
         deliveryMethodId: _selectedDeliveryMethodId,
+        voucherCode: _appliedVoucherCode,
       );
 
       if (!mounted || requestId != _calculationRequestId) return;
 
       if (result['success'] == true) {
+        final feeDiscount =
+            (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
         setState(() {
           _subtotal = (result['subtotal'] as num).toDouble();
           _deliveryBaseFee = (result['delivery_base_fee'] as num).toDouble();
@@ -254,6 +275,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           _total = (result['total_amount'] as num).toDouble();
           _storeCount = result['store_count'] as int;
           _isPickup = result['is_pickup'] == true;
+          // calculate-fee total_amount already reflects voucher when present.
+          _voucherDiscount = feeDiscount;
+          _voucherDiscountIncludedInTotal = true;
           _isLoadingCalculation = false;
         });
       } else {
@@ -347,7 +371,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         items: orderItems,
         subtotal: _subtotal,
         shippingFee: _totalFees,
-        totalAmount: _total,
+        totalAmount: _displayTotal,
         shippingAddress: _selectedAddress!.fullAddress,
         shippingAddressId: _selectedAddress!.id,
         orderInstruction: _orderInstructionController.text.trim().isEmpty
@@ -355,6 +379,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
         paymentMethod: null,
+        voucherCode: _appliedVoucherCode,
       );
 
       SnackbarHelper.hide(context);
@@ -502,6 +527,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
                     // Order Instructions Section
                     _buildOrderInstructionsSection(),
+
+                    // Voucher Section
+                    _buildVoucherSection(),
 
                     // Order Summary Section
                     _buildOrderSummarySection(),
@@ -883,7 +911,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
   Widget _buildShippingAddressSection() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1376,9 +1404,266 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return lowerDesc.contains('contact') || lowerDesc.contains('no contact');
   }
 
+  Future<void> _applyVoucher() async {
+    final code = _voucherController.text.trim();
+    if (code.isEmpty || _isValidatingVoucher) return;
+
+    if (_selectedAddress == null || _selectedDeliveryMethodId == null) {
+      setState(() {
+        _voucherErrorMessage =
+            'Select a shipping address and delivery method before applying a voucher.';
+        _voucherSuccessMessage = null;
+      });
+      return;
+    }
+
+    if (_isLoadingCalculation || _subtotal <= 0) {
+      setState(() {
+        _voucherErrorMessage =
+            'Wait for order fees to finish calculating, then try again.';
+        _voucherSuccessMessage = null;
+      });
+      return;
+    }
+
+    // Validate against pre-voucher totals (fee total without discount).
+    final preVoucherTotal = _voucherDiscountIncludedInTotal && _voucherDiscount > 0
+        ? _total + _voucherDiscount
+        : _total;
+
+    setState(() {
+      _isValidatingVoucher = true;
+      _voucherErrorMessage = null;
+      _voucherSuccessMessage = null;
+    });
+
+    final result = await VoucherService().validateCode(
+      code: code,
+      subtotal: _subtotal,
+      shippingFee: _totalFees,
+      totalAmount: preVoucherTotal,
+    );
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final discount =
+          (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
+      final appliedCode =
+          (result['voucher_code']?.toString() ?? code).trim();
+      final name = result['name']?.toString();
+      final message = result['message']?.toString();
+
+      setState(() {
+        _appliedVoucherCode = appliedCode;
+        _voucherDiscount = discount;
+        // Prefer server total from validate until calculate-fee returns.
+        final validatedTotal =
+            (result['total_amount'] as num?)?.toDouble();
+        if (validatedTotal != null && validatedTotal > 0) {
+          _total = validatedTotal;
+          _voucherDiscountIncludedInTotal = true;
+        } else {
+          _voucherDiscountIncludedInTotal = false;
+        }
+        _voucherController.text = appliedCode;
+        _voucherErrorMessage = null;
+        if (name != null && name.isNotEmpty) {
+          _voucherSuccessMessage = discount > 0
+              ? '$name · ₱${discount.toStringAsFixed(2)} off'
+              : name;
+        } else if (discount > 0) {
+          _voucherSuccessMessage =
+              '₱${discount.toStringAsFixed(2)} off applied';
+        } else {
+          _voucherSuccessMessage = message ?? 'Voucher applied';
+        }
+        _isValidatingVoucher = false;
+      });
+      await _maybeRecalculateOrder();
+    } else {
+      setState(() {
+        _appliedVoucherCode = null;
+        _voucherDiscount = 0.0;
+        _voucherDiscountIncludedInTotal = true;
+        _voucherSuccessMessage = null;
+        _voucherErrorMessage =
+            result['message']?.toString() ?? 'Invalid voucher code.';
+        _isValidatingVoucher = false;
+      });
+    }
+  }
+
+  void _clearVoucher() {
+    setState(() {
+      _voucherController.clear();
+      _appliedVoucherCode = null;
+      _voucherDiscount = 0.0;
+      _voucherDiscountIncludedInTotal = true;
+      _voucherSuccessMessage = null;
+      _voucherErrorMessage = null;
+    });
+    _maybeRecalculateOrder();
+  }
+
+  Widget _buildVoucherSection() {
+    final hasApplied = _appliedVoucherCode != null;
+    final canApply = _voucherController.text.trim().isNotEmpty &&
+        !_isValidatingVoucher &&
+        !hasApplied;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_offer_outlined,
+                color: AppColors.primaryGreen,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Voucher',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[900],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _voucherController,
+                  enabled: !hasApplied && !_isValidatingVoucher,
+                  textCapitalization: TextCapitalization.characters,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Enter voucher code',
+                    hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: AppColors.primaryGreen,
+                        width: 2,
+                      ),
+                    ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    filled: true,
+                    fillColor: hasApplied
+                        ? AppColors.primaryGreen.withOpacity(0.05)
+                        : AppColors.surfaceLight,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    suffixIcon: hasApplied
+                        ? IconButton(
+                            tooltip: 'Remove voucher',
+                            onPressed: _clearVoucher,
+                            icon: Icon(
+                              Icons.close,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: canApply ? _applyVoucher : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: _isValidatingVoucher
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          hasApplied ? 'Applied' : 'Apply',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+          if (_voucherSuccessMessage != null) ...[
+            SizedBox(height: 8),
+            Text(
+              _voucherSuccessMessage!,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (_voucherErrorMessage != null) ...[
+            SizedBox(height: 8),
+            Text(
+              _voucherErrorMessage!,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.error,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderInstructionsSection() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 0),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1632,7 +1917,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             SizedBox(height: 12),
             _buildSummaryRow(
               'Total',
-              '₱${_total.toStringAsFixed(2)}',
+              '₱${_displayTotal.toStringAsFixed(2)}',
               isTotal: true,
             ),
           ],
@@ -1696,6 +1981,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       rows.add(_buildSummaryRow(
         'Fees',
         '₱${_totalFees.toStringAsFixed(2)}',
+      ));
+    }
+
+    if (_voucherDiscount > 0) {
+      rows.add(SizedBox(height: 8));
+      rows.add(_buildSummaryRow(
+        'Voucher discount',
+        '-₱${_voucherDiscount.toStringAsFixed(2)}',
+        subtitle: _appliedVoucherCode,
       ));
     }
 
@@ -1797,7 +2091,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             : Text(
                 _isLoadingCalculation
                     ? 'Calculating...'
-                    : 'Place Order - ₱${_total.toStringAsFixed(2)}',
+                    : 'Place Order - ₱${_displayTotal.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

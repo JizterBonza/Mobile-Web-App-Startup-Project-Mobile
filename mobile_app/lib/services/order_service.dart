@@ -17,6 +17,7 @@ class OrderService extends ApiService {
     required double totalAmount,
     String? orderInstruction,
     required int? deliveryMethodId,
+    String? voucherCode,
   }) async {
     try {
       print('shippingAddressId: $shippingAddressId');
@@ -39,6 +40,7 @@ class OrderService extends ApiService {
       }
 
       final uri = Uri.parse(ApiEndpoints.createOrder);
+      final trimmedVoucher = voucherCode?.trim();
 
       final body = {
         'user_id': userId,
@@ -50,6 +52,8 @@ class OrderService extends ApiService {
         'shipping_address_id': shippingAddressId,
         'order_instruction': orderInstruction ?? '',
         'delivery_method_id': deliveryMethodId,
+        if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
+          'voucher_code': trimmedVoucher,
         // 'payment_method': paymentMethod,
       };
 
@@ -107,6 +111,7 @@ class OrderService extends ApiService {
     required List<Map<String, dynamic>> items,
     int? shippingAddressId,
     int? deliveryMethodId,
+    String? voucherCode,
   }) async {
     try {
       final token = await ApiService.getToken();
@@ -120,6 +125,7 @@ class OrderService extends ApiService {
       }
 
       final uri = Uri.parse(ApiEndpoints.calculateOrder);
+      final trimmedVoucher = voucherCode?.trim();
 
       final response = await http
           .post(
@@ -136,6 +142,8 @@ class OrderService extends ApiService {
                 'shipping_address_id': shippingAddressId,
               if (deliveryMethodId != null)
                 'delivery_method_id': deliveryMethodId,
+              if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
+                'voucher_code': trimmedVoucher,
             }),
           )
           .timeout(
@@ -148,9 +156,16 @@ class OrderService extends ApiService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        double toDouble(dynamic value) =>
-            (value as num?)?.toDouble() ?? 0.0;
+        double toDouble(dynamic value) {
+          if (value is num) return value.toDouble();
+          return double.tryParse(value?.toString() ?? '') ?? 0.0;
+        }
+
         int toInt(dynamic value) => (value as num?)?.toInt() ?? 0;
+
+        final discountAmount = toDouble(
+          responseData['voucher_discount_amount'],
+        );
 
         return {
           'success': responseData['success'] ?? true,
@@ -168,6 +183,9 @@ class OrderService extends ApiService {
           'mov_penalty_fee': toDouble(responseData['mov_penalty_fee']),
           'total_fees': toDouble(responseData['total_fees']),
           'total_amount': toDouble(responseData['total_amount']),
+          'voucher_id': responseData['voucher_id'],
+          'voucher_code': responseData['voucher_code']?.toString(),
+          'voucher_discount_amount': discountAmount,
           'store_count': toInt(responseData['store_count']),
           'is_pickup': responseData['is_pickup'] == true,
           'per_store': (responseData['per_store'] as List?)

@@ -44,6 +44,7 @@ class ApiEndpoints {
   static String get calculateOrder => '$baseUrl/api/orders/calculate-fee';
   static String get getOrderedItemsByUserId =>
       '$baseUrl/api/items/ordered/user/{user_id}';
+  static String get validateVoucher => '$baseUrl/api/vouchers/validate';
 
   // Favorite endpoints
   static String get getFavorites => '$baseUrl/api/favorites';
