@@ -37,7 +37,7 @@ class RiderQuickActions extends StatelessWidget {
                 child: QuickActionButton(
                   label: 'For Pickup',
                   icon: Icons.store_mall_directory_outlined,
-                  color: AppColors.primaryNavyLight,
+                  color: AppColors.primaryGreenLight,
                   onTap: onPickupMap!,
                 ),
               ),
@@ -47,7 +47,7 @@ class RiderQuickActions extends StatelessWidget {
                 child: QuickActionButton(
                   label: 'For Delivery',
                   icon: Icons.delivery_dining,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   onTap: onDeliveryMap!,
                 ),
               ),
@@ -71,7 +71,7 @@ class RiderQuickActions extends StatelessWidget {
                 child: QuickActionButton(
                   label: 'Earnings',
                   icon: Icons.account_balance_wallet_outlined,
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                   onTap: onEarnings!,
                 ),
               ),

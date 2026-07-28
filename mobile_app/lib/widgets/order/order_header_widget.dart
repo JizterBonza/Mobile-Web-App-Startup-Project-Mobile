@@ -26,7 +26,7 @@ class OrderHeaderWidget extends StatelessWidget {
             Text('$label copied to clipboard'),
           ],
         ),
-        backgroundColor: AppColors.primaryNavy,
+        backgroundColor: AppColors.primaryGreen,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

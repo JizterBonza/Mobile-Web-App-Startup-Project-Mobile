@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import '../services/api_service.dart';
+import 'phone_login_section.dart';
+
+typedef LoginSubmitCallback = Future<void> Function(
+  String username,
+  String password,
+  bool rememberMe,
+);
 
 class LoginFormContent extends StatefulWidget {
-  final Future<void> Function(String username, String password) onLogin;
+  final LoginSubmitCallback onLogin;
+  final Future<void> Function()? onGoogleSignIn;
   final VoidCallback onForgotPassword;
   final VoidCallback onSignUp;
   final bool isLoading;
+  final bool isGoogleLoading;
   final bool showCloseButton;
   final VoidCallback? onClose;
 
   const LoginFormContent({
     super.key,
     required this.onLogin,
+    this.onGoogleSignIn,
     required this.onForgotPassword,
     required this.onSignUp,
     this.isLoading = false,
+    this.isGoogleLoading = false,
     this.showCloseButton = false,
     this.onClose,
   });
@@ -28,8 +40,30 @@ class LoginFormContentState extends State<LoginFormContent> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _showPhoneLogin = false;
+  bool _rememberMe = false;
+
+  bool get _isBusy => widget.isLoading || widget.isGoogleLoading;
 
   GlobalKey<FormState> get formKey => _formKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberMeState();
+  }
+
+  Future<void> _loadRememberMeState() async {
+    final rememberMe = await ApiService.isRememberMeEnabled();
+    final savedLogin = await ApiService.getSavedLogin();
+    if (!mounted) return;
+    setState(() {
+      _rememberMe = rememberMe;
+      if (savedLogin != null && savedLogin.isNotEmpty) {
+        _usernameController.text = savedLogin;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -44,6 +78,7 @@ class LoginFormContentState extends State<LoginFormContent> {
     await widget.onLogin(
       _usernameController.text.trim(),
       _passwordController.text,
+      _rememberMe,
     );
   }
 
@@ -72,7 +107,7 @@ class LoginFormContentState extends State<LoginFormContent> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide:
-            const BorderSide(color: AppColors.primaryNavy, width: 1.5),
+            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -128,7 +163,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryNavyDark,
+                    color: AppColors.primaryGreenDark,
                   ),
                 ),
               ),
@@ -161,8 +196,18 @@ class LoginFormContentState extends State<LoginFormContent> {
           Divider(color: Colors.grey[200], height: 1),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () {},
-            icon: _buildGoogleLogo(),
+            onPressed:
+                widget.onGoogleSignIn == null || _isBusy ? null : widget.onGoogleSignIn,
+            icon: widget.isGoogleLoading
+                ? SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.grey[700],
+                    ),
+                  )
+                : _buildGoogleLogo(),
             label: const Text(
               'Continue with Google',
               style: TextStyle(
@@ -203,106 +248,169 @@ class LoginFormContentState extends State<LoginFormContent> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildFieldLabel('USERNAME'),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: _usernameController,
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your username';
-              }
-              return null;
-            },
-            decoration: _fieldDecoration(
-              hintText: 'Enter your username',
-              prefixIcon: Icons.person_outline,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildFieldLabel('PASSWORD'),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) {
-              if (!widget.isLoading) submit();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your password';
-              }
-              return null;
-            },
-            decoration: _fieldDecoration(
-              hintText: 'Enter your password',
-              prefixIcon: Icons.lock_outline,
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  color: Colors.grey[600],
-                  size: 20,
+          if (_showPhoneLogin)
+            PhoneLoginSection(
+              enabled: !_isBusy,
+              isLoading: widget.isLoading,
+              onBack: () => setState(() => _showPhoneLogin = false),
+              onLogin: (phone, password) =>
+                  widget.onLogin(phone, password, _rememberMe),
+              onForgotPassword: widget.onForgotPassword,
+            )
+          else ...[
+            Center(
+              child: TextButton.icon(
+                onPressed: _isBusy
+                    ? null
+                    : () => setState(() => _showPhoneLogin = true),
+                icon: const Icon(
+                  Icons.phone_outlined,
+                  size: 18,
+                  color: AppColors.primaryGreenDark,
                 ),
-                onPressed: () {
-                  setState(() => _obscurePassword = !_obscurePassword);
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: widget.onForgotPassword,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryNavyDark,
+                label: const Text(
+                  'Login with mobile phone',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryGreenDark,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton(
-            onPressed: widget.isLoading ? null : submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavyDark,
-              disabledBackgroundColor:
-                  AppColors.primaryNavyDark.withOpacity(0.5),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            const SizedBox(height: 16),
+            _buildFieldLabel('USERNAME'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _usernameController,
+              textInputAction: TextInputAction.next,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your username';
+                }
+                return null;
+              },
+              decoration: _fieldDecoration(
+                hintText: 'Enter your username',
+                prefixIcon: Icons.person_outline,
               ),
-              elevation: 0,
             ),
-            child: widget.isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'Login',
+            const SizedBox(height: 14),
+            _buildFieldLabel('PASSWORD'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) {
+                if (!widget.isLoading) submit();
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your password';
+                }
+                return null;
+              },
+              decoration: _fieldDecoration(
+                hintText: 'Enter your password',
+                prefixIcon: Icons.lock_outline,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: _rememberMe,
+                    onChanged: _isBusy
+                        ? null
+                        : (value) {
+                            setState(() => _rememberMe = value ?? false);
+                          },
+                    activeColor: AppColors.primaryGreenDark,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _isBusy
+                      ? null
+                      : () => setState(() => _rememberMe = !_rememberMe),
+                  child: Text(
+                    'Remember me',
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-          ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: widget.onForgotPassword,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreenDark,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: widget.isLoading ? null : submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreenDark,
+                disabledBackgroundColor:
+                    AppColors.primaryGreenDark.withOpacity(0.5),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+              child: widget.isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Login',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -318,7 +426,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryNavyDark,
+                    color: AppColors.primaryGreenDark,
                   ),
                 ),
               ),

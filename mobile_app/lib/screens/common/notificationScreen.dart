@@ -3,9 +3,14 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/notification_provider.dart';
 import '../../models/notificationModel.dart';
+import '../../services/api_service.dart';
+import '../../utils/customer_nav.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  final bool showCustomerBottomNav;
+
+  const NotificationScreen({super.key, this.showCustomerBottomNav = false});
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -13,15 +18,28 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool _isGuest = true;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // Fetch notifications on screen load
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadGuestState();
       _fetchNotifications();
     });
+  }
+
+  Future<void> _loadGuestState() async {
+    try {
+      final token = await ApiService.getToken();
+      if (!mounted) return;
+      setState(() {
+        _isGuest = token == null || token.isEmpty;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isGuest = true);
+    }
   }
 
   @override
@@ -106,7 +124,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   : 'Failed to mark notifications as read'),
             ],
           ),
-          backgroundColor: success ? AppColors.primaryNavy : AppColors.error,
+          backgroundColor: success ? AppColors.primaryGreen : AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -187,11 +205,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
           case 'in-transit':
             return AppColors.warning;
           case 'processing':
-            return AppColors.primaryNavyLight;
+            return AppColors.primaryGreenLight;
           case 'cancelled':
             return AppColors.error;
           default:
-            return AppColors.primaryNavy;
+            return AppColors.primaryGreen;
         }
       case 'promo':
         if (notification.title.contains('Flash') ||
@@ -202,18 +220,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case 'system':
         if (notification.title.contains('Payment') ||
             notification.title.contains('card')) {
-          return AppColors.primaryNavyLight;
+          return AppColors.primaryGreenLight;
         }
         return AppColors.success;
       default:
-        return AppColors.primaryNavy;
+        return AppColors.primaryGreen;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Notifications',
@@ -235,12 +253,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   icon: Icon(
                     Icons.done_all,
                     size: 18,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                   label: Text(
                     'Mark all read',
                     style: TextStyle(
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -269,7 +287,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
           return RefreshIndicator(
             onRefresh: _fetchNotifications,
-            color: AppColors.primaryNavy,
+            color: AppColors.primaryGreen,
             child: Column(
               children: [
                 // Unread count banner
@@ -278,10 +296,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryNavy.withOpacity(0.1),
+                      color: AppColors.primaryGreen.withOpacity(0.1),
                       border: Border(
                         bottom: BorderSide(
-                          color: AppColors.primaryNavy.withOpacity(0.2),
+                          color: AppColors.primaryGreen.withOpacity(0.2),
                         ),
                       ),
                     ),
@@ -291,7 +309,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           padding:
                               EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -307,7 +325,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         Text(
                           'unread notification${provider.unreadCount > 1 ? 's' : ''}',
                           style: TextStyle(
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
                           ),
@@ -330,7 +348,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           padding: EdgeInsets.all(16),
                           child: Center(
                             child: CircularProgressIndicator(
-                              color: AppColors.primaryNavy,
+                              color: AppColors.primaryGreen,
                               strokeWidth: 2,
                             ),
                           ),
@@ -346,28 +364,22 @@ class _NotificationScreenState extends State<NotificationScreen> {
           );
         },
       ),
+      bottomNavigationBar: widget.showCustomerBottomNav
+          ? buildCustomerBottomNavigationBar(
+              context: context,
+              currentIndex: CustomerNavIndex.notifs,
+              isGuest: _isGuest,
+              onLoginSuccess: () {
+                _loadGuestState();
+                _fetchNotifications();
+              },
+            )
+          : null,
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: AppColors.primaryNavy,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Loading notifications...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const ListRowsSkeleton(count: 8);
   }
 
   Widget _buildErrorState(String error) {
@@ -413,7 +425,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Try Again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -430,7 +442,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget _buildEmptyState() {
     return RefreshIndicator(
       onRefresh: _fetchNotifications,
-      color: AppColors.primaryNavy,
+      color: AppColors.primaryGreen,
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Container(
@@ -442,13 +454,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Container(
                   padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryNavy.withOpacity(0.1),
+                    color: AppColors.primaryGreen.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.notifications_off_outlined,
                     size: 64,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
                 SizedBox(height: 24),
@@ -517,18 +529,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
             color:
-                isRead ? Colors.white : AppColors.primaryNavy.withOpacity(0.05),
+                isRead ? Colors.white : AppColors.primaryGreen.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isRead
                   ? Colors.grey[200]!
-                  : AppColors.primaryNavy.withOpacity(0.2),
+                  : AppColors.primaryGreen.withOpacity(0.2),
             ),
             boxShadow: isRead
                 ? []
                 : [
                     BoxShadow(
-                      color: AppColors.primaryNavy.withOpacity(0.08),
+                      color: AppColors.primaryGreen.withOpacity(0.08),
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -607,7 +619,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -722,7 +734,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Navigating to order details...'),
-                          backgroundColor: AppColors.primaryNavy,
+                          backgroundColor: AppColors.primaryGreen,
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -732,7 +744,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryNavy,
+                    backgroundColor: AppColors.primaryGreen,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -760,7 +772,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Exploring deals...'),
-                        backgroundColor: AppColors.primaryNavy,
+                        backgroundColor: AppColors.primaryGreen,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

@@ -9,6 +9,10 @@ import 'order_status_service.dart';
 class ApiService {
   // SharedPreferences key for storing auth token
   static const String _tokenKey = 'auth_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  static const String _tokenExpiresAtKey = 'token_expires_at';
+  static const String _rememberMeKey = 'remember_me';
+  static const String _savedLoginKey = 'saved_login';
   static const String _userTypeKey = 'user_type';
   static const String _userIdKey = 'user_id';
   static const String _userNameKey = 'user_name';
@@ -18,6 +22,8 @@ class ApiService {
   static const String _firstNameKey = 'first_name';
   static const String _middleNameKey = 'middle_name';
   static const String _lastNameKey = 'last_name';
+
+  static Completer<bool>? _refreshCompleter;
 
   /// Register a new user
   static Future<Map<String, dynamic>> register({
@@ -90,20 +96,406 @@ class ApiService {
     }
   }
 
-  /// Login a user with email or username
+  static String? _formatDefaultAddress(dynamic address) {
+    if (address == null) return null;
+    if (address is String && address.isNotEmpty) return address;
+    if (address is Map) {
+      return address['full_address']?.toString() ??
+          address['street_address']?.toString() ??
+          address['map_address']?.toString();
+    }
+    return null;
+  }
+
+  static DateTime? _parseExpiresAt(dynamic value) {
+    if (value == null) return null;
+    try {
+      return DateTime.parse(value.toString()).toUtc();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<bool> _hasRefreshToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString(_refreshTokenKey);
+      return refreshToken != null && refreshToken.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> _canRefreshSession() async {
+    return (await isRememberMeEnabled()) || (await _hasRefreshToken());
+  }
+
+  static Future<bool> isRememberMeEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_rememberMeKey) ?? false;
+    } catch (e) {
+      print('Error reading remember me preference: $e');
+      return false;
+    }
+  }
+
+  static Future<String?> getSavedLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_savedLoginKey);
+    } catch (e) {
+      print('Error reading saved login: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> isAccessTokenExpired() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final expiresAt = _parseExpiresAt(prefs.getString(_tokenExpiresAtKey));
+      if (expiresAt == null) return false;
+      return DateTime.now().toUtc().isAfter(
+            expiresAt.subtract(const Duration(seconds: 30)),
+          );
+    } catch (e) {
+      print('Error checking token expiry: $e');
+      return false;
+    }
+  }
+
+  static Future<void> applyRememberMePreference({
+    required bool rememberMe,
+    String? loginIdentifier,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_rememberMeKey, rememberMe);
+      if (rememberMe) {
+        if (loginIdentifier != null && loginIdentifier.isNotEmpty) {
+          await prefs.setString(_savedLoginKey, loginIdentifier);
+        }
+      } else {
+        await prefs.remove(_refreshTokenKey);
+        await prefs.remove(_tokenExpiresAtKey);
+        await prefs.remove(_savedLoginKey);
+      }
+    } catch (e) {
+      print('Error saving remember me preference: $e');
+    }
+  }
+
+  /// Persists token and user fields from a login or Google auth response.
+  static Future<void> saveAuthSessionFromResponse(
+    Map<dynamic, dynamic> responseData, {
+    bool persistRefreshToken = true,
+  }) async {
+    String? token;
+    String? userType;
+    String? userId;
+    String? userName;
+    String? userEmail;
+    String? userMobileNumber;
+    String? userAddress;
+    String? firstName;
+    String? middleName;
+    String? lastName;
+
+    token = responseData['token']?.toString() ??
+        responseData['access_token']?.toString() ??
+        (responseData['data'] is Map
+            ? (responseData['data']['token']?.toString() ??
+                responseData['data']['access_token']?.toString())
+            : null);
+
+    userType = responseData['user_type']?.toString() ??
+        (responseData['user'] is Map
+            ? responseData['user']['user_type']?.toString()
+            : null) ??
+        (responseData['data'] is Map
+            ? (responseData['data']['user_type']?.toString() ??
+                (responseData['data']['user'] is Map
+                    ? responseData['data']['user']['user_type']?.toString()
+                    : null))
+            : null);
+
+    userId = responseData['user_id']?.toString() ??
+        (responseData['user'] is Map
+            ? responseData['user']['id']?.toString() ??
+                responseData['user']['user_id']?.toString()
+            : null) ??
+        (responseData['data'] is Map
+            ? (responseData['data']['user_id']?.toString() ??
+                (responseData['data']['user'] is Map
+                    ? (responseData['data']['user']['id']?.toString() ??
+                        responseData['data']['user']['user_id']?.toString())
+                    : null))
+            : null);
+
+    if (responseData['user'] is Map) {
+      final user = responseData['user'] as Map;
+      userName = user['user_credential'] is Map
+          ? user['user_credential']['username']?.toString()
+          : user['username']?.toString();
+      userEmail = (user['user_detail'] is Map
+              ? user['user_detail']['email']?.toString()
+              : null) ??
+          (user['user_credential'] is Map
+              ? user['user_credential']['email']?.toString()
+              : null) ??
+          user['email']?.toString();
+      userMobileNumber = (user['user_detail'] is Map
+              ? user['user_detail']['mobile_number']?.toString()
+              : null) ??
+          (user['user_credential'] is Map
+              ? user['user_credential']['mobile_number']?.toString()
+              : null);
+      firstName = user['user_detail'] is Map
+          ? user['user_detail']['first_name']?.toString()
+          : null;
+      middleName = user['user_detail'] is Map
+          ? user['user_detail']['middle_name']?.toString()
+          : null;
+      lastName = user['user_detail'] is Map
+          ? user['user_detail']['last_name']?.toString()
+          : null;
+    }
+
+    if (responseData['data'] is Map && responseData['data']['user'] is Map) {
+      final user = responseData['data']['user'] as Map;
+      userName ??= user['user_credential'] is Map
+          ? user['user_credential']['username']?.toString()
+          : null;
+      userEmail ??= (user['user_detail'] is Map
+              ? user['user_detail']['email']?.toString()
+              : null) ??
+          (user['user_credential'] is Map
+              ? user['user_credential']['email']?.toString()
+              : null);
+      userMobileNumber ??= (user['user_detail'] is Map
+              ? user['user_detail']['mobile_number']?.toString()
+              : null) ??
+          (user['user_credential'] is Map
+              ? user['user_credential']['mobile_number']?.toString()
+              : null);
+      firstName ??= user['user_detail'] is Map
+          ? user['user_detail']['first_name']?.toString()
+          : null;
+      middleName ??= user['user_detail'] is Map
+          ? user['user_detail']['middle_name']?.toString()
+          : null;
+      lastName ??= user['user_detail'] is Map
+          ? user['user_detail']['last_name']?.toString()
+          : null;
+    }
+
+    userAddress = _formatDefaultAddress(responseData['default_address']);
+
+    final refreshToken = responseData['refresh_token']?.toString();
+    final expiresAt = responseData['expires_at']?.toString();
+
+    if (token == null || token.isEmpty) {
+      print('Auth session - Warning: Token not found in response');
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
+      if (persistRefreshToken &&
+          refreshToken != null &&
+          refreshToken.isNotEmpty) {
+        await prefs.setString(_refreshTokenKey, refreshToken);
+      }
+      if (expiresAt != null && expiresAt.isNotEmpty) {
+        await prefs.setString(_tokenExpiresAtKey, expiresAt);
+      }
+      if (userType != null && userType.isNotEmpty) {
+        await prefs.setString(_userTypeKey, userType);
+      }
+      if (userId != null && userId.isNotEmpty) {
+        await prefs.setString(_userIdKey, userId);
+      }
+      if (userName != null && userName.isNotEmpty) {
+        await prefs.setString(_userNameKey, userName);
+      }
+      if (userEmail != null && userEmail.isNotEmpty) {
+        await prefs.setString(_userEmailKey, userEmail);
+      }
+      if (userMobileNumber != null && userMobileNumber.isNotEmpty) {
+        await prefs.setString(_userMobileNumberKey, userMobileNumber);
+      }
+      if (userAddress != null && userAddress.isNotEmpty) {
+        await prefs.setString(_userAddressKey, userAddress);
+      }
+      if (firstName != null && firstName.isNotEmpty) {
+        await prefs.setString(_firstNameKey, firstName);
+      }
+      if (middleName != null && middleName.isNotEmpty) {
+        await prefs.setString(_middleNameKey, middleName);
+      }
+      if (lastName != null && lastName.isNotEmpty) {
+        await prefs.setString(_lastNameKey, lastName);
+      }
+    } catch (e) {
+      print('Error saving auth session to SharedPreferences: $e');
+    }
+  }
+
+  /// Exchange Google id_token for a Sanctum token (POST /api/auth/google/token).
+  static Future<Map<String, dynamic>> signInWithGoogleIdToken(
+    String idToken,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.googleToken),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'id_token': idToken}),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          responseData is Map &&
+          responseData['success'] == true) {
+        await saveAuthSessionFromResponse(responseData);
+        await applyRememberMePreference(rememberMe: true);
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Login successful',
+          'data': responseData,
+        };
+      }
+
+      String errorMessage = 'Google sign-in failed';
+      if (responseData is Map && responseData.containsKey('message')) {
+        errorMessage = responseData['message'].toString();
+      }
+
+      return {
+        'success': false,
+        'message': errorMessage,
+        'data': responseData,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
+  }
+
+  /// Exchange a refresh token for a new access token (POST /api/refresh).
+  static Future<bool> refreshAccessToken() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    final completer = Completer<bool>();
+    _refreshCompleter = completer;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString(_refreshTokenKey);
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        completer.complete(false);
+        return false;
+      }
+
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.refresh),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          responseData is Map) {
+        await saveAuthSessionFromResponse(responseData);
+        completer.complete(true);
+        return true;
+      }
+
+      await _clearAuthSession();
+      completer.complete(false);
+      return false;
+    } catch (e) {
+      print('Error refreshing access token: $e');
+      await _clearAuthSession();
+      completer.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  /// Restores an active session from a valid or refreshable token.
+  static Future<Map<String, dynamic>> tryRestoreSession() async {
+    try {
+      final token = await getToken();
+      final userType = await getUserType();
+
+      if (token != null &&
+          token.isNotEmpty &&
+          userType != null &&
+          userType.isNotEmpty) {
+        return {
+          'success': true,
+          'userType': userType,
+        };
+      }
+
+      if (await _canRefreshSession()) {
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          final refreshedUserType = await getUserType();
+          if (refreshedUserType != null && refreshedUserType.isNotEmpty) {
+            return {
+              'success': true,
+              'userType': refreshedUserType,
+            };
+          }
+        }
+      }
+
+      return {'success': false};
+    } catch (e) {
+      print('Error restoring session: $e');
+      return {'success': false};
+    }
+  }
+
+  /// Login a user with email, username, or mobile number
   static Future<Map<String, dynamic>> login({
     required String emailOrUsername,
     required String password,
+    bool rememberMe = false,
   }) async {
     try {
       final uri = Uri.parse(ApiEndpoints.login);
 
-      // Determine if the input is an email or username
-      final bool isEmail = emailOrUsername.contains('@');
+      final trimmed = emailOrUsername.trim();
+      final digitsOnly = trimmed.replaceAll(RegExp(r'\D'), '');
+      final bool isEmail = trimmed.contains('@');
+      final bool isPhone = !isEmail &&
+          RegExp(r'^\d+$').hasMatch(trimmed) &&
+          digitsOnly.length >= 10;
 
       final body = <String, dynamic>{
-        if (isEmail) 'email': emailOrUsername,
-        if (!isEmail) 'username': emailOrUsername,
+        if (isEmail) 'email': trimmed,
+        if (!isEmail && isPhone) 'mobile_number': digitsOnly,
+        if (!isEmail && !isPhone) 'username': trimmed,
         'password': password,
       };
 
@@ -119,223 +511,15 @@ class ApiService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // Extract and save token to SharedPreferences
-        //print('Response data: $responseData');
-        String? token;
-        String? userType;
-        String? userId;
-        String? userName;
-        String? userEmail;
-        String? userMobileNumber;
-        String? userAddress;
-        String? firstName;
-        String? middleName;
-        String? lastName;
-
         if (responseData is Map) {
-          // Extract token from various possible locations
-          token = responseData['token']?.toString() ??
-              responseData['access_token']?.toString() ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['token']?.toString() ??
-                      responseData['data']['access_token']?.toString())
-                  : null);
-
-          // Extract user_type from various possible locations
-          // Based on actual response: data['user']['user_type']
-          userType = responseData['user_type']?.toString() ??
-              (responseData['user'] is Map
-                  ? responseData['user']['user_type']?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user_type']?.toString() ??
-                      (responseData['data']['user'] is Map
-                          ? responseData['data']['user']['user_type']
-                              ?.toString()
-                          : null))
-                  : null);
-
-          // Extract user_id from various possible locations
-          userId = responseData['user_id']?.toString() ??
-              (responseData['user'] is Map
-                  ? responseData['user']['id']?.toString() ??
-                      responseData['user']['user_id']?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user_id']?.toString() ??
-                      (responseData['data']['user'] is Map
-                          ? (responseData['data']['user']['id']?.toString() ??
-                              responseData['data']['user']['user_id']
-                                  ?.toString())
-                          : null))
-                  : null);
-          userName =
-              responseData['user']['user_credential']['username']?.toString() ??
-                  (responseData['data'] is Map
-                      ? (responseData['data']['user_credential'] is Map
-                          ? responseData['data']['user_credential']['username']
-                              ?.toString()
-                          : null)
-                      : null);
-          // Extract email from user_detail (primary) or user_credential (fallback)
-          userEmail = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['email']?.toString()
-                  : null) ??
-              responseData['user']['user_credential']?['email']?.toString() ??
-              (responseData['data'] is Map
-                  ? ((responseData['data']['user'] is Map &&
-                              responseData['data']['user']['user_detail'] is Map
-                          ? responseData['data']['user']['user_detail']['email']
-                              ?.toString()
-                          : null) ??
-                      (responseData['data']['user_credential'] is Map
-                          ? responseData['data']['user_credential']['email']
-                              ?.toString()
-                          : null))
-                  : null);
-          // Extract mobile_number from user_detail (primary) or user_credential (fallback)
-          userMobileNumber = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['mobile_number']
-                      ?.toString()
-                  : null) ??
-              responseData['user']['user_credential']?['mobile_number']
-                  ?.toString() ??
-              (responseData['data'] is Map
-                  ? ((responseData['data']['user'] is Map &&
-                              responseData['data']['user']['user_detail'] is Map
-                          ? responseData['data']['user']['user_detail']
-                                  ['mobile_number']
-                              ?.toString()
-                          : null) ??
-                      (responseData['data']['user_credential'] is Map
-                          ? responseData['data']['user_credential']
-                                  ['mobile_number']
-                              ?.toString()
-                          : null))
-                  : null);
-          // Extract shipping_address from user_detail
-          // userAddress = (responseData['user'] is Map &&
-          //             responseData['user']['user_detail'] is Map
-          //         ? responseData['user']['user_detail']['shipping_address']
-          //             ?.toString()
-          //         : null) ??
-          //     (responseData['data'] is Map
-          //         ? (responseData['data']['user'] is Map &&
-          //                 responseData['data']['user']['user_detail'] is Map
-          //             ? responseData['data']['user']['user_detail']
-          //                     ['shipping_address']
-          //                 ?.toString()
-          //             : null)
-          //         : null);
-          userAddress = responseData['default_address']?.toString() ?? null;
-
-          // Extract first_name from user_detail
-          firstName = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['first_name']
-                      ?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user'] is Map &&
-                          responseData['data']['user']['user_detail'] is Map
-                      ? responseData['data']['user']['user_detail']
-                              ['first_name']
-                          ?.toString()
-                      : null)
-                  : null);
-          // Extract middle_name from user_detail
-          middleName = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['middle_name']
-                      ?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user'] is Map &&
-                          responseData['data']['user']['user_detail'] is Map
-                      ? responseData['data']['user']['user_detail']
-                              ['middle_name']
-                          ?.toString()
-                      : null)
-                  : null);
-          // Extract last_name from user_detail
-          lastName = (responseData['user'] is Map &&
-                      responseData['user']['user_detail'] is Map
-                  ? responseData['user']['user_detail']['last_name']?.toString()
-                  : null) ??
-              (responseData['data'] is Map
-                  ? (responseData['data']['user'] is Map &&
-                          responseData['data']['user']['user_detail'] is Map
-                      ? responseData['data']['user']['user_detail']['last_name']
-                          ?.toString()
-                      : null)
-                  : null);
-        }
-
-        // Save token to SharedPreferences if found
-        if (token != null && token.isNotEmpty) {
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(_tokenKey, token);
-
-            // Save userType if found
-            if (userType != null && userType.isNotEmpty) {
-              await prefs.setString(_userTypeKey, userType);
-            }
-
-            // Save userId if found
-            if (userId != null && userId.isNotEmpty) {
-              await prefs.setString(_userIdKey, userId);
-            }
-
-            // Save userName if found
-            if (userName != null && userName.isNotEmpty) {
-              await prefs.setString(_userNameKey, userName);
-            }
-
-            // Save userEmail if found
-            if (userEmail != null && userEmail.isNotEmpty) {
-              await prefs.setString(_userEmailKey, userEmail);
-            }
-
-            // Save userMobileNumber if found
-            if (userMobileNumber != null && userMobileNumber.isNotEmpty) {
-              await prefs.setString(_userMobileNumberKey, userMobileNumber);
-            }
-
-            // Save userAddress if found
-            if (userAddress != null && userAddress.isNotEmpty) {
-              await prefs.setString(_userAddressKey, userAddress);
-            }
-
-            // Save firstName if found
-            if (firstName != null && firstName.isNotEmpty) {
-              await prefs.setString(_firstNameKey, firstName);
-            }
-
-            // Save middleName if found
-            if (middleName != null && middleName.isNotEmpty) {
-              await prefs.setString(_middleNameKey, middleName);
-            }
-
-            // Save lastName if found
-            if (lastName != null && lastName.isNotEmpty) {
-              await prefs.setString(_lastNameKey, lastName);
-            }
-
-            // print('User email: $userEmail');
-            // print('User mobile number: $userMobileNumber');
-            // print('User address: $userAddress');
-            // print('First name: $firstName');
-            // print('Middle name: $middleName');
-            // print('Last name: $lastName');
-          } catch (e) {
-            // Log error but don't fail the login if token saving fails
-            print('Error saving token to SharedPreferences: $e');
-          }
-        } else {
-          print('Login - Warning: Token not found in response');
+          await applyRememberMePreference(
+            rememberMe: rememberMe,
+            loginIdentifier: trimmed,
+          );
+          await saveAuthSessionFromResponse(
+            responseData,
+            persistRefreshToken: rememberMe,
+          );
         }
 
         return {
@@ -369,11 +553,32 @@ class ApiService {
     }
   }
 
-  /// Get the stored authentication token
+  /// Get the stored authentication token, refreshing it when expired.
   static Future<String?> getToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_tokenKey);
+      final token = prefs.getString(_tokenKey);
+      if (token == null || token.isEmpty) {
+        if (await _canRefreshSession()) {
+          final refreshed = await refreshAccessToken();
+          if (refreshed) {
+            return prefs.getString(_tokenKey);
+          }
+        }
+        return null;
+      }
+
+      if (await isAccessTokenExpired()) {
+        if (await _canRefreshSession()) {
+          final refreshed = await refreshAccessToken();
+          if (refreshed) {
+            return prefs.getString(_tokenKey);
+          }
+        }
+        return null;
+      }
+
+      return token;
     } catch (e) {
       print('Error getting token from SharedPreferences: $e');
       return null;
@@ -479,11 +684,48 @@ class ApiService {
     }
   }
 
-  /// Clear all user data from SharedPreferences
+  static Future<void> _clearAuthSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_refreshTokenKey);
+      await prefs.remove(_tokenExpiresAtKey);
+      await prefs.remove(_rememberMeKey);
+      await prefs.remove(_savedLoginKey);
+      await prefs.remove(_userTypeKey);
+      await prefs.remove(_userIdKey);
+      await prefs.remove(_userNameKey);
+      await prefs.remove(_userEmailKey);
+      await prefs.remove(_userMobileNumberKey);
+      await prefs.remove(_userAddressKey);
+      await prefs.remove(_firstNameKey);
+      await prefs.remove(_middleNameKey);
+      await prefs.remove(_lastNameKey);
+    } catch (e) {
+      print('Error clearing auth session: $e');
+    }
+  }
+
+  /// Clear all user data from SharedPreferences.
+  ///
+  /// When Remember me is enabled the checkbox state and saved login
+  /// identifier are preserved so the next login is pre-filled, while the
+  /// access and refresh tokens are always cleared.
   static Future<void> clearToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      final rememberMe = prefs.getBool(_rememberMeKey) ?? false;
+      final savedLogin = prefs.getString(_savedLoginKey);
+
       await prefs.clear();
+
+      if (rememberMe) {
+        await prefs.setBool(_rememberMeKey, true);
+        if (savedLogin != null && savedLogin.isNotEmpty) {
+          await prefs.setString(_savedLoginKey, savedLogin);
+        }
+      }
     } catch (e) {
       print('Error clearing SharedPreferences: $e');
     }

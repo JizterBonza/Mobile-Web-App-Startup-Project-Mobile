@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/google_auth_service.dart';
+import '../utils/auth_navigation.dart';
 import '../utils/snackbar_helper.dart';
-import '../provider/provider.dart';
 import 'forgot_password_dialog.dart';
 import 'login_form_content.dart';
 import 'sign_up_dialog.dart';
 
-Future<void> showLoginDialog(BuildContext context) {
+Future<void> showLoginDialog(
+  BuildContext context, {
+  VoidCallback? onLoginSuccess,
+}) {
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
-    builder: (_) => const LoginDialog(),
+    builder: (_) => LoginDialog(onLoginSuccess: onLoginSuccess),
   );
 }
 
 class LoginDialog extends StatefulWidget {
-  const LoginDialog({super.key});
+  final VoidCallback? onLoginSuccess;
+
+  const LoginDialog({super.key, this.onLoginSuccess});
 
   @override
   State<LoginDialog> createState() => _LoginDialogState();
@@ -24,76 +29,80 @@ class LoginDialog extends StatefulWidget {
 
 class _LoginDialogState extends State<LoginDialog> {
   bool _isLoggingIn = false;
+  bool _isGoogleSigningIn = false;
 
-  String _getDashboardRoute(String userType) {
-    switch (userType) {
-      case 'vendor':
-        return '/vendorDashboard';
-      case 'rider':
-        return '/riderDashboard';
-      case 'customer':
-      default:
-        return '/customerDashboard';
+  PostLoginNavigation get _navigation => widget.onLoginSuccess != null
+      ? PostLoginNavigation.refreshInPlace
+      : PostLoginNavigation.navigateToDashboard;
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isGoogleSigningIn = true);
+
+    try {
+      final result = await GoogleAuthService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      if (result['cancelled'] == true) {
+        setState(() => _isGoogleSigningIn = false);
+        return;
+      }
+
+      if (result['success'] == true) {
+        await completeAuthNavigation(
+          context: context,
+          result: result,
+          resetLoading: () {
+            if (mounted) setState(() => _isGoogleSigningIn = false);
+          },
+          onCloseDialog: () => Navigator.of(context).pop(),
+          navigation: _navigation,
+          onLoginSuccess: widget.onLoginSuccess,
+        );
+      } else {
+        setState(() => _isGoogleSigningIn = false);
+        SnackbarHelper.showError(
+          context,
+          result['message'] ?? 'Google sign-in failed.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isGoogleSigningIn = false);
+      SnackbarHelper.showError(
+        context,
+        'An error occurred. Please try again.',
+      );
     }
   }
 
-  Future<void> _handleLogin(String username, String password) async {
+  Future<void> _handleLogin(
+    String username,
+    String password,
+    bool rememberMe,
+  ) async {
     setState(() => _isLoggingIn = true);
 
     try {
       final result = await ApiService.login(
         emailOrUsername: username,
         password: password,
+        rememberMe: rememberMe,
       );
 
       if (!mounted) return;
 
       if (result['success'] == true) {
-        String? userType;
-        if (result['data'] is Map) {
-          final data = result['data'] as Map;
-          userType = (data['user'] is Map
-                  ? data['user']['user_type']?.toString()
-                  : null) ??
-              data['user_type']?.toString() ??
-              (data['data'] is Map
-                  ? data['data']['user_type']?.toString()
-                  : null);
-          if (userType == null || userType.isEmpty) {
-            userType = await ApiService.getUserType();
-          }
-          if (userType != null) userType = userType.toLowerCase();
-        }
-
-        const validUserTypes = ['customer', 'rider'];
-        if (userType == null || !validUserTypes.contains(userType)) {
-          if (!mounted) return;
-          setState(() => _isLoggingIn = false);
-          SnackbarHelper.showError(
-            context,
-            'Invalid user type. Access denied.',
-          );
-          return;
-        }
-
-        try {
-          final orderStatusProvider =
-              Provider.of<OrderStatusProvider>(context, listen: false);
-          orderStatusProvider.fetchAndCacheOrderStatuses().catchError((e) {
-            print('Error fetching order statuses: $e');
-          });
-        } catch (e) {
-          print('Error accessing OrderStatusProvider: $e');
-        }
-
-        SnackbarHelper.showSuccess(
-          context,
-          result['message'] ?? 'Login successful!',
+        await completeAuthNavigation(
+          context: context,
+          result: result,
+          resetLoading: () {
+            if (mounted) setState(() => _isLoggingIn = false);
+          },
+          onCloseDialog: () => Navigator.of(context).pop(),
+          navigation: _navigation,
+          onLoginSuccess: widget.onLoginSuccess,
         );
-
-        final route = _getDashboardRoute(userType);
-        Navigator.of(context).pop();
-        Navigator.of(context).pushReplacementNamed(route);
       } else {
         setState(() => _isLoggingIn = false);
         SnackbarHelper.showError(
@@ -125,20 +134,29 @@ class _LoginDialogState extends State<LoginDialog> {
           showCloseButton: true,
           onClose: () => Navigator.of(context).pop(),
           isLoading: _isLoggingIn,
+          isGoogleLoading: _isGoogleSigningIn,
+          onGoogleSignIn: _handleGoogleSignIn,
           onLogin: _handleLogin,
           onForgotPassword: () {
             Navigator.of(context).pop();
             showForgotPasswordDialog(
               context,
-              onBackToLogin: () => showLoginDialog(context),
+              onBackToLogin: () => showLoginDialog(
+                context,
+                onLoginSuccess: widget.onLoginSuccess,
+              ),
             );
           },
           onSignUp: () {
             Navigator.of(context).pop();
-            showSignUpDialog(context);
+            showSignUpDialog(
+              context,
+              onLoginSuccess: widget.onLoginSuccess,
+            );
           },
         ),
       ),
     );
   }
 }
+

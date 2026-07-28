@@ -28,7 +28,7 @@ class RiderStatisticsGrid extends StatelessWidget {
           title: 'Total Deliveries',
           value: '${stats['totalDeliveries']}',
           icon: Icons.local_shipping_outlined,
-          color: AppColors.primaryNavyLight,
+          color: AppColors.primaryGreenLight,
         ),
         StatCard(
           title: 'Active',
@@ -40,7 +40,7 @@ class RiderStatisticsGrid extends StatelessWidget {
           title: 'Completed',
           value: '${stats['completed']}',
           icon: Icons.check_circle_outline,
-          color: AppColors.primaryNavy,
+          color: AppColors.primaryGreen,
         ),
         StatCard(
           title: 'Earnings',

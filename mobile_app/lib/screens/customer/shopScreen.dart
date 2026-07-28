@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../widgets/product_card.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'productDetailScreen.dart';
 import 'shopReviewsScreen.dart';
 
@@ -24,6 +27,41 @@ class _ShopScreenState extends State<ShopScreen> {
   Map<String, dynamic>? _shopDetails;
   List<Map<String, dynamic>> _shopItems = [];
   String? _error;
+  bool _isFollowing = false;
+  int _selectedTab = 0; // 0 = Products, 1 = Reviews
+  dynamic _selectedCategoryId;
+
+  List<Map<String, dynamic>> get _filteredShopItems {
+    if (_selectedCategoryId == null) return _shopItems;
+
+    final categories =
+        Provider.of<CategoryProvider>(context, listen: false).categories;
+    Map<String, dynamic>? selectedCategory;
+    for (final category in categories) {
+      if (category['id'] == _selectedCategoryId) {
+        selectedCategory = category;
+        break;
+      }
+    }
+    if (selectedCategory == null) return _shopItems;
+
+    return _shopItems
+        .where((item) => _itemMatchesCategory(item, selectedCategory!))
+        .toList();
+  }
+
+  bool _itemMatchesCategory(
+    Map<String, dynamic> item,
+    Map<String, dynamic> category,
+  ) {
+    final raw = (item['category'] ?? '').toString().trim();
+    if (raw.isEmpty) return false;
+
+    final categoryId = category['id']?.toString();
+    final categoryName = (category['name'] ?? '').toString();
+
+    return raw == categoryId || raw.toLowerCase() == categoryName.toLowerCase();
+  }
 
   @override
   void initState() {
@@ -41,12 +79,15 @@ class _ShopScreenState extends State<ShopScreen> {
 
     try {
       final shopsProvider = Provider.of<ShopsProvider>(context, listen: false);
+      final categoryProvider =
+          Provider.of<CategoryProvider>(context, listen: false);
 
-      // Fetch shop details, items, and reviews in parallel
+      // Fetch shop details, items, reviews, and categories in parallel
       await Future.wait([
         shopsProvider.fetchShopDetails(widget.shopId),
         shopsProvider.fetchShopItems(widget.shopId),
         shopsProvider.fetchShopReviews(widget.shopId),
+        categoryProvider.fetchCategories(),
       ]);
 
       final shopData = shopsProvider.getShopDetails(widget.shopId);
@@ -74,21 +115,6 @@ class _ShopScreenState extends State<ShopScreen> {
         });
       }
     }
-  }
-
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    try {
-      if (price is num) {
-        return '₱${price.toStringAsFixed(2)}';
-      } else if (price is String) {
-        final parsed = double.tryParse(price);
-        return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-      }
-    } catch (e) {
-      //print('Error formatting price: $e');
-    }
-    return '₱0.00';
   }
 
   String _formatRating(dynamic rating) {
@@ -132,115 +158,278 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App Bar
-            _buildAppBar(),
+      backgroundColor: AppColors.surfaceLight,
+      body: _isLoading
+          ? SafeArea(child: _buildLoadingState())
+          : _error != null
+              ? SafeArea(child: _buildErrorState())
+              : Stack(
+                  children: [
+                    RefreshIndicator(
+                      onRefresh: _loadShopData,
+                      color: AppColors.primaryGreen,
+                      child: SingleChildScrollView(
+                        physics: AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Shop Header (banner + overlapping info card)
+                            _buildShopHeader(),
 
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? _buildLoadingState()
-                  : _error != null
-                      ? _buildErrorState()
-                      : RefreshIndicator(
-                          onRefresh: _loadShopData,
-                          color: AppColors.primaryNavy,
-                          child: SingleChildScrollView(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Shop Header
-                                _buildShopHeader(),
+                            // Tabs: Products / Reviews
+                            SizedBox(height: 15),
+                            _buildTabBar(),
 
-                                // Shop Stats
-                                _buildShopStats(),
-
-                                // Products Section
-                                _buildProductsSection(),
-
-                                // Reviews Preview Section
-                                SizedBox(height: 12),
-                                _buildReviewsPreview(),
-
-                                SizedBox(height: 24),
-                              ],
+                            // Selected tab content
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.04, 0),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              layoutBuilder: (currentChild, previousChildren) {
+                                return Stack(
+                                  alignment: Alignment.topCenter,
+                                  children: [
+                                    ...previousChildren,
+                                    if (currentChild != null) currentChild,
+                                  ],
+                                );
+                              },
+                              child: KeyedSubtree(
+                                key: ValueKey<int>(_selectedTab),
+                                child: _selectedTab == 0
+                                    ? _buildProductsSection()
+                                    : _buildReviewsPreview(),
+                              ),
                             ),
+
+                            SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Pinned top controls (back, search, more)
+                    _buildTopControls(),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    final rating = _shopDetails?['shop_rating'];
+    return Container(
+      color: AppColors.surfaceLight,
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTab(
+              label: 'Products',
+              isActive: _selectedTab == 0,
+              onTap: () => setState(() => _selectedTab = 0),
+            ),
+          ),
+          Expanded(
+            child: _buildTab(
+              label: 'Reviews',
+              isActive: _selectedTab == 1,
+              onTap: () => setState(() => _selectedTab = 1),
+              trailing: rating != null
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star,
+                            size: 16, color: AppColors.accentAmber),
+                        SizedBox(width: 3),
+                        Text(
+                          _formatRating(rating),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
                           ),
                         ),
+                      ],
+                    )
+                  : null,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : AppColors.surfaceLight,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                color: isActive ? Colors.grey[900] : Colors.grey[600],
+              ),
+            ),
+            if (trailing != null) ...[
+              SizedBox(width: 6),
+              trailing,
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAppBar() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Text(
-              widget.shopName ?? _shopDetails?['shop_name'] ?? 'Shop',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
+  Widget _buildCategorySection() {
+    return Consumer<CategoryProvider>(
+      builder: (context, categoryProvider, _) {
+        if (categoryProvider.isLoading && categoryProvider.categories.isEmpty) {
+          return const CategoryChipsSkeleton(padding: EdgeInsets.zero);
+        }
+
+        final categories = categoryProvider.categories;
+        if (categories.isEmpty) {
+          return SizedBox(
+            height: 36,
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (categoryProvider.error != null)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.refresh,
+                        size: 20,
+                        color: AppColors.primaryGreen,
+                      ),
+                      onPressed: () =>
+                          categoryProvider.fetchCategories(useCache: false),
+                      tooltip: 'Retry',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  Text(
+                    'No categories available',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.share, color: Colors.grey[800]),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Share shop'),
-                  duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.primaryNavy,
+          );
+        }
+
+        return SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (_, __) => SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              final categoryId = category['id'];
+              final categoryName = category['name'] ?? 'Category';
+              final isSelected = _selectedCategoryId == categoryId;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedCategoryId = null;
+                    } else {
+                      _selectedCategoryId = categoryId;
+                    }
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primaryGreen.withOpacity(0.08)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primaryGreen.withOpacity(0.4)
+                          : Colors.grey[300]!,
+                    ),
+                  ),
+                  child: Text(
+                    categoryName,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected
+                          ? AppColors.primaryGreen
+                          : Colors.grey[700],
+                    ),
+                  ),
                 ),
               );
             },
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircularProgressIndicator(
-            color: AppColors.primaryNavy,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Loading shop...',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: AppSkeletonizer(
+              child: Row(
+                children: [
+                  SkeletonBox(width: 80, height: 80, radius: 40),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonBox(width: 160, height: 16),
+                        SizedBox(height: 10),
+                        SkeletonBox(width: double.infinity, height: 12),
+                        SizedBox(height: 6),
+                        SkeletonBox(width: 120, height: 12),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          const ProductGridSkeleton(imageHeight: 130),
         ],
       ),
     );
@@ -282,7 +471,7 @@ class _ShopScreenState extends State<ShopScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -296,274 +485,409 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
-  Widget _buildShopHeader() {
-    final shopLogo = _shopDetails?['shop_logo'];
-    final hasLogo = shopLogo != null && shopLogo.toString().isNotEmpty;
-    final isVerified = _shopDetails?['is_verified'] == true;
-    final shopBanner = _shopDetails?['shop_banner'];
-    final hasBanner = shopBanner != null && shopBanner.toString().isNotEmpty;
+  bool _isShopOpen() {
+    final status = _shopDetails?['shop_status']?.toString().toLowerCase() ?? '';
+    return status.contains('open') || status.contains('active');
+  }
 
-    return Container(
-      color: Colors.white,
-      child: Column(
+  Widget _buildTopControls() {
+    final topInset = MediaQuery.of(context).padding.top;
+    return Positioned(
+      top: topInset + 8,
+      left: 12,
+      right: 12,
+      child: Row(
         children: [
-          // Banner
-          Container(
-            height: 120,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primaryNavy,
-                  AppColors.primaryNavy.withOpacity(0.7),
-                ],
-              ),
-            ),
-            child: hasBanner
-                ? Image.network(
-                    shopBanner.toString(),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container();
-                    },
-                  )
-                : Center(
-                    child: Icon(
-                      Icons.store,
-                      size: 48,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                  ),
+          _buildCircleButton(
+            icon: Icons.chevron_left,
+            onTap: () => Navigator.pop(context),
           ),
-
-          // Shop Info
-          Transform.translate(
-            offset: Offset(0, -40),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
+          SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 44,
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
                 children: [
-                  // Shop Logo
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(40),
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(36),
-                      child: hasLogo
-                          ? Image.network(
-                              shopLogo.toString(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: AppColors.primaryNavy.withOpacity(0.1),
-                                  child: Icon(
-                                    Icons.store,
-                                    size: 36,
-                                    color: AppColors.primaryNavy,
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: AppColors.primaryNavy.withOpacity(0.1),
-                              child: Icon(
-                                Icons.store,
-                                size: 36,
-                                color: AppColors.primaryNavy,
-                              ),
-                            ),
+                  Icon(Icons.search, size: 20, color: Colors.grey[500]),
+                  SizedBox(width: 8),
+                  Text(
+                    'Search in store',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
                     ),
                   ),
-                  SizedBox(height: 12),
-
-                  // Shop Name with Verified Badge
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _shopDetails?['shop_name'] ?? 'Shop',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[900],
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isVerified) ...[
-                        SizedBox(width: 8),
-                        Icon(
-                          Icons.verified,
-                          size: 22,
-                          color: AppColors.primaryNavyLight,
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: 8),
-
-                  // Shop Description
-                  if (_shopDetails?['shop_description'] != null &&
-                      _shopDetails!['shop_description'].toString().isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        _shopDetails!['shop_description'],
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          height: 1.4,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                  // Contact Number
-                  if (_shopDetails?['contact_number'] != null &&
-                      _shopDetails!['contact_number'].toString().isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 16,
-                            color: AppColors.primaryNavy,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            _shopDetails!['contact_number'].toString(),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
+          ),
+          SizedBox(width: 10),
+          _buildCircleButton(
+            icon: Icons.more_horiz,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Share shop'),
+                  duration: Duration(seconds: 1),
+                  backgroundColor: AppColors.primaryGreen,
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildShopStats() {
-    final rating = _shopDetails?['shop_rating'];
-    final totalProducts = _shopItems.length;
-    final totalReviews = _shopDetails?['total_reviews'] ?? 0;
+  Widget _buildShopHeader() {
+    final shopLogo = _shopDetails?['shop_logo'];
+    final hasLogo = shopLogo != null && shopLogo.toString().isNotEmpty;
+    final shopBanner = _shopDetails?['shop_banner'];
+    final hasBanner = shopBanner != null && shopBanner.toString().isNotEmpty;
+    final shopName = _shopDetails?['shop_name'] ?? widget.shopName ?? 'Shop';
+    final shopAddress = _shopDetails?['shop_address']?.toString() ?? '';
+    final contactNumber = _shopDetails?['contact_number']?.toString() ?? '';
+    final isOpen = _isShopOpen();
 
-    return Transform.translate(
-      offset: Offset(0, -24),
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16),
-        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: Offset(0, 2),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Banner
+        Container(
+          height: 230,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.primaryGreen,
+                AppColors.primaryGreen.withOpacity(0.7),
+              ],
             ),
-          ],
+          ),
+          child: hasBanner
+              ? Image.network(
+                  shopBanner.toString(),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _buildFallbackBanner(),
+                )
+              : _buildFallbackBanner(),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildStatItem(
-              icon: Icons.star,
-              iconColor: AppColors.accentAmber,
-              value: _formatRating(rating),
-              label: 'Rating',
+
+        // Overlapping info card
+        Padding(
+          padding: EdgeInsets.only(top: 210),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
             ),
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey[200],
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Logo + name + status
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Transform.translate(
+                      offset: Offset(0, -24),
+                      child: Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: hasLogo
+                              ? Image.network(
+                                  shopLogo.toString(),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(
+                                    Icons.storefront,
+                                    size: 44,
+                                    color: Colors.grey[400],
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.storefront,
+                                  size: 44,
+                                  color: Colors.grey[400],
+                                ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            shopName,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[900],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 1),
+                          Text(
+                            isOpen ? 'Open' : 'Closed',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: isOpen
+                                  ? AppColors.primaryGreenLight
+                                  : AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 2),
+
+                // Info rows
+                if (shopAddress.isNotEmpty)
+                  _buildInfoRow(Icons.location_on_outlined, shopAddress),
+                if (contactNumber.isNotEmpty)
+                  _buildInfoRow(
+                    Icons.phone_outlined,
+                    contactNumber,
+                    onTap: () => _launchPhoneDialer(contactNumber),
+                  ),
+                _buildInfoRow(
+                  Icons.access_time,
+                  '7:00 AM - 7:00 PM',
+                  subtitle: 'Monday - Sunday',
+                ),
+                SizedBox(height: 18),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        label: _isFollowing ? 'Following' : 'Follow',
+                        icon: _isFollowing
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        filled: false,
+                        onTap: () {
+                          setState(() => _isFollowing = !_isFollowing);
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: _buildActionButton(
+                        label: 'Chat',
+                        icon: Icons.chat_bubble_outline,
+                        filled: true,
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Chat with shop'),
+                              duration: Duration(seconds: 1),
+                              backgroundColor: AppColors.primaryGreen,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            _buildStatItem(
-              icon: Icons.shopping_bag,
-              iconColor: AppColors.primaryNavy,
-              value: '$totalProducts',
-              label: 'Products',
-            ),
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey[200],
-            ),
-            _buildStatItem(
-              icon: Icons.rate_review,
-              iconColor: AppColors.primaryNavyLight!,
-              value: '$totalReviews',
-              label: 'Reviews',
-            ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFallbackBanner() {
+    return Image.asset(
+      'assets/images/store_sample.png',
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Center(
+        child: Icon(
+          Icons.store,
+          size: 48,
+          color: Colors.white.withOpacity(0.3),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem({
+  Widget _buildCircleButton({
     required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: iconColor),
-            SizedBox(width: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
-              ),
-            ),
-          ],
+    return Material(
+      color: Colors.white,
+      shape: CircleBorder(),
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.15),
+      child: InkWell(
+        customBorder: CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 24, color: Colors.grey[800]),
         ),
-        SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+      ),
+    );
+  }
+
+  Future<void> _launchPhoneDialer(String phoneNumber) async {
+    final cleaned = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    if (cleaned.isEmpty) return;
+
+    final uri = Uri(scheme: 'tel', path: cleaned);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open phone dialer'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open phone dialer'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildInfoRow(
+    IconData icon,
+    String text, {
+    String? subtitle,
+    VoidCallback? onTap,
+  }) {
+    final textStyle = TextStyle(
+      fontSize: 14,
+      color: onTap != null ? AppColors.primaryGreen : Colors.grey[700],
+      height: 1.3,
+      decoration: onTap != null ? TextDecoration.underline : null,
+      decorationColor: AppColors.primaryGreen,
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(text, style: textStyle),
+        if (subtitle != null)
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              height: 1.3,
+            ),
+          ),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.primaryGreen),
+          SizedBox(width: 10),
+          Expanded(
+            child: onTap != null
+                ? InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(4),
+                    child: content,
+                  )
+                : content,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: filled ? AppColors.primaryGreen : Colors.grey[100],
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: filled ? Colors.white : Colors.grey[700],
+              ),
+              SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: filled ? Colors.white : Colors.grey[800],
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -579,8 +903,10 @@ class _ShopScreenState extends State<ShopScreen> {
         // Take only first 3 reviews for preview
         final previewReviews = reviews.take(3).toList();
 
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        return Container(
+          width: double.infinity,
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -592,28 +918,22 @@ class _ShopScreenState extends State<ShopScreen> {
                       Text(
                         'Customer Reviews',
                         style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                           color: Colors.grey[900],
                         ),
                       ),
-                      SizedBox(width: 8),
                       if (avgRating != null) ...[
-                        Icon(Icons.star, size: 18, color: AppColors.accentAmber),
-                        SizedBox(width: 4),
+                        SizedBox(width: 8),
+                        Icon(Icons.star,
+                            size: 16, color: AppColors.accentAmber),
+                        SizedBox(width: 3),
                         Text(
                           _formatRating(avgRating),
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                          ),
-                        ),
-                        Text(
-                          ' ($totalReviews)',
-                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
                           ),
                         ),
                       ],
@@ -636,7 +956,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       child: Text(
                         'See All',
                         style: TextStyle(
-                          color: AppColors.primaryNavy,
+                          color: AppColors.primaryGreen,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -654,7 +974,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                   child: Center(
                     child: CircularProgressIndicator(
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       strokeWidth: 2,
                     ),
                   ),
@@ -703,7 +1023,6 @@ class _ShopScreenState extends State<ShopScreen> {
                     }).toList(),
                   ),
                 ),
-              SizedBox(height: 24),
             ],
           ),
         );
@@ -740,14 +1059,14 @@ class _ShopScreenState extends State<ShopScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryNavy.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -872,33 +1191,28 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   Widget _buildProductsSection() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+    final displayItems = _filteredShopItems;
+
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Products',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
-                ),
-              ),
-              Text(
-                '${_shopItems.length} items',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
+          _buildCategorySection(),
           SizedBox(height: 16),
-          if (_shopItems.isEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${displayItems.length} items',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          SizedBox(height: 12),
+          if (displayItems.isEmpty)
             Container(
               padding: EdgeInsets.all(48),
               decoration: BoxDecoration(
@@ -916,7 +1230,9 @@ class _ShopScreenState extends State<ShopScreen> {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'No products yet',
+                      _selectedCategoryId != null
+                          ? 'No products in this category'
+                          : 'No products yet',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -925,7 +1241,9 @@ class _ShopScreenState extends State<ShopScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'This shop hasn\'t added any products',
+                      _selectedCategoryId != null
+                          ? 'Try selecting a different category'
+                          : 'This shop hasn\'t added any products',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[500],
@@ -943,146 +1261,25 @@ class _ShopScreenState extends State<ShopScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 0.75,
+                mainAxisExtent: 250,
               ),
-              itemCount: _shopItems.length,
+              itemCount: displayItems.length,
               itemBuilder: (context, index) {
-                final product = _shopItems[index];
-                return _buildProductCard(product);
+                final product = displayItems[index];
+                return ProductCard(
+                  product: product,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      _createFadeRoute(
+                        ProductDetailScreen(productId: product['id']),
+                      ),
+                    );
+                  },
+                );
               },
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    final itemImages = product['item_images'];
-    final hasImage = itemImages != null &&
-        itemImages is List &&
-        (itemImages as List).isNotEmpty;
-    final imageUrl = hasImage ? (itemImages as List).first.toString() : null;
-    final productName = product['item_name'] ?? 'Unknown Product';
-    final productPrice = product['item_price'];
-    final productRating = product['average_rating'];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            Navigator.push(
-              context,
-              _createFadeRoute(ProductDetailScreen(productId: product['id'])),
-            );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Image
-              Expanded(
-                flex: 3,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryNavy.withOpacity(0.1),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
-                  ),
-                  child: hasImage
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(12),
-                          ),
-                          child: Image.network(
-                            imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Icon(
-                                  Icons.shopping_bag,
-                                  size: 40,
-                                  color: AppColors.primaryNavy.withOpacity(0.5),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                      : Center(
-                          child: Icon(
-                            Icons.shopping_bag,
-                            size: 40,
-                            color: AppColors.primaryNavy.withOpacity(0.5),
-                          ),
-                        ),
-                ),
-              ),
-
-              // Product Info
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        productName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Spacer(),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.star,
-                            size: 14,
-                            color: AppColors.accentAmber,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            _formatRating(productRating),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        _formatPrice(productPrice),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryNavyDark,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

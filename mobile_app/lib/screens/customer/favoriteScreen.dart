@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
+import '../../utils/customer_nav.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/product_card.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerDashboardScreen.dart';
-// TEMPORARILY COMMENTED OUT - Using CartScreenV2 instead
-// import 'cartScreen.dart';
-import 'cartScreenV2.dart';
-import '../common/profileScreen.dart';
 import 'productDetailScreen.dart';
 
 class FavoriteScreen extends StatefulWidget {
@@ -18,17 +17,30 @@ class FavoriteScreen extends StatefulWidget {
 }
 
 class _FavoriteScreenState extends State<FavoriteScreen> {
-  int _selectedIndex = 2; // Favorites tab
   List<Map<String, dynamic>> _favoriteProducts = [];
   bool _isGridView = false;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isGuest = true;
   final FavoriteService _favoriteService = FavoriteService();
 
   @override
   void initState() {
     super.initState();
+    _loadGuestState();
     _loadFavorites();
+  }
+
+  Future<void> _loadGuestState() async {
+    try {
+      final token = await ApiService.getToken();
+      if (!mounted) return;
+      setState(() {
+        _isGuest = token == null || token.isEmpty;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isGuest = true);
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -108,7 +120,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Favorites',
@@ -154,129 +166,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                   : _isGridView
                       ? _buildGridView()
                       : _buildListView(),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
-  }
-
-  PageRoute _createFadeRoute(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curvedAnimation,
-          child: ScaleTransition(
-            scale:
-                Tween<double>(begin: 0.98, end: 1.0).animate(curvedAnimation),
-            child: child,
-          ),
-        );
-      },
-      transitionDuration: Duration(milliseconds: 150),
-      reverseTransitionDuration: Duration(milliseconds: 150),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          // Handle navigation based on selected index
-          if (index == 0) {
-            // Home
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(CustomerDashboardScreen()),
-            );
-          } else if (index == 1) {
-            // Cart
-            // TEMPORARILY USING CartScreenV2 - Original CartScreen commented out
-            // Navigator.push(
-            //   context,
-            //   _createFadeRoute(CartScreen()),
-            // ).then((_) {
-            //   // Keep favorites selected when returning
-            //   setState(() {
-            //     _selectedIndex = 2;
-            //   });
-            // });
-            Navigator.push(
-              context,
-              _createFadeRoute(CartScreenV2()),
-            ).then((_) {
-              // Keep favorites selected when returning
-              setState(() {
-                _selectedIndex = 2;
-              });
-            });
-          } else if (index == 3) {
-            // Profile
-            Navigator.pushReplacement(
-              context,
-              _createFadeRoute(ProfileScreen()),
-            );
-          }
+      bottomNavigationBar: buildCustomerBottomNavigationBar(
+        context: context,
+        currentIndex: CustomerNavIndex.favorites,
+        isGuest: _isGuest,
+        onLoginSuccess: () {
+          _loadGuestState();
+          _loadFavorites();
         },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
-        unselectedItemColor: Colors.grey[600],
-        backgroundColor: Colors.white,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Loading favorites...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
+    return _isGridView
+        ? const ProductGridSkeleton(imageHeight: 130, childAspectRatio: 0.62)
+        : const ListRowsSkeleton(count: 6);
   }
 
   Widget _buildErrorState() {
@@ -315,7 +220,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
               icon: Icon(Icons.refresh, size: 18),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNavy,
+                backgroundColor: AppColors.primaryGreen,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -380,7 +285,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             icon: Icon(Icons.shopping_bag_outlined, size: 18),
             label: Text('Browse Products'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavy,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -412,13 +317,55 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.75,
+        mainAxisExtent: 250,
       ),
       itemCount: _favoriteProducts.length,
       itemBuilder: (context, index) {
         final product = _favoriteProducts[index];
-        return _buildProductCard(product, index, isGrid: true);
+        final itemId = product['item_id'] ?? product['id'];
+        return ProductCard(
+          product: product,
+          imageOverlay: _buildFavoriteToggle(index),
+          onTap: () {
+            if (itemId == null) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProductDetailScreen(productId: itemId),
+              ),
+            );
+          },
+        );
       },
+    );
+  }
+
+  Widget _buildFavoriteToggle(int index) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _toggleFavorite(index),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.favorite,
+            color: AppColors.accentAmber,
+            size: 18,
+          ),
+        ),
+      ),
     );
   }
 
@@ -464,10 +411,10 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                   height: isGrid ? 100 : 140,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryNavy.withOpacity(0.1),
+                    color: AppColors.primaryGreen.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: AppColors.primaryNavy.withOpacity(0.2),
+                      color: AppColors.primaryGreen.withOpacity(0.2),
                     ),
                   ),
                   child: Stack(
@@ -475,7 +422,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       Center(
                         child: Icon(
                           Icons.shopping_bag_outlined,
-                          color: AppColors.primaryNavy,
+                          color: AppColors.primaryGreen,
                           size: isGrid ? 28 : 40,
                         ),
                       ),
@@ -603,7 +550,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                             style: TextStyle(
                               fontSize: isGrid ? 12 : 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryNavy,
+                              color: AppColors.primaryGreen,
                             ),
                           ),
                           if (!isGrid &&
@@ -634,7 +581,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                                   SnackBar(
                                     content: Text(
                                         '${product['name']} added to cart'),
-                                    backgroundColor: AppColors.primaryNavy,
+                                    backgroundColor: AppColors.primaryGreen,
                                     duration: Duration(seconds: 1),
                                   ),
                                 );
@@ -645,7 +592,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           decoration: BoxDecoration(
                             color: product['inStock'] == false
                                 ? Colors.grey[300]
-                                : AppColors.primaryNavy.withOpacity(0.1),
+                                : AppColors.primaryGreen.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -653,7 +600,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                             size: isGrid ? 14 : 18,
                             color: product['inStock'] == false
                                 ? Colors.grey[500]
-                                : AppColors.primaryNavy,
+                                : AppColors.primaryGreen,
                           ),
                         ),
                       ),

@@ -5,7 +5,10 @@ import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
 import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
+import '../../services/voucher_service.dart';
+import '../../utils/cart_item_pricing.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerDashboardScreen.dart';
 import 'paymentWebViewScreen.dart';
 import '../common/editAddressScreen.dart';
@@ -25,6 +28,7 @@ class CheckOutScreen extends StatefulWidget {
 class _CheckOutScreenState extends State<CheckOutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _orderInstructionController = TextEditingController();
+  final _voucherController = TextEditingController();
 
   int? _selectedPaymentMethodId;
   int? _selectedDeliveryMethodId;
@@ -35,10 +39,30 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   bool _isLoadingDeliveryMethods = true;
   bool _isLoadingPaymentMethods = true;
   bool _isLoadingCalculation = true;
+  bool _isValidatingVoucher = false;
 
   double _subtotal = 0.0;
-  double _handlingFee = 0.0;
+  double _deliveryBaseFee = 0.0;
+  double _deliveryKmFee = 0.0;
+  double _deliveryDistanceKm = 0.0;
+  bool _isReducedBase = false;
+  double _shippingFee = 0.0;
+  double _heavySurcharge = 0.0;
+  int _heavySurchargeUnits = 0;
+  double _totalWeightKg = 0.0;
+  double _multiStoreFee = 0.0;
+  double _movPenaltyFee = 0.0;
+  double _totalFees = 0.0;
   double _total = 0.0;
+  double _voucherDiscount = 0.0;
+  bool _voucherDiscountIncludedInTotal = false;
+  int _storeCount = 0;
+  bool _isPickup = false;
+  int _calculationRequestId = 0;
+
+  String? _appliedVoucherCode;
+  String? _voucherSuccessMessage;
+  String? _voucherErrorMessage;
 
   // Address selection
   List<AddressModel> _addresses = [];
@@ -56,13 +80,21 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     _loadUserProfile();
     _loadDeliveryMethods();
     _loadPaymentMethods();
-    _loadOrderCalculation();
   }
 
   @override
   void dispose() {
     _orderInstructionController.dispose();
+    _voucherController.dispose();
     super.dispose();
+  }
+
+  double get _displayTotal {
+    if (_voucherDiscount > 0 && !_voucherDiscountIncludedInTotal) {
+      final adjusted = _total - _voucherDiscount;
+      return adjusted < 0 ? 0 : adjusted;
+    }
+    return _total;
   }
 
   Future<void> _loadUserProfile() async {
@@ -80,6 +112,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         setState(() {
           _isLoadingProfile = false;
         });
+        _maybeRecalculateOrder();
       }
     } catch (e) {
       print('Error loading user profile: $e');
@@ -87,6 +120,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         setState(() {
           _isLoadingProfile = false;
         });
+        _maybeRecalculateOrder();
       }
     }
   }
@@ -107,10 +141,20 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   })
               .toList();
 
+          final selectedMethod = methods.isNotEmpty ? methods.first : null;
           setState(() {
             _deliveryMethods = List<Map<String, dynamic>>.from(methods);
+            if (selectedMethod != null && _selectedDeliveryMethodId == null) {
+              _selectedDeliveryMethodId = selectedMethod['id'] is int
+                  ? selectedMethod['id'] as int
+                  : int.tryParse(selectedMethod['id'].toString());
+              _selectedDeliveryMethodDescription =
+                  selectedMethod['description']?.toString();
+              _selectedDeliveryMethodInfo = selectedMethod['info']?.toString();
+            }
             _isLoadingDeliveryMethods = false;
           });
+          _maybeRecalculateOrder();
         } else {
           setState(() {
             _isLoadingDeliveryMethods = false;
@@ -162,14 +206,30 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     }
   }
 
-  // Get effective price - use item_price if different from price_snapshot
   double _getEffectivePrice(Map<String, dynamic> item) {
-    final priceSnapshot = double.parse(item['price_snapshot'].toString());
-    final itemPrice = double.parse(item['item_price'].toString());
-    return priceSnapshot != itemPrice ? itemPrice : priceSnapshot;
+    return CartItemPricing.fromCartMap(item).effectivePrice;
+  }
+
+  Future<void> _maybeRecalculateOrder() async {
+    if (_selectedAddress == null || _selectedDeliveryMethodId == null) {
+      if (mounted) {
+        setState(() {
+          _isLoadingCalculation = false;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingCalculation = true;
+    });
+    await _loadOrderCalculation();
   }
 
   Future<void> _loadOrderCalculation() async {
+    final requestId = ++_calculationRequestId;
+
     try {
       final orderItems = widget.selectedCartItems.map((cartItem) {
         return {
@@ -178,36 +238,68 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               : int.tryParse(cartItem['id'].toString()) ?? cartItem['id'],
           'item_id': cartItem['item_id'].toString(),
           'shop_id': cartItem['shop_id'].toString(),
-          'quantity': cartItem['quantity'] as int,
+          'quantity': cartItem['quantity'] is int
+              ? cartItem['quantity'] as int
+              : int.tryParse(cartItem['quantity'].toString()) ?? 1,
           'price_at_purchase': _getEffectivePrice(cartItem),
         };
       }).toList();
 
       final orderService = OrderService();
-      final result = await orderService.calculateOrder(items: orderItems);
+      final result = await orderService.calculateOrder(
+        items: orderItems,
+        shippingAddressId: _selectedAddress?.id,
+        deliveryMethodId: _selectedDeliveryMethodId,
+        voucherCode: _appliedVoucherCode,
+      );
 
-      if (mounted) {
-        if (result['success'] == true) {
-          setState(() {
-            _subtotal = (result['subtotal'] as num).toDouble();
-            _handlingFee = (result['handling_fee'] as num).toDouble();
-            _total = (result['total_amount'] as num).toDouble();
-            _isLoadingCalculation = false;
-          });
-        } else {
-          print('Error calculating order: ${result['message']}');
-          setState(() {
-            _isLoadingCalculation = false;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading order calculation: $e');
-      if (mounted) {
+      if (!mounted || requestId != _calculationRequestId) return;
+
+      if (result['success'] == true) {
+        final feeDiscount =
+            (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
+        setState(() {
+          _subtotal = (result['subtotal'] as num).toDouble();
+          _deliveryBaseFee = (result['delivery_base_fee'] as num).toDouble();
+          _deliveryKmFee = (result['delivery_km_fee'] as num).toDouble();
+          _deliveryDistanceKm =
+              (result['delivery_distance_km'] as num).toDouble();
+          _isReducedBase = result['is_reduced_base'] == true;
+          _shippingFee = (result['shipping_fee'] as num).toDouble();
+          _heavySurcharge = (result['heavy_surcharge'] as num).toDouble();
+          _heavySurchargeUnits = result['heavy_surcharge_units'] as int;
+          _totalWeightKg = (result['total_weight_kg'] as num).toDouble();
+          _multiStoreFee = (result['multi_store_fee'] as num).toDouble();
+          _movPenaltyFee = (result['mov_penalty_fee'] as num).toDouble();
+          _totalFees = (result['total_fees'] as num).toDouble();
+          _total = (result['total_amount'] as num).toDouble();
+          _storeCount = result['store_count'] as int;
+          _isPickup = result['is_pickup'] == true;
+          // calculate-fee total_amount already reflects voucher when present.
+          _voucherDiscount = feeDiscount;
+          _voucherDiscountIncludedInTotal = true;
+          _isLoadingCalculation = false;
+        });
+      } else {
+        print('Error calculating order: ${result['message']}');
         setState(() {
           _isLoadingCalculation = false;
         });
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to calculate order fees',
+        );
       }
+    } catch (e) {
+      print('Error loading order calculation: $e');
+      if (!mounted || requestId != _calculationRequestId) return;
+      setState(() {
+        _isLoadingCalculation = false;
+      });
+      SnackbarHelper.showError(
+        context,
+        'Failed to calculate order fees',
+      );
     }
   }
 
@@ -278,8 +370,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       final result = await orderService.createOrder(
         items: orderItems,
         subtotal: _subtotal,
-        shippingFee: _handlingFee,
-        totalAmount: _total,
+        shippingFee: _totalFees,
+        totalAmount: _displayTotal,
         shippingAddress: _selectedAddress!.fullAddress,
         shippingAddressId: _selectedAddress!.id,
         orderInstruction: _orderInstructionController.text.trim().isEmpty
@@ -287,6 +379,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
         paymentMethod: null,
+        voucherCode: _appliedVoucherCode,
       );
 
       SnackbarHelper.hide(context);
@@ -297,11 +390,26 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         if (checkoutUrl != null && checkoutUrl.toString().isNotEmpty) {
           if (!mounted) return;
 
+          final data = result['data'];
+          final orderId = data is Map
+              ? (data['id'] ?? data['order_id'])?.toString()
+              : result['order_id']?.toString();
+
+          if (orderId == null || orderId.isEmpty) {
+            SnackbarHelper.showError(
+              context,
+              'Order created but order ID was not returned.',
+            );
+            setState(() => _isLoading = false);
+            return;
+          }
+
           final paymentResult = await Navigator.push<PaymentResult>(
             context,
             MaterialPageRoute(
               builder: (context) => PaymentWebViewScreen(
                 checkoutUrl: checkoutUrl.toString(),
+                orderId: orderId,
               ),
             ),
           );
@@ -381,7 +489,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
         title: Text(
           'Checkout',
@@ -420,6 +528,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     // Order Instructions Section
                     _buildOrderInstructionsSection(),
 
+                    // Voucher Section
+                    _buildVoucherSection(),
+
                     // Order Summary Section
                     _buildOrderSummarySection(),
 
@@ -435,24 +546,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Loading checkout...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const GenericListSkeleton(count: 4, itemHeight: 120);
   }
 
   Widget _buildOrderItemsSection() {
@@ -478,7 +572,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.shopping_bag_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -521,7 +615,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         children: [
           Icon(
             Icons.store_outlined,
-            color: AppColors.primaryNavy,
+            color: AppColors.primaryGreen,
             size: 18,
           ),
           SizedBox(width: 6),
@@ -539,7 +633,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Widget _buildOrderItem(Map<String, dynamic> item, bool isLast) {
-    final effectivePrice = _getEffectivePrice(item);
+    final pricing = CartItemPricing.fromCartMap(item);
+    final effectivePrice = pricing.effectivePrice;
     final quantity = item['quantity'] as int;
     final itemTotal = effectivePrice * quantity;
 
@@ -561,15 +656,15 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.primaryNavy.withOpacity(0.2),
+                color: AppColors.primaryGreen.withOpacity(0.2),
               ),
             ),
             child: Icon(
               Icons.shopping_bag,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 24,
             ),
           ),
@@ -590,19 +685,18 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4),
+                CartItemPriceDisplay(
+                  pricing: pricing,
+                  primaryFontSize: 14,
+                  strikethroughFontSize: 12,
+                  compact: true,
+                ),
+                SizedBox(height: 2),
                 Text(
-                  'Quantity: $quantity',
+                  '× $quantity',
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey[600],
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '₱${effectivePrice.toStringAsFixed(2)} × $quantity',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
                   ),
                 ),
               ],
@@ -614,7 +708,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
             ),
           ),
         ],
@@ -644,7 +738,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.local_shipping_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -669,7 +763,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+                        AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                   ),
                 ),
               ),
@@ -705,7 +799,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           else
             Container(
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: AppColors.surfaceLight,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey[300]!),
               ),
@@ -735,7 +829,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                         children: [
                           Icon(
                             _getDeliveryMethodIcon(description),
-                            color: AppColors.primaryNavy,
+                            color: AppColors.primaryGreen,
                             size: 20,
                           ),
                           SizedBox(width: 12),
@@ -760,6 +854,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                       _selectedDeliveryMethodInfo =
                           selectedMethod['info'] as String;
                     });
+                    _maybeRecalculateOrder();
                   },
                 ),
               ),
@@ -769,10 +864,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primaryNavy.withOpacity(0.05),
+                color: AppColors.primaryGreen.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.primaryNavy.withOpacity(0.2),
+                  color: AppColors.primaryGreen.withOpacity(0.2),
                 ),
               ),
               child: Row(
@@ -780,7 +875,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   Icon(
                     Icons.info_outline,
                     size: 16,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -816,7 +911,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
   Widget _buildShippingAddressSection() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -836,7 +931,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.location_on_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -856,7 +951,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 icon: Icon(Icons.add, size: 18),
                 label: Text('Add New'),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryNavy,
+                  foregroundColor: AppColors.primaryGreen,
                   padding: EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
@@ -876,10 +971,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       child: Container(
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primaryNavy.withOpacity(0.05),
+          color: AppColors.primaryGreen.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primaryNavy.withOpacity(0.3),
+            color: AppColors.primaryGreen.withOpacity(0.3),
             width: 1.5,
           ),
         ),
@@ -889,12 +984,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primaryNavy.withOpacity(0.1),
+                color: AppColors.primaryGreen.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_location_alt_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 24,
               ),
             ),
@@ -907,7 +1002,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -923,7 +1018,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             Spacer(),
             Icon(
               Icons.arrow_forward_ios,
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 16,
             ),
           ],
@@ -939,7 +1034,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         // Address dropdown
         Container(
           decoration: BoxDecoration(
-            color: Colors.grey[50],
+            color: AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey[300]!),
           ),
@@ -960,6 +1055,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 setState(() {
                   _selectedAddress = newValue;
                 });
+                _maybeRecalculateOrder();
               },
               selectedItemBuilder: (BuildContext context) {
                 return _addresses.map((address) {
@@ -986,12 +1082,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           Container(
             padding: EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppColors.primaryNavy.withOpacity(0.1),
+              color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               _getLabelIcon(address.label),
-              color: AppColors.primaryNavy,
+              color: AppColors.primaryGreen,
               size: 16,
             ),
           ),
@@ -1017,7 +1113,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryNavy,
+                          color: AppColors.primaryGreen,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -1055,7 +1151,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       children: [
         Icon(
           _getLabelIcon(address.label),
-          color: AppColors.primaryNavy,
+          color: AppColors.primaryGreen,
           size: 18,
         ),
         SizedBox(width: 8),
@@ -1078,10 +1174,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.primaryNavy.withOpacity(0.05),
+        color: AppColors.primaryGreen.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColors.primaryNavy.withOpacity(0.2),
+          color: AppColors.primaryGreen.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -1173,6 +1269,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         _selectedAddress = addressProvider.defaultAddress ??
             (_addresses.isNotEmpty ? _addresses.first : null);
       });
+      _maybeRecalculateOrder();
     }
   }
 
@@ -1198,7 +1295,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.payment_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1218,7 +1315,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               child: Padding(
                 padding: EdgeInsets.all(20),
                 child: CircularProgressIndicator(
-                  color: AppColors.primaryNavy,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             )
@@ -1262,11 +1359,11 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.primaryNavy.withOpacity(0.1)
-                : Colors.grey[50],
+                ? AppColors.primaryGreen.withOpacity(0.1)
+                : AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
+              color: isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -1280,7 +1377,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     _selectedPaymentMethodId = value;
                   });
                 },
-                activeColor: AppColors.primaryNavy,
+                activeColor: AppColors.primaryGreen,
               ),
               SizedBox(width: 8),
               Expanded(
@@ -1307,9 +1404,266 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return lowerDesc.contains('contact') || lowerDesc.contains('no contact');
   }
 
+  Future<void> _applyVoucher() async {
+    final code = _voucherController.text.trim();
+    if (code.isEmpty || _isValidatingVoucher) return;
+
+    if (_selectedAddress == null || _selectedDeliveryMethodId == null) {
+      setState(() {
+        _voucherErrorMessage =
+            'Select a shipping address and delivery method before applying a voucher.';
+        _voucherSuccessMessage = null;
+      });
+      return;
+    }
+
+    if (_isLoadingCalculation || _subtotal <= 0) {
+      setState(() {
+        _voucherErrorMessage =
+            'Wait for order fees to finish calculating, then try again.';
+        _voucherSuccessMessage = null;
+      });
+      return;
+    }
+
+    // Validate against pre-voucher totals (fee total without discount).
+    final preVoucherTotal = _voucherDiscountIncludedInTotal && _voucherDiscount > 0
+        ? _total + _voucherDiscount
+        : _total;
+
+    setState(() {
+      _isValidatingVoucher = true;
+      _voucherErrorMessage = null;
+      _voucherSuccessMessage = null;
+    });
+
+    final result = await VoucherService().validateCode(
+      code: code,
+      subtotal: _subtotal,
+      shippingFee: _totalFees,
+      totalAmount: preVoucherTotal,
+    );
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final discount =
+          (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
+      final appliedCode =
+          (result['voucher_code']?.toString() ?? code).trim();
+      final name = result['name']?.toString();
+      final message = result['message']?.toString();
+
+      setState(() {
+        _appliedVoucherCode = appliedCode;
+        _voucherDiscount = discount;
+        // Prefer server total from validate until calculate-fee returns.
+        final validatedTotal =
+            (result['total_amount'] as num?)?.toDouble();
+        if (validatedTotal != null && validatedTotal > 0) {
+          _total = validatedTotal;
+          _voucherDiscountIncludedInTotal = true;
+        } else {
+          _voucherDiscountIncludedInTotal = false;
+        }
+        _voucherController.text = appliedCode;
+        _voucherErrorMessage = null;
+        if (name != null && name.isNotEmpty) {
+          _voucherSuccessMessage = discount > 0
+              ? '$name · ₱${discount.toStringAsFixed(2)} off'
+              : name;
+        } else if (discount > 0) {
+          _voucherSuccessMessage =
+              '₱${discount.toStringAsFixed(2)} off applied';
+        } else {
+          _voucherSuccessMessage = message ?? 'Voucher applied';
+        }
+        _isValidatingVoucher = false;
+      });
+      await _maybeRecalculateOrder();
+    } else {
+      setState(() {
+        _appliedVoucherCode = null;
+        _voucherDiscount = 0.0;
+        _voucherDiscountIncludedInTotal = true;
+        _voucherSuccessMessage = null;
+        _voucherErrorMessage =
+            result['message']?.toString() ?? 'Invalid voucher code.';
+        _isValidatingVoucher = false;
+      });
+    }
+  }
+
+  void _clearVoucher() {
+    setState(() {
+      _voucherController.clear();
+      _appliedVoucherCode = null;
+      _voucherDiscount = 0.0;
+      _voucherDiscountIncludedInTotal = true;
+      _voucherSuccessMessage = null;
+      _voucherErrorMessage = null;
+    });
+    _maybeRecalculateOrder();
+  }
+
+  Widget _buildVoucherSection() {
+    final hasApplied = _appliedVoucherCode != null;
+    final canApply = _voucherController.text.trim().isNotEmpty &&
+        !_isValidatingVoucher &&
+        !hasApplied;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_offer_outlined,
+                color: AppColors.primaryGreen,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Voucher',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[900],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _voucherController,
+                  enabled: !hasApplied && !_isValidatingVoucher,
+                  textCapitalization: TextCapitalization.characters,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Enter voucher code',
+                    hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: AppColors.primaryGreen,
+                        width: 2,
+                      ),
+                    ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    filled: true,
+                    fillColor: hasApplied
+                        ? AppColors.primaryGreen.withOpacity(0.05)
+                        : AppColors.surfaceLight,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    suffixIcon: hasApplied
+                        ? IconButton(
+                            tooltip: 'Remove voucher',
+                            onPressed: _clearVoucher,
+                            icon: Icon(
+                              Icons.close,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: canApply ? _applyVoucher : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
+                    elevation: 0,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: _isValidatingVoucher
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          hasApplied ? 'Applied' : 'Apply',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+          if (_voucherSuccessMessage != null) ...[
+            SizedBox(height: 8),
+            Text(
+              _voucherSuccessMessage!,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (_voucherErrorMessage != null) ...[
+            SizedBox(height: 8),
+            Text(
+              _voucherErrorMessage!,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.error,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderInstructionsSection() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 0),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1329,7 +1683,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.note_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1408,7 +1762,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.primaryNavy, width: 2),
+                borderSide: BorderSide(color: AppColors.primaryGreen, width: 2),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -1419,7 +1773,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 borderSide: BorderSide(color: AppColors.error.withOpacity(0.6), width: 2),
               ),
               filled: true,
-              fillColor: Colors.grey[50],
+              fillColor: AppColors.surfaceLight,
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -1459,7 +1813,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             children: [
               Icon(
                 Icons.receipt_outlined,
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -1537,22 +1891,33 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+                        AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                   ),
+                ),
+              ),
+            )
+          else if (_selectedAddress == null || _selectedDeliveryMethodId == null)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                _selectedAddress == null
+                    ? 'Select a shipping address to calculate fees.'
+                    : 'Select a delivery method to calculate fees.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
                 ),
               ),
             )
           else ...[
             _buildSummaryRow('Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
-            SizedBox(height: 8),
-            _buildSummaryRow(
-                'Handling Fee', '₱${_handlingFee.toStringAsFixed(2)}'),
+            ..._buildFeeBreakdownRows(),
             SizedBox(height: 8),
             Divider(height: 1),
             SizedBox(height: 12),
             _buildSummaryRow(
               'Total',
-              '₱${_total.toStringAsFixed(2)}',
+              '₱${_displayTotal.toStringAsFixed(2)}',
               isTotal: true,
             ),
           ],
@@ -1561,7 +1926,122 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  List<Widget> _buildFeeBreakdownRows() {
+    final rows = <Widget>[];
+
+    void addFeeRow(String label, double amount, {String? subtitle}) {
+      if (amount <= 0) return;
+      rows.add(SizedBox(height: 8));
+      rows.add(_buildSummaryRow(
+        label,
+        '₱${amount.toStringAsFixed(2)}',
+        subtitle: subtitle,
+      ));
+    }
+
+    if (!_isPickup && _shippingFee > 0) {
+      final deliveryParts = <String>[];
+      if (_deliveryBaseFee > 0 || _deliveryKmFee > 0) {
+        deliveryParts.add(
+          '₱${_deliveryBaseFee.toStringAsFixed(0)} base + '
+          '₱${_deliveryKmFee.toStringAsFixed(0)}/km',
+        );
+      }
+      if (_deliveryDistanceKm > 0) {
+        deliveryParts.add('${_deliveryDistanceKm.toStringAsFixed(1)} km');
+      }
+      if (_isReducedBase) {
+        deliveryParts.add('reduced base');
+      }
+      addFeeRow(
+        'Delivery Fee',
+        _shippingFee,
+        subtitle: deliveryParts.isNotEmpty ? deliveryParts.join(' · ') : null,
+      );
+    }
+
+    addFeeRow(
+      'Heavy Item Surcharge',
+      _heavySurcharge,
+      subtitle: _heavySurcharge > 0
+          ? '${_totalWeightKg.toStringAsFixed(1)} kg · $_heavySurchargeUnits units'
+          : null,
+    );
+    addFeeRow(
+      'Multi-Store Fee',
+      _multiStoreFee,
+      subtitle: _multiStoreFee > 0 && _storeCount > 1
+          ? '$_storeCount stores'
+          : null,
+    );
+    addFeeRow('Minimum Order Fee', _movPenaltyFee);
+
+    if (rows.isEmpty && _totalFees > 0) {
+      rows.add(SizedBox(height: 8));
+      rows.add(_buildSummaryRow(
+        'Fees',
+        '₱${_totalFees.toStringAsFixed(2)}',
+      ));
+    }
+
+    if (_voucherDiscount > 0) {
+      rows.add(SizedBox(height: 8));
+      rows.add(_buildSummaryRow(
+        'Voucher discount',
+        '-₱${_voucherDiscount.toStringAsFixed(2)}',
+        subtitle: _appliedVoucherCode,
+      ));
+    }
+
+    return rows;
+  }
+
+  Widget _buildSummaryRow(
+    String label,
+    String value, {
+    bool isTotal = false,
+    String? subtitle,
+  }) {
+    if (subtitle != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[900],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1578,7 +2058,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? AppColors.primaryNavy : Colors.grey[900],
+            color: isTotal ? AppColors.primaryGreen : Colors.grey[900],
           ),
         ),
       ],
@@ -1591,7 +2071,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       child: ElevatedButton(
         onPressed: (_isLoading || _isLoadingCalculation) ? null : _placeOrder,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryNavy,
+          backgroundColor: AppColors.primaryGreen,
           padding: EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -1611,7 +2091,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             : Text(
                 _isLoadingCalculation
                     ? 'Calculating...'
-                    : 'Place Order - ₱${_total.toStringAsFixed(2)}',
+                    : 'Place Order - ₱${_displayTotal.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

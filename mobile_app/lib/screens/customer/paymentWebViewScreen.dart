@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../constants/constants.dart';
+import '../../services/payment_service.dart';
 
 enum PaymentResult { success, failed, cancelled }
 
 class PaymentWebViewScreen extends StatefulWidget {
   final String checkoutUrl;
+  final String orderId;
   final String? successUrlPattern;
   final String? failedUrlPattern;
   final String? cancelUrlPattern;
@@ -13,6 +15,7 @@ class PaymentWebViewScreen extends StatefulWidget {
   const PaymentWebViewScreen({
     super.key,
     required this.checkoutUrl,
+    required this.orderId,
     this.successUrlPattern,
     this.failedUrlPattern,
     this.cancelUrlPattern,
@@ -24,7 +27,9 @@ class PaymentWebViewScreen extends StatefulWidget {
 
 class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   late final WebViewController _controller;
+  final PaymentService _paymentService = PaymentService();
   bool _isLoading = true;
+  bool _isCheckingStatus = false;
   bool _hasError = false;
   String? _errorMessage;
   int _loadingProgress = 0;
@@ -129,6 +134,33 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     return null;
   }
 
+  Future<void> _onClosePressed() async {
+    if (_isCheckingStatus) return;
+
+    setState(() => _isCheckingStatus = true);
+
+    try {
+      final statusResult = await _paymentService.getPaymentStatus(
+        orderId: widget.orderId,
+      );
+
+      if (!mounted) return;
+
+      if (statusResult['success'] == true &&
+          (statusResult['is_paid'] == true ||
+              statusResult['payment_status']?.toLowerCase() == 'paid')) {
+        Navigator.of(context).pop(PaymentResult.success);
+        return;
+      }
+
+      Navigator.of(context).pop(PaymentResult.cancelled);
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop(PaymentResult.cancelled);
+      }
+    }
+  }
+
   Future<bool> _onWillPop() async {
     if (await _controller.canGoBack()) {
       await _controller.goBack();
@@ -156,7 +188,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             child: Text(
               'Stay',
               style: TextStyle(
-                color: AppColors.primaryNavy,
+                color: AppColors.primaryGreen,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -203,8 +235,17 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.grey[700]),
           leading: IconButton(
-            icon: Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(PaymentResult.cancelled),
+            icon: _isCheckingStatus
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.grey[700],
+                    ),
+                  )
+                : Icon(Icons.close),
+            onPressed: _isCheckingStatus ? null : _onClosePressed,
           ),
           bottom: _isLoading
               ? PreferredSize(
@@ -212,12 +253,28 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   child: LinearProgressIndicator(
                     value: _loadingProgress / 100,
                     backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryNavy),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                   ),
                 )
               : null,
         ),
-        body: _hasError ? _buildErrorState() : WebViewWidget(controller: _controller),
+        body: Stack(
+          children: [
+            if (_hasError)
+              _buildErrorState()
+            else
+              WebViewWidget(controller: _controller),
+            if (_isCheckingStatus)
+              Container(
+                color: Colors.black26,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryGreen,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -289,7 +346,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   icon: Icon(Icons.refresh, size: 18),
                   label: Text('Retry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryNavy,
+                    backgroundColor: AppColors.primaryGreen,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(

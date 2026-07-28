@@ -39,6 +39,9 @@ class CartService extends ApiService {
             "shop_name": data['item']['shop_name'],
             "quantity": data['quantity'],
             "price_snapshot": data['price_snapshot'],
+            "discounted_price": data['discounted_price'],
+            "discount_status": data['discount_status'],
+            "discount_details": data['discount_details'],
             "status": data['status'],
             "added_at": data['created_at'],
             "item_name": data['item']['item_name'],
@@ -300,22 +303,24 @@ class CartService extends ApiService {
   //   "success": true,
   //   "data": [
   //     {
-  //       "id": 15, "user_id": 1, "item_id": 6, "quantity": 3,
-  //       "price_snapshot": "12.00",
+  //       "id": 1, "user_id": 42, "item_id": 10, "quantity": 2,
+  //       "price_snapshot": "120.00",
+  //       "discounted_price": 96,
+  //       "discount_status": "active",
+  //       "discount_details": {
+  //         "original_price": "120.00",
+  //         "actual_discount": "24.00",
+  //         "discounted_price": "96.00",
+  //         "discount_percent": "20.00",
+  //         "discount_type": "timed",
+  //         "discount_expires_at": "2026-07-01T00:00:00.000000Z"
+  //       },
   //       "item": {
-  //         "id": 6, "shop_id": 2, "item_name": "Test",
-  //         "item_description": "test product",
-  //         "item_price": "12.00", "item_quantity": 98,
-  //         "category": 1, "item_images": null,
-  //         "average_rating": "0.00", "total_reviews": 0,
-  //         "sold_count": 23, "shop_name": "James Shop",
+  //         "id": 10, "shop_id": 3, "item_name": "...",
+  //         "item_price": "120.00", "item_quantity": 100,
   //         "shop": {
-  //           "id": 2, "agrivet_id": 2, "zone_id": 1,
-  //           "shop_name": "James Shop",
-  //           "shop_description": "Your one stop shop",
-  //           "shop_address": "Madaum",
-  //           "contact_number": "09123456789",
-  //           "zone": { "id": 1, "name": "Zone 1" }
+  //           "id": 3, "shop_name": "...",
+  //           "zone": { "id": 1, "name": "...", "is_cod": true }
   //         }
   //       }
   //     }

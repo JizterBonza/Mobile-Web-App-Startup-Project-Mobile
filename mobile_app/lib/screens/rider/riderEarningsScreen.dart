@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../widgets/skeletons/app_skeletons.dart';
 
 class RiderEarningsScreen extends StatefulWidget {
   const RiderEarningsScreen({super.key});
@@ -141,21 +142,17 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
             Expanded(
               child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryNavy,
-                      ),
-                    )
+                  ? const GenericListSkeleton(count: 4, itemHeight: 120)
                   : RefreshIndicator(
                       onRefresh: _onRefresh,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       child: SingleChildScrollView(
                         physics: AlwaysScrollableScrollPhysics(),
                         padding: EdgeInsets.all(16),
@@ -207,7 +204,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
           ),
           Spacer(),
           IconButton(
-            icon: Icon(Icons.refresh, color: AppColors.primaryNavy),
+            icon: Icon(Icons.refresh, color: AppColors.primaryGreen),
             onPressed: _onRefresh,
           ),
         ],
@@ -235,14 +232,14 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
                   });
                 }
               },
-              selectedColor: AppColors.primaryNavy,
+              selectedColor: AppColors.primaryGreen,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.grey[700],
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               backgroundColor: Colors.white,
               side: BorderSide(
-                color: isSelected ? AppColors.primaryNavy : Colors.grey[300]!,
+                color: isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
               ),
             ),
           );
@@ -258,8 +255,8 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primaryNavy,
-            AppColors.primaryNavy.withOpacity(0.8)
+            AppColors.primaryGreen,
+            AppColors.primaryGreen.withOpacity(0.8)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -267,7 +264,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryNavy.withOpacity(0.3),
+            color: AppColors.primaryGreen.withOpacity(0.3),
             blurRadius: 12,
             offset: Offset(0, 6),
           ),
@@ -332,7 +329,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
             icon: Icons.local_shipping,
             label: 'Deliveries',
             value: '${_filteredDeliveries.length}',
-            color: AppColors.primaryNavyLight,
+            color: AppColors.primaryGreenLight,
           ),
         ),
         SizedBox(width: 12),
@@ -478,12 +475,12 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
                   leading: Container(
                     padding: EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryNavy.withOpacity(0.1),
+                      color: AppColors.primaryGreen.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.check_circle,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                       size: 24,
                     ),
                   ),
@@ -519,7 +516,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: AppColors.primaryNavy,
+                      color: AppColors.primaryGreen,
                     ),
                   ),
                 );
@@ -542,7 +539,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
         currentIndex: 0,
         onTap: _onNavTap,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryNavy,
+        selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [

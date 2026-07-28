@@ -92,7 +92,7 @@ class FormSectionHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryNavyDark,
+            color: AppColors.primaryGreenDark,
           ),
           textAlign: TextAlign.center,
         ),
@@ -145,7 +145,7 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         labelText: widget.labelText,
         hintText: widget.hintText,
-        prefixIcon: Icon(Icons.lock_outline, color: AppColors.primaryNavy),
+        prefixIcon: Icon(Icons.lock_outline, color: AppColors.primaryGreen),
         suffixIcon: IconButton(
           icon: Icon(
             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
@@ -167,7 +167,7 @@ class _PasswordFieldState extends State<PasswordField> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryNavy, width: 2),
+          borderSide: BorderSide(color: AppColors.primaryGreen, width: 2),
         ),
         filled: true,
         fillColor: AppColors.surfaceMuted,
@@ -204,7 +204,7 @@ class TermsCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primaryNavy,
+            activeColor: AppColors.primaryGreen,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
@@ -227,7 +227,7 @@ class TermsCheckbox extends StatelessWidget {
                   linkText,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.primaryNavy,
+                    color: AppColors.primaryGreen,
                     fontWeight: FontWeight.w600,
                     decoration: TextDecoration.underline,
                   ),
@@ -259,7 +259,7 @@ class ForgotPasswordLink extends StatelessWidget {
         child: Text(
           'Forgot Password?',
           style: TextStyle(
-            color: AppColors.primaryNavy,
+            color: AppColors.primaryGreen,
             fontWeight: FontWeight.w600,
           ),
         ),

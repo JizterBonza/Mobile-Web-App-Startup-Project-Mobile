@@ -27,6 +27,11 @@ class ItemsProvider with ChangeNotifier {
   String? _categoryError;
   dynamic _selectedCategoryId;
 
+  // On-sale items state
+  List<Map<String, dynamic>> _onSaleItems = [];
+  bool _isOnSaleLoading = false;
+  String? _onSaleError;
+
   List<Map<String, dynamic>> get items => _items;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -43,6 +48,11 @@ class ItemsProvider with ChangeNotifier {
   bool get isCategoryLoading => _isCategoryLoading;
   String? get categoryError => _categoryError;
   dynamic get selectedCategoryId => _selectedCategoryId;
+
+  // On-sale items getters
+  List<Map<String, dynamic>> get onSaleItems => _onSaleItems;
+  bool get isOnSaleLoading => _isOnSaleLoading;
+  String? get onSaleError => _onSaleError;
 
   /// Fetch items from API, falls back to cache if API fails
   Future<void> fetchItems({bool useCache = true}) async {
@@ -215,5 +225,25 @@ class ItemsProvider with ChangeNotifier {
     _categoryError = null;
     _selectedCategoryId = null;
     notifyListeners();
+  }
+
+  /// Fetch on-sale items from API
+  Future<void> fetchItemsOnSale() async {
+    _isOnSaleLoading = true;
+    _onSaleError = null;
+    notifyListeners();
+
+    try {
+      final items = await _itemsService.fetchItemsOnSale();
+      _onSaleItems = items;
+      _onSaleError = null;
+    } catch (e) {
+      _onSaleError = e.toString();
+      _onSaleItems = [];
+      print('Error fetching on-sale items: $e');
+    } finally {
+      _isOnSaleLoading = false;
+      notifyListeners();
+    }
   }
 }
