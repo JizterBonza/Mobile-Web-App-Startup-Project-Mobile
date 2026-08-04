@@ -13,6 +13,9 @@ class ApiService {
   static const String _tokenExpiresAtKey = 'token_expires_at';
   static const String _rememberMeKey = 'remember_me';
   static const String _savedLoginKey = 'saved_login';
+  static const String _savedLoginTypeKey = 'saved_login_type';
+  static const String savedLoginTypePhone = 'phone';
+  static const String savedLoginTypeUsernameOrEmail = 'username_or_email';
   static const String _userTypeKey = 'user_type';
   static const String _userIdKey = 'user_id';
   static const String _userNameKey = 'user_name';
@@ -150,6 +153,31 @@ class ApiService {
     }
   }
 
+  static Future<String?> getSavedLoginType() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedType = prefs.getString(_savedLoginTypeKey);
+      if (savedType != null && savedType.isNotEmpty) return savedType;
+
+      // Support preferences saved before login types were introduced.
+      final savedLogin = prefs.getString(_savedLoginKey);
+      if (savedLogin == null || savedLogin.isEmpty) return null;
+      return _loginTypeFor(savedLogin);
+    } catch (e) {
+      print('Error reading saved login type: $e');
+      return null;
+    }
+  }
+
+  static String _loginTypeFor(String loginIdentifier) {
+    final trimmed = loginIdentifier.trim();
+    final digitsOnly = trimmed.replaceAll(RegExp(r'\D'), '');
+    final isPhone = !trimmed.contains('@') &&
+        RegExp(r'^\d+$').hasMatch(trimmed) &&
+        digitsOnly.length >= 10;
+    return isPhone ? savedLoginTypePhone : savedLoginTypeUsernameOrEmail;
+  }
+
   static Future<bool> isAccessTokenExpired() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -167,6 +195,7 @@ class ApiService {
   static Future<void> applyRememberMePreference({
     required bool rememberMe,
     String? loginIdentifier,
+    String? loginType,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -174,11 +203,16 @@ class ApiService {
       if (rememberMe) {
         if (loginIdentifier != null && loginIdentifier.isNotEmpty) {
           await prefs.setString(_savedLoginKey, loginIdentifier);
+          await prefs.setString(
+            _savedLoginTypeKey,
+            loginType ?? _loginTypeFor(loginIdentifier),
+          );
         }
       } else {
         await prefs.remove(_refreshTokenKey);
         await prefs.remove(_tokenExpiresAtKey);
         await prefs.remove(_savedLoginKey);
+        await prefs.remove(_savedLoginTypeKey);
       }
     } catch (e) {
       print('Error saving remember me preference: $e');
@@ -512,13 +546,17 @@ class ApiService {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (responseData is Map) {
-          await applyRememberMePreference(
-            rememberMe: rememberMe,
-            loginIdentifier: trimmed,
-          );
           await saveAuthSessionFromResponse(
             responseData,
             persistRefreshToken: rememberMe,
+          );
+          // Apply this last so opting out also removes any refresh/expiry
+          // metadata included in the successful login response.
+          await applyRememberMePreference(
+            rememberMe: rememberMe,
+            loginIdentifier: isPhone ? digitsOnly : trimmed,
+            loginType:
+                isPhone ? savedLoginTypePhone : savedLoginTypeUsernameOrEmail,
           );
         }
 
@@ -692,6 +730,7 @@ class ApiService {
       await prefs.remove(_tokenExpiresAtKey);
       await prefs.remove(_rememberMeKey);
       await prefs.remove(_savedLoginKey);
+      await prefs.remove(_savedLoginTypeKey);
       await prefs.remove(_userTypeKey);
       await prefs.remove(_userIdKey);
       await prefs.remove(_userNameKey);
@@ -717,6 +756,7 @@ class ApiService {
 
       final rememberMe = prefs.getBool(_rememberMeKey) ?? false;
       final savedLogin = prefs.getString(_savedLoginKey);
+      final savedLoginType = prefs.getString(_savedLoginTypeKey);
 
       await prefs.clear();
 
@@ -724,6 +764,10 @@ class ApiService {
         await prefs.setBool(_rememberMeKey, true);
         if (savedLogin != null && savedLogin.isNotEmpty) {
           await prefs.setString(_savedLoginKey, savedLogin);
+          await prefs.setString(
+            _savedLoginTypeKey,
+            savedLoginType ?? _loginTypeFor(savedLogin),
+          );
         }
       }
     } catch (e) {

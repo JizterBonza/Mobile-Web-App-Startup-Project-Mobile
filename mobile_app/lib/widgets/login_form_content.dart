@@ -42,6 +42,7 @@ class LoginFormContentState extends State<LoginFormContent> {
   bool _obscurePassword = true;
   bool _showPhoneLogin = false;
   bool _rememberMe = false;
+  String _savedPhone = '';
 
   bool get _isBusy => widget.isLoading || widget.isGoogleLoading;
 
@@ -56,11 +57,17 @@ class LoginFormContentState extends State<LoginFormContent> {
   Future<void> _loadRememberMeState() async {
     final rememberMe = await ApiService.isRememberMeEnabled();
     final savedLogin = await ApiService.getSavedLogin();
+    final savedLoginType = await ApiService.getSavedLoginType();
     if (!mounted) return;
     setState(() {
       _rememberMe = rememberMe;
       if (savedLogin != null && savedLogin.isNotEmpty) {
-        _usernameController.text = savedLogin;
+        if (savedLoginType == ApiService.savedLoginTypePhone) {
+          _savedPhone = savedLogin;
+          _showPhoneLogin = true;
+        } else {
+          _usernameController.text = savedLogin;
+        }
       }
     });
   }
@@ -94,8 +101,7 @@ class LoginFormContentState extends State<LoginFormContent> {
       fillColor: Colors.grey[100],
       prefixIcon: Icon(prefixIcon, color: Colors.grey[600], size: 20),
       suffixIcon: suffixIcon,
-      contentPadding:
-          const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
@@ -106,8 +112,7 @@ class LoginFormContentState extends State<LoginFormContent> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide:
-            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -196,8 +201,9 @@ class LoginFormContentState extends State<LoginFormContent> {
           Divider(color: Colors.grey[200], height: 1),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed:
-                widget.onGoogleSignIn == null || _isBusy ? null : widget.onGoogleSignIn,
+            onPressed: widget.onGoogleSignIn == null || _isBusy
+                ? null
+                : widget.onGoogleSignIn,
             icon: widget.isGoogleLoading
                 ? SizedBox(
                     height: 24,
@@ -250,6 +256,10 @@ class LoginFormContentState extends State<LoginFormContent> {
           const SizedBox(height: 16),
           if (_showPhoneLogin)
             PhoneLoginSection(
+              initialPhone: _savedPhone,
+              rememberMe: _rememberMe,
+              onRememberMeChanged: (value) =>
+                  setState(() => _rememberMe = value),
               enabled: !_isBusy,
               isLoading: widget.isLoading,
               onBack: () => setState(() => _showPhoneLogin = false),
@@ -279,19 +289,19 @@ class LoginFormContentState extends State<LoginFormContent> {
               ),
             ),
             const SizedBox(height: 16),
-            _buildFieldLabel('USERNAME'),
+            _buildFieldLabel('USERNAME OR EMAIL'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _usernameController,
               textInputAction: TextInputAction.next,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your username';
+                  return 'Please enter your username or email';
                 }
                 return null;
               },
               decoration: _fieldDecoration(
-                hintText: 'Enter your username',
+                hintText: 'Enter your username or email',
                 prefixIcon: Icons.person_outline,
               ),
             ),

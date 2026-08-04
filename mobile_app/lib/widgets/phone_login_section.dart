@@ -9,12 +9,18 @@ class PhoneLoginSection extends StatefulWidget {
   final VoidCallback onForgotPassword;
   final bool enabled;
   final bool isLoading;
+  final String initialPhone;
+  final bool rememberMe;
+  final ValueChanged<bool> onRememberMeChanged;
 
   const PhoneLoginSection({
     super.key,
     required this.onBack,
     required this.onLogin,
     required this.onForgotPassword,
+    required this.rememberMe,
+    required this.onRememberMeChanged,
+    this.initialPhone = '',
     this.enabled = true,
     this.isLoading = false,
   });
@@ -28,6 +34,21 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.text = widget.initialPhone;
+  }
+
+  @override
+  void didUpdateWidget(covariant PhoneLoginSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPhone != widget.initialPhone &&
+        _phoneController.text != widget.initialPhone) {
+      _phoneController.text = widget.initialPhone;
+    }
+  }
 
   @override
   void dispose() {
@@ -48,8 +69,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
       fillColor: Colors.grey[100],
       prefixIcon: Icon(prefixIcon, color: Colors.grey[600], size: 20),
       suffixIcon: suffixIcon,
-      contentPadding:
-          const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
@@ -60,8 +80,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide:
-            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -108,7 +127,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
               onPressed: widget.enabled ? widget.onBack : null,
               icon: const Icon(Icons.arrow_back, size: 18),
               label: const Text(
-                'Back to username login',
+                'Back to username or email login',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -181,24 +200,53 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
             ),
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: widget.enabled ? widget.onForgotPassword : null,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryGreenDark,
+          Row(
+            children: [
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: Checkbox(
+                  value: widget.rememberMe,
+                  onChanged: widget.enabled
+                      ? (value) => widget.onRememberMeChanged(value ?? false)
+                      : null,
+                  activeColor: AppColors.primaryGreenDark,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: widget.enabled
+                    ? () => widget.onRememberMeChanged(!widget.rememberMe)
+                    : null,
+                child: Text(
+                  'Remember me',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: widget.enabled ? widget.onForgotPassword : null,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Forgot Password?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryGreenDark,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           ElevatedButton(
