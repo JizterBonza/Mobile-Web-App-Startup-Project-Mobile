@@ -977,6 +977,126 @@ class ApiService {
     }
   }
 
+  /// Request a password reset OTP for the given email
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    try {
+      final uri = Uri.parse(ApiEndpoints.forgotPassword);
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'email': email}),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ??
+              'Password reset code has been sent to your email.',
+          'data': responseData,
+        };
+      }
+
+      String errorMessage = 'Failed to send reset code';
+      if (responseData is Map && responseData.containsKey('message')) {
+        errorMessage = responseData['message'].toString();
+      } else if (responseData is Map && responseData.containsKey('errors')) {
+        final errors = responseData['errors'] as Map<String, dynamic>;
+        errorMessage = errors.values.first.toString();
+      }
+
+      return {
+        'success': false,
+        'message': errorMessage,
+        'data': responseData,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
+  }
+
+  /// Reset password using email OTP
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final uri = Uri.parse(ApiEndpoints.resetPassword);
+
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ??
+              'Password has been reset successfully.',
+          'data': responseData,
+        };
+      }
+
+      String errorMessage = 'Password reset failed';
+      if (responseData is Map) {
+        final errors = responseData['errors'];
+        if (errors is Map && errors.containsKey('otp')) {
+          final otpError = errors['otp'];
+          if (otpError is List && otpError.isNotEmpty) {
+            errorMessage = otpError.first.toString();
+          } else if (otpError != null) {
+            errorMessage = otpError.toString();
+          }
+        } else if (responseData.containsKey('message')) {
+          errorMessage = responseData['message'].toString();
+        } else if (errors is Map && errors.isNotEmpty) {
+          final first = errors.values.first;
+          if (first is List && first.isNotEmpty) {
+            errorMessage = first.first.toString();
+          } else {
+            errorMessage = first.toString();
+          }
+        }
+      }
+
+      return {
+        'success': false,
+        'message': errorMessage,
+        'data': responseData,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
+  }
+
   /// Change user password
   static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,

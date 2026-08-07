@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import '../services/api_service.dart';
+import '../screens/common/otpResetPasswordScreen.dart';
 
 Future<void> showForgotPasswordDialog(
   BuildContext context, {
@@ -90,61 +92,33 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
 
     setState(() => _isLoading = true);
 
-    // Simulate API call (same as ForgotPasswordScreen)
-    await Future.delayed(const Duration(seconds: 2));
+    final result = await ApiService.forgotPassword(
+      email: _emailController.text.trim(),
+    );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              const Icon(
-                Icons.check_circle,
-                color: AppColors.primaryGreen,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Email Sent',
-                style: TextStyle(
-                  color: AppColors.primaryGreenDark,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+    if (result['success'] == true) {
+      final email = _emailController.text.trim();
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => OtpResetPasswordScreen(email: email),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
           content: Text(
-            'We\'ve sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.',
-            style: TextStyle(
-              color: Colors.grey[700],
-              height: 1.4,
-            ),
+            result['message']?.toString() ??
+                'Failed to send reset code. Please try again.',
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).pop();
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: AppColors.primaryGreen,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -198,7 +172,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
               Divider(color: Colors.grey[200], height: 1),
               const SizedBox(height: 16),
               Text(
-                'Enter your email address and we\'ll send you a link to reset your password',
+                'Enter your email address and we\'ll send you an OTP to reset your password',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -250,7 +224,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                         ),
                       )
                     : const Text(
-                        'Send Reset Link',
+                        'Send Reset OTP',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
