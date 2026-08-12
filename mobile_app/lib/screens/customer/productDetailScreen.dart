@@ -7,6 +7,7 @@ import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -32,13 +33,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late double _averageRating;
   final FavoriteService _favoriteService = FavoriteService();
 
-  // Static sample data for images
-  final List<String> _sampleImages = [
-    'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800',
-    'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800',
-    'https://images.unsplash.com/photo-1516253593875-bd7ba052fbc5?w=800',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -50,6 +44,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
 
     _averageRating = _getAverage() as double;
+  }
+
+  List<String> _resolveProductImages(Map<String, dynamic>? product) {
+    final rawImages = product?['item_images'];
+    if (rawImages is! List || rawImages.isEmpty) return const [];
+
+    final urls = <String>[];
+    for (final entry in rawImages) {
+      String? raw;
+      if (entry is Map) {
+        raw = entry['url']?.toString() ??
+            entry['image_url']?.toString() ??
+            entry['path']?.toString() ??
+            entry['item_image']?.toString();
+      } else {
+        raw = entry?.toString();
+      }
+      final resolved = _resolveMediaUrl(raw);
+      if (resolved != null) urls.add(resolved);
+    }
+    return urls;
+  }
+
+  String? _resolveMediaUrl(String? raw) {
+    if (raw == null) return null;
+    final path = raw.trim();
+    if (path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    final baseUrl = Url.getUrl().replaceAll(RegExp(r'/+$'), '');
+    final normalized = path.startsWith('/') ? path : '/$path';
+    return '$baseUrl$normalized';
   }
 
   // Check if item is already in favorites
@@ -272,7 +299,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Image Carousel
-                    _buildImageCarousel(),
+                    _buildImageCarousel(_resolveProductImages(product)),
                     SizedBox(height: 20),
 
                     // Product Info Section
@@ -502,57 +529,95 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildImageCarousel() {
-    return Container(
+  Widget _buildImageCarousel(List<String> images) {
+    final hasImages = images.isNotEmpty;
+    final pageCount = hasImages ? images.length : 1;
+    final selectedIndex =
+        _selectedImageIndex.clamp(0, pageCount - 1).toInt();
+
+    return SizedBox(
       height: 350,
       child: Stack(
         children: [
-          // Image PageView
           PageView.builder(
-            itemCount: _sampleImages.length,
+            itemCount: pageCount,
             onPageChanged: (index) {
               setState(() {
                 _selectedImageIndex = index;
               });
             },
             itemBuilder: (context, index) {
-              return Container(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                child: Center(
-                  child: Icon(
-                    Icons.image,
-                    size: 100,
-                    color: AppColors.primaryGreen.withOpacity(0.5),
+              if (!hasImages) {
+                return Container(
+                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  child: Center(
+                    child: Icon(
+                      Icons.image,
+                      size: 100,
+                      color: AppColors.primaryGreen.withOpacity(0.5),
+                    ),
                   ),
-                ),
-                // In real implementation, use Image.network(_sampleImages[index])
+                );
+              }
+
+              return Image.network(
+                images[index],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: AppColors.primaryGreen.withOpacity(0.08),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryGreen,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    child: Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        size: 80,
+                        color: AppColors.primaryGreen.withOpacity(0.5),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),
 
-          // Image Indicators
-          Positioned(
-            bottom: 16,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _sampleImages.length,
-                (index) => Container(
-                  width: 8,
-                  height: 8,
-                  margin: EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _selectedImageIndex == index
-                        ? AppColors.primaryGreen
-                        : Colors.white.withOpacity(0.5),
+          if (hasImages && images.length > 1)
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  images.length,
+                  (index) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: selectedIndex == index
+                          ? AppColors.primaryGreen
+                          : Colors.white.withOpacity(0.5),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

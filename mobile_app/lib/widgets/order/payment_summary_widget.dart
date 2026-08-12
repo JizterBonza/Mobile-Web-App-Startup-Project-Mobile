@@ -50,25 +50,13 @@ class PaymentSummaryWidget extends StatelessWidget {
                     color: Colors.grey[600],
                   ),
                 ),
-                Row(
-                  children: [
-                    Icon(
-                      paymentMethod.toLowerCase().contains('cash')
-                          ? Icons.money
-                          : Icons.credit_card,
-                      size: 18,
-                      color: AppColors.primaryGreen,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      OrderHelpers.capitalizeFirst(paymentMethod),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[900],
-                      ),
-                    ),
-                  ],
+                Text(
+                  OrderHelpers.capitalizeFirst(paymentMethod),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[900],
+                  ),
                 ),
               ],
             ),

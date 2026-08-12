@@ -250,10 +250,14 @@ class OrderService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       if (responseData['success'] == true && responseData['data'] != null) {
-        final orders = (responseData['data'] as List).map((order) {
-          final orderDetail = order['order_detail'] as Map<String, dynamic>?;
+        final orders = (responseData['data'] as List).map((raw) {
+          final order = Map<String, dynamic>.from(raw as Map);
+          final detailRaw = order['order_detail'];
+          final orderDetail = detailRaw is Map
+              ? Map<String, dynamic>.from(detailRaw)
+              : null;
 
-          return {
+          return <String, dynamic>{
             'id': order['id'],
             'user_id': order['user_id'],
             'order_detail_id': order['order_detail_id'],
@@ -288,9 +292,10 @@ class OrderService extends ApiService {
             'drop_location_lat': orderDetail?['drop_location_lat'],
             'drop_location_long': orderDetail?['drop_location_long'],
             'order_instruction': orderDetail?['order_instruction'],
-            // 'payment_method': orderDetail?['payment_method']?.toString() ?? '',
             'payment_status':
                 orderDetail?['payment_status']?.toString() ?? 'pending',
+            'voucher_discount_amount':
+                orderDetail?['voucher_discount_amount']?.toString() ?? '0.00',
             'order_detail_created_at': orderDetail?['created_at'],
             'order_detail_updated_at': orderDetail?['updated_at'],
             'user': order['user'],
