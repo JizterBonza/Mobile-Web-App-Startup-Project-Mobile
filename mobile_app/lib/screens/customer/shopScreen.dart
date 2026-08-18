@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../utils/auth_guard.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import 'conversationScreen.dart';
 import 'productDetailScreen.dart';
 import 'shopReviewsScreen.dart';
 
@@ -713,12 +715,17 @@ class _ShopScreenState extends State<ShopScreen> {
                         label: 'Chat',
                         icon: Icons.chat_bubble_outline,
                         filled: true,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Chat with shop'),
-                              duration: Duration(seconds: 1),
-                              backgroundColor: AppColors.primaryGreen,
+                        onTap: () async {
+                          if (!await requireAuth(context)) return;
+                          if (!mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ConversationScreen(
+                                shopId: widget.shopId,
+                                shopName: widget.shopName ??
+                                    _shopDetails?['shop_name']?.toString(),
+                              ),
                             ),
                           );
                         },

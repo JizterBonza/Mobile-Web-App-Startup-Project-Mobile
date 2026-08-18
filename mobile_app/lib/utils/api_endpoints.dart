@@ -87,6 +87,20 @@ class ApiEndpoints {
   static String get clearReadNotifications =>
       '$baseUrl/api/notifications/clear-read';
 
+  // Messaging endpoints
+  static String get getConversations => '$baseUrl/api/messages';
+  static String get getUnreadMessageCount =>
+      '$baseUrl/api/messages/unread-count';
+  static String get startShopConversation =>
+      '$baseUrl/api/shops/{shopId}/messages';
+  static String get getConversation =>
+      '$baseUrl/api/messages/{conversationId}';
+  static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
+  static String get broadcastingAuth => '$baseUrl/broadcasting/auth';
+
+  // Badge endpoints
+  static String get getBadges => '$baseUrl/api/badges';
+
   /// Proof of Delivery endpoints
   static String get uploadProofOfDelivery => '$baseUrl/api/pod/upload';
   static String get showProofOfDelivery => '$baseUrl/api/pod/show/{order_id}';
@@ -103,6 +117,5 @@ class ApiEndpoints {
   static String get paymentCheckout => '$baseUrl/api/payment/checkout';
   static String get paymentCheckoutUrl =>
       '$baseUrl/api/payment/checkout-url/{orderId}';
-  static String get paymentStatus =>
-      '$baseUrl/api/payment/status/{orderId}';
+  static String get paymentStatus => '$baseUrl/api/payment/status/{orderId}';
 }
