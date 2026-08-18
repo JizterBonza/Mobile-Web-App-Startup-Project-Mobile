@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../utils/url.dart';
+
 /// App configuration constants
 class AppConfig {
   AppConfig._();
@@ -31,6 +33,30 @@ class AppConfig {
     final id = dotenv.env['GOOGLE_IOS_CLIENT_ID'];
     if (id == null || id.isEmpty) return null;
     return id;
+  }
+
+  /// Public Reverb app key (not REVERB_APP_SECRET).
+  static String get reverbAppKey => dotenv.env['REVERB_APP_KEY']?.trim() ?? '';
+
+  static String get reverbHost {
+    final host = dotenv.env['REVERB_HOST']?.trim();
+    if (host != null && host.isNotEmpty) return host;
+    return Uri.tryParse(Url.getUrl())?.host ?? '';
+  }
+
+  static String get reverbWsScheme {
+    final raw = (dotenv.env['REVERB_SCHEME'] ?? 'https').trim().toLowerCase();
+    if (raw == 'ws' || raw == 'wss') return raw;
+    if (raw == 'https') return 'wss';
+    return 'ws';
+  }
+
+  static int get reverbPort {
+    final raw = dotenv.env['REVERB_PORT']?.trim();
+    if (raw != null && raw.isNotEmpty) {
+      return int.tryParse(raw) ?? (reverbWsScheme == 'wss' ? 443 : 8080);
+    }
+    return reverbWsScheme == 'wss' ? 443 : 8080;
   }
 }
 

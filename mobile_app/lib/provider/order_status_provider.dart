@@ -92,12 +92,12 @@ class OrderStatusProvider with ChangeNotifier {
           }
         }
 
-        // Store in Hive
+        // Store in Hive (in-memory list is source of truth even if cache write fails)
         if (statuses.isNotEmpty) {
-          await _orderStatusService.storeOrderStatuses(statuses);
           _orderStatuses = statuses;
           _isInitialized = true;
           _error = null;
+          await _orderStatusService.storeOrderStatuses(statuses);
         } else {
           // Try to load from cache if API returns empty
           await _loadFromCache();

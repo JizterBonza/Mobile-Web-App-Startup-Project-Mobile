@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 
 import '../constants/constants.dart';
+import '../provider/badge_provider.dart';
 import '../screens/common/myOrderScreen.dart';
 import '../screens/common/notificationScreen.dart';
 import '../screens/customer/customerDashboardScreen.dart';
@@ -31,6 +33,66 @@ Widget _customerNavSvgIcon({
       fit: BoxFit.contain,
       colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
     ),
+  );
+}
+
+Widget _customerNavIconWithBadge({
+  required String asset,
+  required Color color,
+  String? badgeCount,
+}) {
+  final icon = _customerNavSvgIcon(asset: asset, color: color);
+  if (badgeCount == null) return icon;
+
+  return SizedBox(
+    width: 32,
+    height: 28,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Center(child: icon),
+        Positioned(
+          right: 0,
+          top: -2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.accentAmber,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+            child: Text(
+              badgeCount,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                height: 1.1,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _customerNotifsNavIcon({
+  required Color color,
+  required bool isGuest,
+}) {
+  return Consumer<BadgeProvider>(
+    builder: (context, badges, _) {
+      final count = isGuest
+          ? null
+          : BadgeProvider.formatBadgeCount(badges.unreadNotifications);
+      return _customerNavIconWithBadge(
+        asset: 'assets/icons/notif.svg',
+        color: color,
+        badgeCount: count,
+      );
+    },
   );
 }
 
@@ -161,13 +223,13 @@ Widget _buildCustomerBottomNavigationBarContent({
           label: 'Orders',
         ),
         BottomNavigationBarItem(
-          icon: _customerNavSvgIcon(
-            asset: 'assets/icons/notif.svg',
+          icon: _customerNotifsNavIcon(
             color: Colors.grey[600]!,
+            isGuest: isGuest,
           ),
-          activeIcon: _customerNavSvgIcon(
-            asset: 'assets/icons/notif.svg',
+          activeIcon: _customerNotifsNavIcon(
             color: AppColors.primaryGreenDark,
+            isGuest: isGuest,
           ),
           label: 'Notifs',
         ),

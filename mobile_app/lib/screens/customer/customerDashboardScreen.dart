@@ -8,11 +8,12 @@ import '../../services/items_services.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/customer_nav.dart';
-import '../../utils/snackbar_helper.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerPlaceholderScreen.dart';
+import 'messagesScreen.dart';
+import 'conversationScreen.dart';
 import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import '../common/myOrderScreen.dart';
@@ -28,7 +29,8 @@ class CustomerDashboardScreen extends StatefulWidget {
       _CustomerDashboardScreenState();
 }
 
-class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
+class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _categories = [];
   bool _isLoadingCategories = true;
@@ -66,6 +68,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Defer loading until after the build phase completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCategories();
@@ -73,8 +76,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       _loadFeaturedProducts();
       _loadSuggestedStores();
       _loadUserName().then((_) {
-        if (mounted && !_isGuest) {
+        if (!mounted) return;
+        if (!_isGuest) {
           _loadBuyAgainProducts();
+          _fetchBadges();
+          _fetchMessageUnread();
+        } else {
+          _clearBadges();
         }
       });
     });
@@ -138,7 +146,20 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    final messages = Provider.of<MessageProvider>(context, listen: false);
+    if (state == AppLifecycleState.resumed && !_isGuest) {
+      messages.startLiveUpdates();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      messages.pauseLiveUpdates();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _debounceTimer?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
@@ -220,6 +241,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Future<void> _refreshAfterLogin() async {
     await _loadUserName();
     await _loadBuyAgainProducts();
+    await _fetchBadges();
+    await _fetchMessageUnread();
+  }
+
+  Future<void> _fetchBadges() async {
+    if (!mounted) return;
+    await Provider.of<BadgeProvider>(context, listen: false).fetchBadges();
+  }
+
+  Future<void> _fetchMessageUnread() async {
+    if (!mounted) return;
+    final messages = Provider.of<MessageProvider>(context, listen: false);
+    await messages.fetchUnreadCount();
+    messages.startLiveUpdates();
+  }
+
+  void _clearBadges() {
+    if (!mounted) return;
+    Provider.of<BadgeProvider>(context, listen: false).clear();
+    Provider.of<MessageProvider>(context, listen: false).clear();
   }
 
   PageRoute _createFadeRoute(Widget page) {
@@ -464,6 +505,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         setState(() {
           _selectedIndex = 0;
         });
+        _fetchBadges();
       }
     });
   }
@@ -660,33 +702,46 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
             ),
           if (_isGuest) const SizedBox(width: 8),
-          _buildHeaderIconButton(
-            iconWidget: SvgPicture.asset(
-              'assets/icons/Crate.svg',
-              height: 24,
-              fit: BoxFit.contain,
-            ),
-            onTap: _navigateToCart,
+          Consumer<BadgeProvider>(
+            builder: (context, badges, _) {
+              return _buildHeaderIconButton(
+                iconWidget: SvgPicture.asset(
+                  'assets/icons/Crate.svg',
+                  height: 24,
+                  fit: BoxFit.contain,
+                ),
+                onTap: _navigateToCart,
+                badgeCount: _isGuest
+                    ? null
+                    : BadgeProvider.formatBadgeCount(badges.cartCount),
+              );
+            },
           ),
           const SizedBox(width: 12),
-          _buildHeaderIconButton(
-            iconWidget: SvgPicture.asset(
-              'assets/icons/chat.svg',
-              height: 24,
-              fit: BoxFit.contain,
-            ),
-            onTap: () => _onAuthenticatedTap(() {
-              Navigator.push(
-                context,
-                _createFadeRoute(
-                  const CustomerPlaceholderScreen(
-                    title: 'Chat',
-                    icon: Icons.chat_rounded,
-                    navIndex: CustomerNavIndex.home,
-                  ),
+          Consumer<MessageProvider>(
+            builder: (context, messages, _) {
+              return _buildHeaderIconButton(
+                iconWidget: SvgPicture.asset(
+                  'assets/icons/chat.svg',
+                  height: 24,
+                  fit: BoxFit.contain,
                 ),
+                onTap: () => _onAuthenticatedTap(() {
+                  final messagesProvider =
+                      Provider.of<MessageProvider>(context, listen: false);
+                  Navigator.push(
+                    context,
+                    _createFadeRoute(const MessagesScreen()),
+                  ).then((_) {
+                    if (!mounted || _isGuest) return;
+                    messagesProvider.fetchUnreadCount();
+                  });
+                }),
+                badgeCount: _isGuest
+                    ? null
+                    : BadgeProvider.formatBadgeCount(messages.unreadCount),
               );
-            }),
+            },
           ),
         ],
       ),
@@ -697,6 +752,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     IconData? icon,
     Widget? iconWidget,
     required VoidCallback onTap,
+    String? badgeCount,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -710,13 +766,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               child: iconWidget ?? Icon(icon, color: Colors.white, size: 24),
             ),
           ),
-          _buildNotificationBadge('3'),
+          if (badgeCount != null) _buildCountBadge(badgeCount),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationBadge(String count) {
+  Widget _buildCountBadge(String count) {
     return Positioned(
       right: -8,
       top: -10,
@@ -1884,9 +1940,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () {
-                    SnackbarHelper.showInfo(context, 'Chat coming soon');
-                  },
+                  onTap: () => _onAuthenticatedTap(() {
+                    Navigator.push(
+                      context,
+                      _createFadeRoute(
+                        ConversationScreen(
+                          shopId: store['id'],
+                          shopName: store['shop_name']?.toString(),
+                        ),
+                      ),
+                    );
+                  }),
                   child: Container(
                     padding: EdgeInsets.all(10),
                     decoration: BoxDecoration(

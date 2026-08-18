@@ -21,16 +21,10 @@ void main() async {
   await Hive.initFlutter();
 
   // Register Hive adapters
-  // Note: Run 'flutter pub run build_runner build' to generate the adapter
-  // Hive.registerAdapter(DeliveryPhotoModelAdapter());
-  // Hive.registerAdapter(OrderStatusAdapter());
+  Hive.registerAdapter(OrderStatusAdapter());
 
   // Open Hive boxes
-  // Open delivery photos box (using Map for now until adapter is generated)
   await Hive.openBox('delivery_photos');
-
-  // Open order statuses box
-  // Note: Uncomment the adapter registration above after running build_runner
   await Hive.openBox<OrderStatus>('order_statuses');
 
   // Warm the SVG cache for the customer bottom-nav icons so they paint
@@ -69,8 +63,10 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AddressProvider()),
+        ChangeNotifierProvider(create: (_) => BadgeProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ItemsProvider()),
+        ChangeNotifierProvider(create: (_) => MessageProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => OrderStatusProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),

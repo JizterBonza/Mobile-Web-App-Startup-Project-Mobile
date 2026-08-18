@@ -45,12 +45,14 @@ dependencies:
   rxdart: ^0.28.0
   dio: ^5.9.0
   image_picker: ^1.0.7
+  file_picker: ^8.1.7
   path_provider: ^2.1.1
   url_launcher: ^6.2.5
   webview_flutter: ^4.10.0
   google_sign_in: ^6.2.2
   flutter_svg: ^2.0.17
   skeletonizer: ^1.4.3
+  dart_pusher_channels: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -110,3 +112,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 dependency_overrides:
   geolocator_android: 4.6.1
+  rxdart: ^0.28.0

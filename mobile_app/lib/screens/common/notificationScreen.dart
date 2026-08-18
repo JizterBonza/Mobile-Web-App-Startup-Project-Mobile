@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
+import '../../provider/badge_provider.dart';
 import '../../provider/notification_provider.dart';
 import '../../models/notificationModel.dart';
 import '../../services/api_service.dart';
@@ -64,6 +65,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _fetchNotifications() async {
     final provider = Provider.of<NotificationProvider>(context, listen: false);
     await provider.fetchNotifications(refresh: true);
+    _syncBadgeUnreadCount();
+  }
+
+  void _syncBadgeUnreadCount() {
+    if (!mounted) return;
+    final notificationProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
+    Provider.of<BadgeProvider>(context, listen: false)
+        .setUnreadNotifications(notificationProvider.unreadCount);
   }
 
   String _formatTimestamp(DateTime timestamp) {
@@ -102,11 +112,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _markAsRead(int id) async {
     final provider = Provider.of<NotificationProvider>(context, listen: false);
     await provider.markAsRead(id);
+    _syncBadgeUnreadCount();
   }
 
   Future<void> _markAllAsRead() async {
     final provider = Provider.of<NotificationProvider>(context, listen: false);
     final success = await provider.markAllAsRead();
+    if (success) {
+      _syncBadgeUnreadCount();
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +149,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Future<void> _deleteNotification(int id) async {
     final provider = Provider.of<NotificationProvider>(context, listen: false);
     final success = await provider.deleteNotification(id);
+    if (success) {
+      _syncBadgeUnreadCount();
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

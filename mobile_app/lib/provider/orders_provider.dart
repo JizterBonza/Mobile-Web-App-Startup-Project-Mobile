@@ -28,13 +28,22 @@ class OrdersProvider with ChangeNotifier {
 
     try {
       final result = await _orderService.fetchOrders(status: status);
-      final orders = result['orders'] as List<Map<String, dynamic>>;
+      final rawOrders = result['orders'];
+      final orders = (rawOrders as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       // Always update with API result (even if empty), only use cache on failure
       _orders = orders;
-      _count = result['count'] as int;
+      final rawCount = result['count'];
+      _count = rawCount is int
+          ? rawCount
+          : rawCount is num
+              ? rawCount.toInt()
+              : orders.length;
       _fromCache = false;
       _error = null;
     } catch (e) {
+      print('Error fetching orders: $e');
       if (useCache && _orders.isNotEmpty) {
         // Use cached data if available
         _fromCache = true;
