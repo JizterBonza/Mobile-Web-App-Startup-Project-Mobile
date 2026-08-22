@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../constants/constants.dart';
 import '../provider/category_provider.dart';
 import '../screens/customer/productDetailScreen.dart';
+import '../utils/media_url.dart';
 
 /// Reusable marketplace product card.
 ///
@@ -72,9 +73,8 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itemImages = product['item_images'];
-    final hasImage =
-        itemImages != null && itemImages is List && itemImages.isNotEmpty;
+    final imageUrl = resolveItemImageUrl(product['item_images']);
+    final hasImage = imageUrl != null;
 
     final category = _resolveCategoryName(context);
     final shopName =
@@ -141,7 +141,7 @@ class ProductCard extends StatelessWidget {
                         color: AppColors.surfaceLight,
                         child: hasImage
                             ? Image.network(
-                                (itemImages as List).first.toString(),
+                                imageUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Center(

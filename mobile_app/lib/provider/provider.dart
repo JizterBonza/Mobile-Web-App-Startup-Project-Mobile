@@ -3,6 +3,7 @@ export 'badge_provider.dart';
 export 'cart_provider.dart';
 export 'category_provider.dart';
 export 'items_provider.dart';
+export 'klasrum_provider.dart';
 export 'message_provider.dart';
 export 'notification_provider.dart';
 export 'order_status_provider.dart';

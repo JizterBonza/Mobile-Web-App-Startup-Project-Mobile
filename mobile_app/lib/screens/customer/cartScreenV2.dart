@@ -3,6 +3,7 @@ import '../../constants/constants.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/cart_item_pricing.dart';
+import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'checkOutScreen.dart';
@@ -132,6 +133,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
         discountPercent: discountPercent,
         stock: stock,
         quantity: quantity,
+        imageUrl: resolveItemImageUrl(item['item_images']),
       ));
     }
 
@@ -408,6 +410,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
             'item_name': item.name,
             'item_price': item.price.toStringAsFixed(2),
             'item_quantity': item.stock.toString(),
+            if (item.imageUrl != null) 'item_images': item.imageUrl,
             if (item.discountedPrice != null)
               'discounted_price': item.discountedPrice!.toStringAsFixed(2),
             if (item.discountStatus != null)
@@ -1083,6 +1086,7 @@ class ItemData {
   final int stock;
   int quantity;
   bool isSelected;
+  final String? imageUrl;
 
   ItemData({
     required this.id,
@@ -1096,6 +1100,7 @@ class ItemData {
     required this.stock,
     required this.quantity,
     this.isSelected = false,
+    this.imageUrl,
   });
 
   CartItemPricing get pricing => CartItemPricing(

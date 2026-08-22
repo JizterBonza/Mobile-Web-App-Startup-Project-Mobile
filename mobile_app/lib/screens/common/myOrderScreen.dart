@@ -9,6 +9,7 @@ import '../../services/payment_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/media_url.dart';
 import '../../widgets/order/order_helpers.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'orderDetailScreen.dart';
@@ -326,16 +327,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
   String? _itemImageUrl(Map<String, dynamic> item) {
     final nestedItem = item['item'] as Map<String, dynamic>?;
-    final itemImage = nestedItem?['item_images'] ?? item['item_images'];
-    if (itemImage is List && itemImage.isNotEmpty) {
-      return itemImage.first.toString();
-    }
-    if (itemImage is String && itemImage.isNotEmpty) return itemImage;
-    final single = nestedItem?['item_image'] ?? item['item_image'];
-    if (single != null && single.toString().isNotEmpty) {
-      return single.toString();
-    }
-    return null;
+    final raw = nestedItem?['item_images'] ??
+        item['item_images'] ??
+        nestedItem?['item_image'] ??
+        item['item_image'];
+    return resolveItemImageUrl(raw);
   }
 
   Future<void> _openOrderDetails(Map<String, dynamic> order) async {

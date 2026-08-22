@@ -7,6 +7,7 @@ import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/voucher_service.dart';
 import '../../utils/cart_item_pricing.dart';
+import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerDashboardScreen.dart';
@@ -637,6 +638,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     final effectivePrice = pricing.effectivePrice;
     final quantity = item['quantity'] as int;
     final itemTotal = effectivePrice * quantity;
+    final imageUrl = resolveItemImageUrl(item['item_images']);
 
     return Container(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
@@ -651,7 +653,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product image placeholder
           Container(
             width: 60,
             height: 60,
@@ -662,11 +663,22 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 color: AppColors.primaryGreen.withOpacity(0.2),
               ),
             ),
-            child: Icon(
-              Icons.shopping_bag,
-              color: AppColors.primaryGreen,
-              size: 24,
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: imageUrl != null
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.shopping_bag,
+                      color: AppColors.primaryGreen,
+                      size: 24,
+                    ),
+                  )
+                : Icon(
+                    Icons.shopping_bag,
+                    color: AppColors.primaryGreen,
+                    size: 24,
+                  ),
           ),
           SizedBox(width: 12),
           // Product details

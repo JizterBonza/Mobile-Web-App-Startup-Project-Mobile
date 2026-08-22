@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/item_discount_fields.dart';
+import '../utils/media_url.dart';
 import '../services/api_service.dart';
 
 class FavoriteService extends ApiService {
@@ -53,6 +54,8 @@ class FavoriteService extends ApiService {
           final itemStatus = item['item_status']?.toString() ?? '';
           final inStock = itemStatus.toLowerCase() == 'active';
 
+          final imageUrl = resolveItemImageUrl(item['item_images']);
+
           favorites.add({
             // Favorite record fields
             "id": data['id'],
@@ -67,7 +70,7 @@ class FavoriteService extends ApiService {
             "item_quantity": item['item_quantity'],
             "item_description": item['item_description'],
             "category": item['category'],
-            "item_images": item['item_images'],
+            "item_images": imageUrl != null ? [imageUrl] : [],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
             "total_reviews": item['total_reviews'] ?? 0,

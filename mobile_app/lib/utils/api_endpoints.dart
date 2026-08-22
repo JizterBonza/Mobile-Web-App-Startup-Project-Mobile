@@ -96,10 +96,17 @@ class ApiEndpoints {
   static String get getConversation =>
       '$baseUrl/api/messages/{conversationId}';
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
+  static String get getShopMessageProducts =>
+      '$baseUrl/api/shops/{shopId}/messages/products';
   static String get broadcastingAuth => '$baseUrl/broadcasting/auth';
 
   // Badge endpoints
   static String get getBadges => '$baseUrl/api/badges';
+
+  // Klasrum endpoints
+  static String get getKlasrumCategories => '$baseUrl/api/klasrum/categories';
+  static String get getKlasrum => '$baseUrl/api/klasrum';
+  static String get getKlasrumContents => '$baseUrl/api/klasrum/contents';
 
   /// Proof of Delivery endpoints
   static String get uploadProofOfDelivery => '$baseUrl/api/pod/upload';

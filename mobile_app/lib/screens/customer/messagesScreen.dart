@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../constants/constants.dart';
 import '../../models/messageModel.dart';
+import '../../provider/badge_provider.dart';
 import '../../provider/message_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
@@ -18,6 +21,32 @@ class MessagesScreen extends StatefulWidget {
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
+  static const _weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   bool _isGuest = true;
   MessageProvider? _messageProvider;
 
@@ -39,6 +68,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _messageProvider?.unwatchConversations();
     super.dispose();
   }
@@ -60,37 +90,38 @@ class _MessagesScreenState extends State<MessagesScreen> {
         .fetchConversations();
   }
 
+  List<ConversationModel> _filteredConversations(
+    List<ConversationModel> conversations,
+  ) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return conversations;
+    return conversations.where((conversation) {
+      return conversation.shopName.toLowerCase().contains(query) ||
+          conversation.lastMessage.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  String _formatClock(DateTime timestamp) {
+    final hour = timestamp.hour % 12 == 0 ? 12 : timestamp.hour % 12;
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final period = timestamp.hour >= 12 ? 'PM' : 'AM';
+    return '$hour.$minute $period';
+  }
+
   String _formatTimestamp(DateTime? timestamp) {
     if (timestamp == null) return '';
+    final local = timestamp.toLocal();
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(local.year, local.month, local.day);
+    final difference = today.difference(date).inDays;
 
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
+    if (difference == 0) return _formatClock(local);
+    if (difference == 1) return 'Yesterday';
+    if (difference > 1 && difference < 7) {
+      return _weekdays[local.weekday - 1];
     }
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return '${months[timestamp.month - 1]} ${timestamp.day}';
+    return '${_months[local.month - 1]} ${local.day}';
   }
 
   void _openConversation(ConversationModel conversation) {
@@ -113,153 +144,272 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
-      appBar: AppBar(
-        title: Text(
-          'Messages',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[900],
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[700]),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
-      body: Consumer<MessageProvider>(
-        builder: (context, provider, _) {
-          if (provider.isLoading && provider.conversations.isEmpty) {
-            return const ListRowsSkeleton(count: 8);
-          }
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
+          toolbarHeight: 64,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.white,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          title: _buildHeader(),
+        ),
+        body: Consumer<MessageProvider>(
+          builder: (context, provider, _) {
+            if (provider.isLoading && provider.conversations.isEmpty) {
+              return const ListRowsSkeleton(count: 8);
+            }
 
-          if (provider.error != null && provider.conversations.isEmpty) {
-            return _buildErrorState(provider.error!);
-          }
+            if (provider.error != null && provider.conversations.isEmpty) {
+              return _buildErrorState(provider.error!);
+            }
 
-          if (provider.conversations.isEmpty) {
+            final conversations =
+                _filteredConversations(provider.conversations);
+
+            if (provider.conversations.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: _fetchConversations,
+                color: AppColors.primaryGreen,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height - 220,
+                      child: const EmptyStateWidget(
+                        icon: Icons.chat_bubble_outline,
+                        message: 'No conversations yet',
+                        subtitle: 'Message a shop to start a conversation',
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            if (conversations.isEmpty) {
+              return const EmptyStateWidget(
+                icon: Icons.search_off,
+                message: 'No conversations found',
+                subtitle: 'Try a different shop name or message',
+              );
+            }
+
             return RefreshIndicator(
               onRefresh: _fetchConversations,
               color: AppColors.primaryGreen,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height - 220,
-                    child: const EmptyStateWidget(
-                      icon: Icons.chat_bubble_outline,
-                      message: 'No conversations yet',
-                      subtitle: 'Message a shop to start a conversation',
-                    ),
-                  ),
-                ],
+              child: ListView.separated(
+                itemCount: conversations.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.grey[200],
+                ),
+                itemBuilder: (context, index) {
+                  return _buildConversationTile(conversations[index]);
+                },
               ),
             );
-          }
-
-          return RefreshIndicator(
-            onRefresh: _fetchConversations,
-            color: AppColors.primaryGreen,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: provider.conversations.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                color: Colors.grey[200],
-                indent: 76,
-              ),
-              itemBuilder: (context, index) {
-                final conversation = provider.conversations[index];
-                return _buildConversationTile(conversation);
-              },
-            ),
-          );
-        },
+          },
+        ),
+        bottomNavigationBar: buildCustomerBottomNavigationBar(
+          context: context,
+          currentIndex: CustomerNavIndex.home,
+          isGuest: _isGuest,
+          onLoginSuccess: () {
+            _loadGuestState();
+            _fetchConversations();
+          },
+        ),
       ),
-      bottomNavigationBar: buildCustomerBottomNavigationBar(
-        context: context,
-        currentIndex: CustomerNavIndex.home,
-        isGuest: _isGuest,
-        onLoginSuccess: () {
-          _loadGuestState();
-          _fetchConversations();
-        },
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Row(
+        children: [
+          _buildBackButton(),
+          const SizedBox(width: 12),
+          Expanded(child: _buildSearchField()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return Material(
+      color: const Color(0xFFF3F4F6),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => Navigator.of(context).maybePop(),
+        child: const SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.chevron_left,
+            size: 26,
+            color: Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return SizedBox(
+      height: 44,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value),
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
+        cursorColor: AppColors.primaryGreen,
+        decoration: InputDecoration(
+          hintText: 'Search Conversation',
+          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+          prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey[400]),
+          prefixIconConstraints: const BoxConstraints(minWidth: 44),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.close, size: 18, color: Colors.grey[500]),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: const BorderSide(color: AppColors.primaryGreen),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildConversationTile(ConversationModel conversation) {
     final unread = conversation.unread;
-    final initial = conversation.shopName.isNotEmpty
-        ? conversation.shopName[0].toUpperCase()
-        : 'S';
     final preview = conversation.lastMessage.isNotEmpty
         ? conversation.lastMessage
         : 'No messages yet';
+    final showCheck = !unread && conversation.lastMessageSide == 'outgoing';
+    final badgeLabel =
+        BadgeProvider.formatBadgeCount(conversation.displayUnreadCount);
 
-    return ListTile(
+    return InkWell(
       onTap: () => _openConversation(conversation),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: CircleAvatar(
-        radius: 24,
-        backgroundColor: AppColors.primaryGreen.withOpacity(0.12),
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: AppColors.primaryGreen,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      title: Text(
-        conversation.shopName.isNotEmpty ? conversation.shopName : 'Shop',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
-          fontSize: 16,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          preview,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: unread ? FontWeight.w600 : FontWeight.normal,
-            color: unread ? AppColors.textPrimary : AppColors.textSecondary,
-          ),
-        ),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            _formatTimestamp(conversation.lastMessageAt),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: unread ? FontWeight.w700 : FontWeight.normal,
-              color: unread ? AppColors.primaryGreen : Colors.grey[500],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            SvgPicture.asset(
+              'assets/icons/Store.svg',
+              width: 52,
+              height: 52,
             ),
-          ),
-          if (unread) ...[
-            const SizedBox(height: 6),
-            Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryGreen,
-                shape: BoxShape.circle,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    conversation.shopName.isNotEmpty
+                        ? conversation.shopName
+                        : 'Shop',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 12),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _formatTimestamp(conversation.lastMessageAt),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+                    color: unread
+                        ? AppColors.primaryGreen
+                        : Colors.grey[500],
+                  ),
+                ),
+                if (unread && badgeLabel != null) ...[
+                  const SizedBox(height: 6),
+                  _buildUnreadBadge(badgeLabel),
+                ] else if (showCheck) ...[
+                  const SizedBox(height: 6),
+                  Icon(
+                    Icons.check,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ],
+            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnreadBadge(String label) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
       ),
     );
   }

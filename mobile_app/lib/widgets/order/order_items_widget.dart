@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
+import '../../utils/media_url.dart';
 import 'order_helpers.dart';
 
 class OrderItemsWidget extends StatelessWidget {
@@ -92,10 +93,9 @@ class OrderItemsWidget extends StatelessWidget {
         nestedItem?['item_price'] ??
         item['price_at_purchase'] ??
         0;
-    final itemImage = nestedItem?['item_images'] ?? item['item_images'];
-    final hasImage = itemImage != null &&
-        itemImage is List &&
-        (itemImage as List).isNotEmpty;
+    final imageUrl = resolveItemImageUrl(
+      nestedItem?['item_images'] ?? item['item_images'],
+    );
 
     return Column(
       children: [
@@ -115,11 +115,11 @@ class OrderItemsWidget extends StatelessWidget {
                     color: AppColors.primaryGreen.withOpacity(0.2),
                   ),
                 ),
-                child: hasImage
+                child: imageUrl != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
-                          (itemImage as List).first.toString(),
+                          imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Icon(
