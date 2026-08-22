@@ -32,6 +32,18 @@ Map<String, dynamic> _asMap(dynamic value) {
   return <String, dynamic>{};
 }
 
+/// Inbox `outgoing` when the last sender is the customer; otherwise `incoming`.
+String? _parseLastMessageSide(Map json) {
+  final explicit = _readString(json, ['last_message_side', 'lastMessageSide']);
+  if (explicit.isNotEmpty) return explicit;
+
+  final sender = _asMap(json['last_sender'] ?? json['lastSender']);
+  if (sender.isEmpty) return null;
+  final role = _readString(sender, ['role']).toLowerCase();
+  if (role.isEmpty) return null;
+  return role == 'customer' ? 'outgoing' : 'incoming';
+}
+
 /// Conversation row from GET /api/messages (`conversations` array).
 class ConversationModel {
   final dynamic id;
@@ -40,6 +52,8 @@ class ConversationModel {
   final String lastMessage;
   final DateTime? lastMessageAt;
   final bool unread;
+  final int unreadCount;
+  final String? lastMessageSide;
 
   ConversationModel({
     required this.id,
@@ -48,16 +62,27 @@ class ConversationModel {
     required this.lastMessage,
     this.lastMessageAt,
     this.unread = false,
+    this.unreadCount = 0,
+    this.lastMessageSide,
   });
 
+  /// Count shown on the inbox badge. Falls back to 1 when unread but count is missing.
+  int get displayUnreadCount {
+    if (!unread) return 0;
+    return unreadCount > 0 ? unreadCount : 1;
+  }
+
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
+    final unread = _parseBool(json['unread']);
     return ConversationModel(
       id: json['id'],
       shopId: json['shop_id'],
       shopName: _readString(json, ['shop_name']),
       lastMessage: _readString(json, ['last_message']),
       lastMessageAt: _parseDate(json['last_message_at']),
-      unread: _parseBool(json['unread']),
+      unread: unread,
+      unreadCount: _parseInt(json['unread_count'] ?? json['unreadCount']) ?? 0,
+      lastMessageSide: _parseLastMessageSide(json),
     );
   }
 
@@ -68,6 +93,8 @@ class ConversationModel {
     String? lastMessage,
     DateTime? lastMessageAt,
     bool? unread,
+    int? unreadCount,
+    String? lastMessageSide,
   }) {
     return ConversationModel(
       id: id ?? this.id,
@@ -76,6 +103,8 @@ class ConversationModel {
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       unread: unread ?? this.unread,
+      unreadCount: unreadCount ?? this.unreadCount,
+      lastMessageSide: lastMessageSide ?? this.lastMessageSide,
     );
   }
 }
@@ -180,7 +209,204 @@ class MessageAttachmentModel {
   }
 }
 
-/// Thread item: date separator (`type: date`) or a chat bubble (`type: text`).
+String _resolveMediaUrl(String url) {
+  if (url.isEmpty) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  final base = Url.getUrl().replaceAll(RegExp(r'/+$'), '');
+  final path = url.startsWith('/') ? url : '/$url';
+  return '$base$path';
+}
+
+String _formatPeso(dynamic value) {
+  if (value == null) return '';
+  final raw = value.toString().trim();
+  if (raw.isEmpty || raw == 'null') return '';
+  final parsed = value is num
+      ? value.toDouble()
+      : double.tryParse(raw.replaceAll(',', '').replaceAll('₱', ''));
+  if (parsed == null) return raw.startsWith('₱') ? raw : '₱$raw';
+  if (parsed == parsed.roundToDouble()) return '₱${parsed.toInt()}';
+  return '₱${parsed.toStringAsFixed(2)}';
+}
+
+String? _firstImageUrl(Map json) {
+  final direct = _readString(json, [
+    'image_url',
+    'image',
+    'thumbnail_url',
+    'thumbnail',
+    'photo',
+  ]);
+  if (direct.isNotEmpty) return _resolveMediaUrl(direct);
+
+  for (final key in ['item_images', 'images', 'photos']) {
+    final raw = json[key];
+    if (raw is! List || raw.isEmpty) continue;
+    final first = raw.first;
+    if (first is String && first.trim().isNotEmpty) {
+      return _resolveMediaUrl(first.trim());
+    }
+    if (first is Map) {
+      final nested = _readString(first, ['url', 'path', 'src', 'image']);
+      if (nested.isNotEmpty) return _resolveMediaUrl(nested);
+    }
+  }
+  return null;
+}
+
+/// Variation option on a compact shop product (picker).
+class MessageProductVariation {
+  final dynamic id;
+  final String name;
+  final String? priceLabel;
+  final String? originalPriceLabel;
+  final String? imageUrl;
+
+  MessageProductVariation({
+    required this.id,
+    required this.name,
+    this.priceLabel,
+    this.originalPriceLabel,
+    this.imageUrl,
+  });
+
+  factory MessageProductVariation.fromJson(Map<String, dynamic> json) {
+    final name = _readString(json, ['name', 'variation', 'label', 'title']);
+    final price = _formatPeso(
+      json['effective_price'] ?? json['item_price'] ?? json['price'],
+    );
+    final original = _formatPeso(
+      json['original_price'] ??
+          json['compare_at_price'] ??
+          json['item_price_original'],
+    );
+    return MessageProductVariation(
+      id: json['item_id'] ?? json['id'],
+      name: name.isEmpty ? 'Variation' : name,
+      priceLabel: price.isEmpty ? null : price,
+      originalPriceLabel:
+          original.isNotEmpty && original != price ? original : null,
+      imageUrl: _firstImageUrl(json),
+    );
+  }
+}
+
+/// Compact product from the picker API or a thread `type: product` snapshot.
+class MessageProductSnapshot {
+  final dynamic id;
+  final String name;
+  final String? imageUrl;
+  final String? priceLabel;
+  final String? originalPriceLabel;
+  final String? variationLabel;
+  final List<MessageProductVariation> variations;
+
+  MessageProductSnapshot({
+    required this.id,
+    required this.name,
+    this.imageUrl,
+    this.priceLabel,
+    this.originalPriceLabel,
+    this.variationLabel,
+    this.variations = const [],
+  });
+
+  bool get hasDiscount =>
+      originalPriceLabel != null &&
+      originalPriceLabel!.isNotEmpty &&
+      originalPriceLabel != priceLabel;
+
+  factory MessageProductSnapshot.fromJson(Map<String, dynamic> json) {
+    final nested = json['product'] is Map
+        ? _asMap(json['product'])
+        : json['item'] is Map
+            ? _asMap(json['item'])
+            : json;
+    final name = _readString(nested, ['item_name', 'name', 'title']);
+    final price = _formatPeso(
+      nested['effective_price'] ?? nested['item_price'] ?? nested['price'],
+    );
+    final original = _formatPeso(
+      nested['original_price'] ??
+          nested['compare_at_price'] ??
+          nested['item_original_price'],
+    );
+    final variations = <MessageProductVariation>[];
+    final rawVariations =
+        nested['variations'] ?? nested['variants'] ?? nested['options'];
+    if (rawVariations is List) {
+      for (final item in rawVariations) {
+        if (item is Map) {
+          variations.add(
+            MessageProductVariation.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+    return MessageProductSnapshot(
+      id: nested['item_id'] ?? nested['id'] ?? json['item_id'] ?? json['id'],
+      name: name.isEmpty ? 'Product' : name,
+      imageUrl: _firstImageUrl(nested) ?? _firstImageUrl(json),
+      priceLabel: price.isEmpty ? null : price,
+      originalPriceLabel:
+          original.isNotEmpty && original != price ? original : null,
+      variationLabel: _readString(nested, [
+        'variation',
+        'variant',
+        'option',
+        'size',
+        'unit',
+        'volume',
+        'subtitle',
+        'item_size',
+      ]),
+      variations: variations,
+    );
+  }
+}
+
+List<MessageProductSnapshot> parseMessageProductList(dynamic json) {
+  List<dynamic> raw = const [];
+  if (json is List) {
+    raw = json;
+  } else if (json is Map) {
+    if (json['products'] is List) {
+      raw = json['products'] as List;
+    } else if (json['items'] is List) {
+      raw = json['items'] as List;
+    } else if (json['data'] is List) {
+      raw = json['data'] as List;
+    } else if (json['data'] is Map) {
+      final data = _asMap(json['data']);
+      if (data['products'] is List) {
+        raw = data['products'] as List;
+      } else if (data['items'] is List) {
+        raw = data['items'] as List;
+      }
+    }
+  }
+
+  return raw
+      .whereType<Map>()
+      .map((item) => MessageProductSnapshot.fromJson(
+            Map<String, dynamic>.from(item),
+          ))
+      .toList();
+}
+
+MessageProductSnapshot? _parseProductSnapshot(Map<String, dynamic> json) {
+  final type = _readString(json, ['type'], 'text').toLowerCase();
+  final raw = json['product'] ?? json['item'] ?? json['snapshot'];
+  if (raw is Map) {
+    return MessageProductSnapshot.fromJson(Map<String, dynamic>.from(raw));
+  }
+  if (type == 'product') {
+    return MessageProductSnapshot.fromJson(json);
+  }
+  return null;
+}
+
+/// Thread item: date separator (`type: date`), text bubble, or product card.
 class MessageModel {
   final dynamic id;
   final String type;
@@ -189,8 +415,10 @@ class MessageModel {
   final String sentBy;
   final String status;
   final String body;
+  final String caption;
   final String label;
   final List<MessageAttachmentModel> attachments;
+  final MessageProductSnapshot? product;
 
   MessageModel({
     required this.id,
@@ -200,16 +428,63 @@ class MessageModel {
     required this.sentBy,
     required this.status,
     required this.body,
+    this.caption = '',
     required this.label,
     this.attachments = const [],
+    this.product,
   });
 
   bool get isDate => type == 'date';
   bool get isOutgoing => side == 'outgoing';
+  bool get isProduct => type == 'product' || product != null;
+  bool get isImages => type.toLowerCase() == 'images';
+  bool get isFile => type.toLowerCase() == 'file';
+
+  /// Text shown in the bubble. Image messages expose caption, not body.
+  String get displayText {
+    if (isImages) return caption;
+    if (body.isNotEmpty) return body;
+    return caption;
+  }
+
+  String get previewText {
+    if (displayText.isNotEmpty) return displayText;
+    if (isImages || attachments.any((item) => item.isImage)) {
+      return 'Sent a photo';
+    }
+    if (isFile || attachments.isNotEmpty) {
+      final name = attachments.first.name;
+      return name.isNotEmpty ? name : 'Sent a file';
+    }
+    if (isProduct) return product?.name ?? 'Product';
+    return '';
+  }
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     final type = _readString(json, ['type'], 'text');
+    final caption = _readString(json, ['caption']);
+    final body = _readString(json, ['body']);
     final attachments = <MessageAttachmentModel>[];
+
+    final rawImages = json['images'];
+    if (rawImages is List) {
+      for (final item in rawImages) {
+        if (item is String && item.trim().isNotEmpty) {
+          final url = item.trim();
+          attachments.add(
+            MessageAttachmentModel(
+              url: url,
+              name: url.split('/').last.split('?').first,
+              mimeType: 'image/jpeg',
+            ),
+          );
+        } else if (item is Map) {
+          attachments.add(
+            MessageAttachmentModel.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
 
     final rawAttachments = json['attachments'] ?? json['files'] ?? json['media'];
     if (rawAttachments is List) {
@@ -248,9 +523,11 @@ class MessageModel {
       time: _readString(json, ['time']),
       sentBy: _readString(json, ['sent_by']),
       status: _readString(json, ['status']),
-      body: _readString(json, ['body']),
+      body: body,
+      caption: caption,
       label: _readString(json, ['label']),
       attachments: attachments,
+      product: _parseProductSnapshot(json),
     );
   }
 }

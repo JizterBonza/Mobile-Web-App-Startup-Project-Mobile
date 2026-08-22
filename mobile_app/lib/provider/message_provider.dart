@@ -192,6 +192,7 @@ class MessageProvider with ChangeNotifier {
     required dynamic shopId,
     String? body,
     List<File> attachments = const [],
+    dynamic itemId,
   }) async {
     _isLoading = true;
     _error = null;
@@ -202,12 +203,16 @@ class MessageProvider with ChangeNotifier {
         shopId: shopId,
         body: body,
         attachments: attachments,
+        itemId: itemId,
       );
       if (result['success'] == true && result['data'] != null) {
         _activeThread = _mergeThread(result['data'] as ConversationThread);
         _error = null;
         _markConversationRead(_activeThread!.conversation.id);
-        _syncConversationPreview(_activeThread!);
+        _syncConversationPreview(
+          _activeThread!,
+          bumpTimestamp: itemId != null,
+        );
         if (_liveEnabled) {
           await _reverb.subscribeConversation(_activeThread!.conversation.id);
         }
@@ -241,6 +246,7 @@ class MessageProvider with ChangeNotifier {
     required dynamic conversationId,
     String? body,
     List<File> attachments = const [],
+    dynamic itemId,
   }) async {
     _isSending = true;
     _error = null;
@@ -251,6 +257,7 @@ class MessageProvider with ChangeNotifier {
         conversationId: conversationId,
         body: body,
         attachments: attachments,
+        itemId: itemId,
       );
       if (result['success'] == true && result['data'] != null) {
         _activeThread = _mergeThread(result['data'] as ConversationThread);
@@ -267,6 +274,17 @@ class MessageProvider with ChangeNotifier {
       _isSending = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> sendProductMessage({
+    required dynamic shopId,
+    dynamic conversationId,
+    required dynamic itemId,
+  }) async {
+    if (conversationId != null) {
+      return sendMessage(conversationId: conversationId, itemId: itemId);
+    }
+    return startOrResumeConversation(shopId: shopId, itemId: itemId);
   }
 
   Future<bool> refreshActiveThread() async {
@@ -314,7 +332,7 @@ class MessageProvider with ChangeNotifier {
     if (index < 0) return;
     final current = _conversations[index];
     if (!current.unread) return;
-    _conversations[index] = current.copyWith(unread: false);
+    _conversations[index] = current.copyWith(unread: false, unreadCount: 0);
     if (_unreadCount > 0) _unreadCount -= 1;
   }
 
@@ -335,7 +353,8 @@ class MessageProvider with ChangeNotifier {
     final prevLast = current.messages.last;
     return nextLast.id?.toString() == prevLast.id?.toString() &&
         nextLast.status == prevLast.status &&
-        nextLast.body == prevLast.body;
+        nextLast.displayText == prevLast.displayText &&
+        nextLast.attachments.length == prevLast.attachments.length;
   }
 
   bool _sameConversationList(
@@ -349,6 +368,8 @@ class MessageProvider with ChangeNotifier {
       if (a.id?.toString() != b.id?.toString()) return false;
       if (a.lastMessage != b.lastMessage) return false;
       if (a.unread != b.unread) return false;
+      if (a.unreadCount != b.unreadCount) return false;
+      if (a.lastMessageSide != b.lastMessageSide) return false;
       if (a.lastMessageAt != b.lastMessageAt) return false;
     }
     return true;
@@ -370,13 +391,22 @@ class MessageProvider with ChangeNotifier {
     }
 
     String lastMessage = existing?.lastMessage ?? '';
+    String? lastMessageSide = existing?.lastMessageSide;
     for (final message in thread.messages.reversed) {
       if (message.isDate) continue;
-      if (message.body.isNotEmpty) {
-        lastMessage = message.body;
-        break;
+      if (message.displayText.isEmpty &&
+          message.attachments.isEmpty &&
+          !message.isProduct) {
+        continue;
       }
+      final preview = message.previewText;
+      if (preview.isNotEmpty) {
+        lastMessage = preview;
+      }
+      if (message.side.isNotEmpty) lastMessageSide = message.side;
+      break;
     }
+    if (bumpTimestamp) lastMessageSide = 'outgoing';
 
     _upsertConversation(
       ConversationModel(
@@ -390,6 +420,8 @@ class MessageProvider with ChangeNotifier {
             ? DateTime.now()
             : (existing?.lastMessageAt ?? DateTime.now()),
         unread: false,
+        unreadCount: 0,
+        lastMessageSide: lastMessageSide,
       ),
     );
   }

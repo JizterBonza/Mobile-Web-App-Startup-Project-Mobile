@@ -7,8 +7,8 @@ import '../provider/badge_provider.dart';
 import '../screens/common/myOrderScreen.dart';
 import '../screens/common/notificationScreen.dart';
 import '../screens/customer/customerDashboardScreen.dart';
-import '../screens/customer/customerPlaceholderScreen.dart';
 import '../screens/customer/favoriteScreen.dart';
+import '../screens/customer/klasrumScreen.dart';
 import '../widgets/login_dialog.dart';
 
 /// Bottom navigation indices for the customer shell.
@@ -266,11 +266,7 @@ void handleCustomerNavTap(
 
   final Widget screen = switch (targetIndex) {
     CustomerNavIndex.favorites => const FavoriteScreen(),
-    CustomerNavIndex.klasrum => const CustomerPlaceholderScreen(
-        title: 'Klasrum',
-        icon: Icons.menu_book_outlined,
-        navIndex: CustomerNavIndex.klasrum,
-      ),
+    CustomerNavIndex.klasrum => const KlasrumScreen(),
     CustomerNavIndex.orders => const MyOrderScreen(showCustomerBottomNav: true),
     CustomerNavIndex.notifs =>
       const NotificationScreen(showCustomerBottomNav: true),

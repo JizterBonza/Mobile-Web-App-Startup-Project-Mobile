@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -78,10 +79,46 @@ class MessageService extends ApiService {
     debugPrint('DEBUG [MessageService] $label status=$status body=$preview');
   }
 
+  String _attachmentFilename(File file) {
+    final name = file.path.split(Platform.pathSeparator).last;
+    if (name.contains('.')) return name;
+
+    final ext = file.path.split('.').last.toLowerCase();
+    if (allowedExtensions.contains(ext)) {
+      return '$name.$ext';
+    }
+    return '$name.jpg';
+  }
+
+  Future<MultipartFile> _dioAttachment(File file, int index) async {
+    final filename = _attachmentFilename(file);
+    if (!file.existsSync()) {
+      throw Exception('Attachment not found: $filename');
+    }
+
+    final size = await file.length();
+    if (size == 0) {
+      throw Exception('Attachment is empty: $filename');
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        'DEBUG [MessageService] attachment[$index] '
+        'path=${file.path} name=$filename bytes=$size',
+      );
+    }
+
+    return MultipartFile.fromFile(
+      file.path,
+      filename: filename,
+    );
+  }
+
   Map<String, dynamic>? _validatePayload({
     String? body,
     required List<File> attachments,
     required bool requireContent,
+    dynamic itemId,
   }) {
     final trimmed = body?.trim() ?? '';
     if (trimmed.length > maxBodyLength) {
@@ -91,7 +128,10 @@ class MessageService extends ApiService {
         'data': null,
       };
     }
-    if (requireContent && trimmed.isEmpty && attachments.isEmpty) {
+    if (requireContent &&
+        trimmed.isEmpty &&
+        attachments.isEmpty &&
+        itemId == null) {
       return {
         'success': false,
         'message': 'Message cannot be empty.',
@@ -205,56 +245,88 @@ class MessageService extends ApiService {
     required String successFallback,
     required String failureFallback,
   }) async {
-    final headers = await _authHeaders(jsonContent: false);
-    if (headers == null) return _unauthenticated();
-
-    final request = http.MultipartRequest('POST', Uri.parse(url));
-    request.headers.addAll(headers);
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) return _unauthenticated();
 
     final trimmed = body?.trim() ?? '';
+    final formData = FormData();
+
     if (trimmed.isNotEmpty) {
-      request.fields['body'] = trimmed;
+      formData.fields.add(MapEntry('body', trimmed));
     }
 
-    for (final file in attachments) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
+    for (var i = 0; i < attachments.length; i++) {
+      formData.files.add(
+        MapEntry(
           'attachments[]',
-          file.path,
-          filename: file.path.split(Platform.pathSeparator).last,
+          await _dioAttachment(attachments[i], i),
         ),
       );
     }
 
-    final streamed = await request.send().timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        throw TimeoutException('Upload timed out after 45 seconds');
-      },
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 45),
+        receiveTimeout: const Duration(seconds: 45),
+        sendTimeout: const Duration(seconds: 45),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        validateStatus: (_) => true,
+      ),
     );
-    final response = await http.Response.fromStream(streamed);
-    _debugLog(label, response.statusCode, response.body);
-    final responseData = _decodeBody(response.body);
 
-    if (successCodes.contains(response.statusCode)) {
+    try {
+      final response = await dio.post<dynamic>(url, data: formData);
+      final status = response.statusCode ?? 0;
+      final responseData = _normalizeResponseData(response.data);
+      _debugLog(label, status, responseData?.toString() ?? '');
+
+      if (successCodes.contains(status)) {
+        return {
+          'success': true,
+          'message': responseData is Map
+              ? (responseData['message']?.toString() ?? successFallback)
+              : successFallback,
+          'data': ConversationThread.fromJson(responseData ?? {}),
+        };
+      }
+
       return {
-        'success': true,
-        'message': responseData is Map
-            ? (responseData['message']?.toString() ?? successFallback)
-            : successFallback,
-        'data': ConversationThread.fromJson(responseData ?? {}),
+        'success': false,
+        'message': _errorMessageFrom(
+          responseData,
+          _fallbackForStatus(status, failureFallback),
+        ),
+        'data': null,
+        'statusCode': status,
+      };
+    } on DioException catch (e) {
+      final status = e.response?.statusCode ?? 0;
+      final responseData = _normalizeResponseData(e.response?.data);
+      _debugLog(
+        label,
+        status,
+        responseData?.toString() ?? e.message ?? '',
+      );
+      return {
+        'success': false,
+        'message': _errorMessageFrom(
+          responseData,
+          e.message ?? failureFallback,
+        ),
+        'data': null,
+        'statusCode': status,
       };
     }
+  }
 
-    return {
-      'success': false,
-      'message': _errorMessageFrom(
-        responseData,
-        _fallbackForStatus(response.statusCode, failureFallback),
-      ),
-      'data': null,
-      'statusCode': response.statusCode,
-    };
+  dynamic _normalizeResponseData(dynamic data) {
+    if (data == null) return null;
+    if (data is Map || data is List) return data;
+    if (data is String) return _decodeBody(data);
+    return data;
   }
 
   /// GET /api/messages — customer's conversations, newest first.
@@ -362,22 +434,94 @@ class MessageService extends ApiService {
     }
   }
 
+  /// GET /api/shops/{shopId}/messages/products?search=
+  Future<Map<String, dynamic>> fetchShopMessageProducts({
+    required dynamic shopId,
+    String? search,
+  }) async {
+    try {
+      final headers = await _authHeaders();
+      if (headers == null) return _unauthenticated();
+
+      final uri = Uri.parse(
+        ApiEndpoints.getShopMessageProducts.replaceAll(
+          '{shopId}',
+          shopId.toString(),
+        ),
+      ).replace(
+        queryParameters: {
+          if ((search ?? '').trim().isNotEmpty) 'search': search!.trim(),
+        },
+      );
+
+      final response = await http.get(uri, headers: headers).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 15 seconds');
+        },
+      );
+
+      _debugLog('GET shop message products', response.statusCode, response.body);
+      final responseData = _decodeBody(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': 'Products fetched',
+          'data': parseMessageProductList(responseData),
+        };
+      }
+
+      return {
+        'success': false,
+        'message': _errorMessageFrom(
+          responseData,
+          _fallbackForStatus(
+            response.statusCode,
+            'Failed to load products',
+          ),
+        ),
+        'data': null,
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString(),
+        'data': null,
+      };
+    }
+  }
+
   /// POST /api/shops/{shopId}/messages — start or resume a conversation.
   Future<Map<String, dynamic>> startConversation({
     required dynamic shopId,
     String? body,
     List<File> attachments = const [],
+    dynamic itemId,
   }) async {
     try {
       final validation = _validatePayload(
         body: body,
         attachments: attachments,
         requireContent: false,
+        itemId: itemId,
       );
       if (validation != null) return validation;
 
       final url = ApiEndpoints.startShopConversation
           .replaceAll('{shopId}', shopId.toString());
+
+      if (itemId != null) {
+        return await _postJson(
+          url: url,
+          payload: {'item_id': itemId},
+          label: 'POST start conversation (product)',
+          successCodes: {200, 201},
+          successFallback: 'Conversation started',
+          failureFallback: 'Failed to start conversation',
+        );
+      }
 
       if (attachments.isEmpty) {
         final payload = <String, dynamic>{};
@@ -458,22 +602,35 @@ class MessageService extends ApiService {
     }
   }
 
-  /// POST /api/messages/{conversationId} — send a message (body and/or files).
+  /// POST /api/messages/{conversationId} — send a message (body, files, or item).
   Future<Map<String, dynamic>> sendMessage({
     required dynamic conversationId,
     String? body,
     List<File> attachments = const [],
+    dynamic itemId,
   }) async {
     try {
       final validation = _validatePayload(
         body: body,
         attachments: attachments,
         requireContent: true,
+        itemId: itemId,
       );
       if (validation != null) return validation;
 
       final url = ApiEndpoints.sendMessage
           .replaceAll('{conversationId}', conversationId.toString());
+
+      if (itemId != null) {
+        return await _postJson(
+          url: url,
+          payload: {'item_id': itemId},
+          label: 'POST send product',
+          successCodes: {200, 201},
+          successFallback: 'Message sent',
+          failureFallback: 'Failed to send message',
+        );
+      }
 
       if (attachments.isEmpty) {
         return await _postJson(

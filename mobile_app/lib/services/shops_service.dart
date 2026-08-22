@@ -4,10 +4,33 @@ import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/url.dart';
 import '../utils/item_discount_fields.dart';
+import '../utils/media_url.dart';
 import '../services/api_service.dart';
 
 /// Service for managing shops/stores with API fetching
 class ShopsService extends ApiService {
+  Map<String, dynamic> _mapShop(Map shop) {
+    return {
+      "id": shop['id'],
+      "agrivet_id": shop['agrivet_id'],
+      "zone_id": shop['zone_id'],
+      "shop_name": shop['shop_name'],
+      "shop_description": shop['shop_description'],
+      "shop_address": shop['shop_address'],
+      "shop_lat": shop['shop_lat'],
+      "shop_long": shop['shop_long'],
+      "contact_number": shop['contact_number'],
+      "shop_logo": resolveShopMediaUrl(shop['logo_url']),
+      "shop_banner": resolveShopMediaUrl(shop['banner_url']),
+      "shop_rating": shop['average_rating'],
+      "total_reviews": shop['total_reviews'] ?? 0,
+      "shop_status": shop['shop_status'],
+      "operating_days": shop['operating_days'],
+      "operating_hours": shop['operating_hours'],
+      "created_at": shop['created_at'],
+    };
+  }
+
   /// Fetch shops from API with authentication
   Future<List<Map<String, dynamic>>> _fetchShopsFromAPI({int? limit}) async {
     String url = ApiEndpoints.getShops;
@@ -32,25 +55,9 @@ class ShopsService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
       if (data['success'] == true && data['data'] != null) {
-        return (data['data'] as List).map((shop) {
-          return {
-            "id": shop['id'],
-            "agrivet_id": shop['agrivet_id'],
-            "zone_id": shop['zone_id'],
-            "shop_name": shop['shop_name'],
-            "shop_description": shop['shop_description'],
-            "shop_address": shop['shop_address'],
-            "shop_lat": shop['shop_lat'],
-            "shop_long": shop['shop_long'],
-            "contact_number": shop['contact_number'],
-            "shop_logo": shop['logo_url'], // Map logo_url to shop_logo
-            "shop_rating":
-                shop['average_rating'], // Map average_rating to shop_rating
-            "total_reviews": shop['total_reviews'] ?? 0,
-            "shop_status": shop['shop_status'],
-            "created_at": shop['created_at'],
-          };
-        }).toList();
+        return (data['data'] as List)
+            .map((shop) => _mapShop(shop as Map))
+            .toList();
       }
     } else {
       throw Exception('Failed to load shops: ${response.statusCode}');
@@ -126,20 +133,7 @@ class ShopsService extends ApiService {
         //print('Parsed ${parsedItems.length} items from shop response');
 
         final result = {
-          "id": shop['id'],
-          "agrivet_id": shop['agrivet_id'],
-          "shop_name": shop['shop_name'],
-          "shop_description": shop['shop_description'],
-          "shop_address": shop['shop_address'],
-          "shop_lat": shop['shop_lat'],
-          "shop_long": shop['shop_long'],
-          "contact_number": shop['contact_number'],
-          "shop_logo": shop['logo_url'], // Map logo_url to shop_logo
-          "shop_rating":
-              shop['average_rating'], // Map average_rating to shop_rating
-          "total_reviews": shop['total_reviews'] ?? 0,
-          "shop_status": shop['shop_status'],
-          "created_at": shop['created_at'],
+          ..._mapShop(shop),
           "items": parsedItems,
         };
 
@@ -287,6 +281,8 @@ class ShopsService extends ApiService {
         return {
           'shop_id': data['shop_id'] ?? shopId,
           'shop_name': data['shop_name'],
+          'shop_logo': resolveShopMediaUrl(data['logo_url']),
+          'shop_banner': resolveShopMediaUrl(data['banner_url']),
           'average_rating': data['average_rating'],
           'total_reviews': data['total_reviews'] ?? reviews.length,
           'reviews': reviews,

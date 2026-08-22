@@ -119,6 +119,23 @@ class _ShopScreenState extends State<ShopScreen> {
     }
   }
 
+  String _formatOperatingHours(String hours) {
+    final match = RegExp(
+      r'(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})',
+    ).firstMatch(hours);
+    if (match == null) return hours;
+
+    String formatPart(String hour, String minute) {
+      final h = int.tryParse(hour) ?? 0;
+      final period = h >= 12 ? 'PM' : 'AM';
+      final displayHour = h % 12 == 0 ? 12 : h % 12;
+      return '$displayHour:${minute.padLeft(2, '0')} $period';
+    }
+
+    return '${formatPart(match.group(1)!, match.group(2)!)} - '
+        '${formatPart(match.group(3)!, match.group(4)!)}';
+  }
+
   String _formatRating(dynamic rating) {
     if (rating == null) return '0.0';
     try {
@@ -554,13 +571,17 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   Widget _buildShopHeader() {
-    final shopLogo = _shopDetails?['shop_logo'];
-    final hasLogo = shopLogo != null && shopLogo.toString().isNotEmpty;
-    final shopBanner = _shopDetails?['shop_banner'];
-    final hasBanner = shopBanner != null && shopBanner.toString().isNotEmpty;
+    final shopLogo = _shopDetails?['shop_logo']?.toString();
+    final hasLogo = shopLogo != null && shopLogo.isNotEmpty;
+    final shopBanner = _shopDetails?['shop_banner']?.toString();
+    final hasBanner = shopBanner != null && shopBanner.isNotEmpty;
     final shopName = _shopDetails?['shop_name'] ?? widget.shopName ?? 'Shop';
     final shopAddress = _shopDetails?['shop_address']?.toString() ?? '';
     final contactNumber = _shopDetails?['contact_number']?.toString() ?? '';
+    final operatingHours =
+        _shopDetails?['operating_hours']?.toString().trim() ?? '';
+    final operatingDays =
+        _shopDetails?['operating_days']?.toString().trim() ?? '';
     final isOpen = _isShopOpen();
 
     return Stack(
@@ -582,7 +603,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           child: hasBanner
               ? Image.network(
-                  shopBanner.toString(),
+                  shopBanner,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
                       _buildFallbackBanner(),
@@ -627,7 +648,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         child: ClipOval(
                           child: hasLogo
                               ? Image.network(
-                                  shopLogo.toString(),
+                                  shopLogo,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Icon(
@@ -687,11 +708,16 @@ class _ShopScreenState extends State<ShopScreen> {
                     contactNumber,
                     onTap: () => _launchPhoneDialer(contactNumber),
                   ),
-                _buildInfoRow(
-                  Icons.access_time,
-                  '7:00 AM - 7:00 PM',
-                  subtitle: 'Monday - Sunday',
-                ),
+                if (operatingHours.isNotEmpty || operatingDays.isNotEmpty)
+                  _buildInfoRow(
+                    Icons.access_time,
+                    operatingHours.isNotEmpty
+                        ? _formatOperatingHours(operatingHours)
+                        : operatingDays,
+                    subtitle: operatingHours.isNotEmpty && operatingDays.isNotEmpty
+                        ? operatingDays
+                        : null,
+                  ),
                 SizedBox(height: 18),
 
                 // Action buttons

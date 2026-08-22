@@ -11,13 +11,13 @@ import '../../utils/customer_nav.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
-import 'customerPlaceholderScreen.dart';
 import 'messagesScreen.dart';
 import 'conversationScreen.dart';
 import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import '../common/myOrderScreen.dart';
 import 'favoriteScreen.dart';
+import 'klasrumScreen.dart';
 import 'productDetailScreen.dart';
 import 'shopScreen.dart';
 
@@ -75,6 +75,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       _loadOnSaleProducts();
       _loadFeaturedProducts();
       _loadSuggestedStores();
+      _loadKlasrumFeatured();
       _loadUserName().then((_) {
         if (!mounted) return;
         if (!_isGuest) {
@@ -331,6 +332,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
     });
   }
 
+  Future<void> _loadKlasrumFeatured() async {
+    final provider = Provider.of<KlasrumProvider>(context, listen: false);
+    await provider.fetchFeatured();
+  }
+
   String _formatPrice(dynamic price) {
     if (price == null) return '₱0.00';
 
@@ -427,6 +433,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       _loadOnSaleProducts(),
       _loadFeaturedProducts(),
       _loadSuggestedStores(),
+      _loadKlasrumFeatured(),
     ];
     if (!_isGuest) {
       refreshTasks.add(_loadBuyAgainProducts());
@@ -560,9 +567,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
   // Collapsing header geometry
   static const double _headerHeight = 68.0;
   static const double _heroBannerHeight = 250.0;
-  static const double _searchBarHeight = 45.0;
+  static const double _searchBarHeight = 40.0;
   static const double _searchBarWidthFactor = 0.9; // 90% of screen
-  static const double _searchBarOverlap = _searchBarHeight / 2;
+  /// Inset of the search bar above the hero bottom edge (keeps it on the photo
+  /// above the hero's rounded corners, matching the home mockup).
+  static const double _searchInsetFromHeroBottom = 14.0;
+  static const double _searchBarOverlap =
+      _searchBarHeight + _searchInsetFromHeroBottom;
   static const double _searchTopGap = 12.0; // gap below app bar when pinned
   static const double _categoriesHeight = 40.0;
   static const double _searchCategoriesGap = 12.0;
@@ -577,9 +588,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       _categoriesHeight +
       _categoriesBottomPad +
       _headerFadeHeight;
+  // Search sits fully on the hero, so no hang space below the banner.
   static const double _expandedHeaderExtent = _headerHeight +
       _heroBannerHeight +
-      _searchBarOverlap +
       _searchCategoriesGap +
       _categoriesHeight +
       _categoriesBottomPad +
@@ -606,7 +617,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
               _buildSuggestedStores(),
               const SizedBox(height: 24),
               _buildOnSaleSection(),
-              const SizedBox(height: 24),
               _buildCategoryItems(),
               _buildFeaturedProducts(),
               const SizedBox(height: 24),
@@ -877,66 +887,85 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       builder: (context, itemsProvider, child) {
         final isSearching = itemsProvider.isSearching;
 
-        return Container(
+        return SizedBox(
           height: _searchBarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
+          child: Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+            elevation: 0,
+            borderRadius: BorderRadius.circular(20),
+            shadowColor: Colors.black26,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocus,
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
-            textAlignVertical: TextAlignVertical.center,
-            decoration: InputDecoration(
-              hintText: 'Search items or stores...',
-              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
-              isDense: true,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-              prefixIconConstraints:
-                  const BoxConstraints(minWidth: 44, minHeight: 44),
-              suffixIconConstraints:
-                  const BoxConstraints(minWidth: 40, minHeight: 40),
-              prefixIcon: isSearching
-                  ? Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primaryGreen,
-                        ),
-                      ),
-                    )
-                  : Icon(Icons.search, color: Colors.grey[500], size: 20),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon:
-                          Icon(Icons.clear, color: Colors.grey[600], size: 20),
-                      onPressed: _clearSearch,
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
-                    )
-                  : null,
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                style: const TextStyle(fontSize: 13, color: Colors.black87),
+                textAlignVertical: TextAlignVertical.center,
+                decoration: InputDecoration(
+                  hintText: 'Search items or stores...',
+                  hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  prefixIcon: isSearching
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                        )
+                      : Icon(Icons.search, color: Colors.grey[500], size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: Colors.grey[600],
+                            size: 16,
+                          ),
+                          onPressed: _clearSearch,
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                        )
+                      : null,
+                ),
+                onTap: () {
+                  _scrollToPinSearchPanel();
+                  if (_searchController.text.trim().length >= 2) {
+                    setState(() => _showOverlay = true);
+                  }
+                },
+              ),
             ),
-            onTap: () {
-              _scrollToPinSearchPanel();
-              if (_searchController.text.trim().length >= 2) {
-                setState(() => _showOverlay = true);
-              }
-            },
           ),
         );
       },
@@ -1179,155 +1208,176 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
   }
 
   Widget _buildKlasrumSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Consumer<KlasrumProvider>(
+      builder: (context, provider, child) {
+        final featured = provider.featuredContent;
+        final title = featured?['title']?.toString().trim();
+        final description = featured?['description']?.toString().trim();
+        final coverUrl = featured?['cover_url']?.toString();
+        final displayTitle = (title != null && title.isNotEmpty)
+            ? title
+            : 'Your First Gamefowl: A Complete Beginner\'s Guide';
+        final displayDescription =
+            (description != null && description.isNotEmpty)
+                ? description
+                : 'Everything you need before raising your first rooster — housing, feeding, and health checks.';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SvgPicture.asset(
-              'assets/icons/klasrum-icon.svg',
-              height: 20,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Learn with Kalsmeyt',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: SizedBox(
-            height: 280,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
+            Row(
               children: [
-                Image.asset(
-                  'assets/images/manok.png',
-                  fit: BoxFit.cover,
+                SvgPicture.asset(
+                  'assets/icons/klasrum-icon.svg',
+                  height: 20,
+                  fit: BoxFit.contain,
                 ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.05),
-                        Colors.black.withOpacity(0.2),
-                        Colors.black.withOpacity(0.8),
-                      ],
-                      stops: const [0.0, 0.45, 1.0],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Spacer(),
-                      const Text(
-                        'Your First Gamefowl: A Complete Beginner\'s Guide',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Everything you need before raising your first rooster — housing, feeding, and health checks.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.85),
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  _createFadeRoute(
-                                    const CustomerPlaceholderScreen(
-                                      title: 'Klasrum',
-                                      icon: Icons.school_outlined,
-                                      navIndex: CustomerNavIndex.klasrum,
-                                    ),
-                                  ),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                padding: const EdgeInsets.only(
-                                  left: 16,
-                                  top: 8,
-                                  bottom: 8,
-                                  right: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.45),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'Learn More',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.accentAmber,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.accentAmber,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.chevron_right,
-                                        size: 18,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          SvgPicture.asset(
-                            'assets/icons/klasrum-wordmark.svg',
-                            height: 14,
-                            fit: BoxFit.contain,
-                          ),
-                        ],
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Text(
+                  'Learn with Kalsmeyt',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: SizedBox(
+                height: 280,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    coverUrl != null && coverUrl.isNotEmpty
+                        ? Image.network(
+                            coverUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/images/manok.png',
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/images/manok.png',
+                            fit: BoxFit.cover,
+                          ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.05),
+                            Colors.black.withOpacity(0.2),
+                            Colors.black.withOpacity(0.8),
+                          ],
+                          stops: const [0.0, 0.45, 1.0],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Spacer(),
+                          Text(
+                            displayTitle,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            displayDescription,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.85),
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      _createFadeRoute(const KlasrumScreen()),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Container(
+                                    padding: const EdgeInsets.only(
+                                      left: 16,
+                                      top: 8,
+                                      bottom: 8,
+                                      right: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.45),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'Learn More',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.accentAmber,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.accentAmber,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.chevron_right,
+                                            size: 18,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              SvgPicture.asset(
+                                'assets/icons/klasrum-wordmark.svg',
+                                height: 14,
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1336,6 +1386,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       builder: (context, itemsProvider, child) {
         final onSaleProducts = itemsProvider.onSaleItems;
         final isLoading = itemsProvider.isOnSaleLoading;
+
+        if (!isLoading && onSaleProducts.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1378,36 +1432,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                 imageHeight: 130,
                 padding: EdgeInsets.zero,
               )
-            else if (onSaleProducts.isEmpty)
-              Container(
-                height: 175,
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.local_offer_outlined,
-                        size: 48,
-                        color: Colors.grey[400],
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'No items on sale',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
             else
               SizedBox(
                 height: 288,
@@ -1424,6 +1448,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                   },
                 ),
               ),
+            const SizedBox(height: 24),
           ],
         );
       },
@@ -1798,6 +1823,34 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
     );
   }
 
+  Widget _buildStoreBannerImage(Map<String, dynamic> store) {
+    final bannerUrl = store['shop_banner']?.toString();
+    final fallback = Image.asset(
+      'assets/images/store_sample.png',
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: AppColors.primaryGreen.withOpacity(0.1),
+          child: Icon(
+            Icons.store,
+            color: AppColors.primaryGreen,
+            size: 48,
+          ),
+        );
+      },
+    );
+
+    if (bannerUrl == null || bannerUrl.isEmpty) {
+      return fallback;
+    }
+
+    return Image.network(
+      bannerUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => fallback,
+    );
+  }
+
   Widget _buildStoreSlide(Map<String, dynamic> store) {
     final shopRating = store['shop_rating'];
     final totalReviews = store['total_reviews'] ?? 0;
@@ -1819,20 +1872,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
           fit: StackFit.expand,
           children: [
             // Full-bleed store background image
-            Image.asset(
-              'assets/images/store_sample.png',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
-                  child: Icon(
-                    Icons.store,
-                    color: AppColors.primaryGreen,
-                    size: 48,
-                  ),
-                );
-              },
-            ),
+            _buildStoreBannerImage(store),
             // Gradient overlay for text legibility
             Container(
               decoration: BoxDecoration(
@@ -2161,25 +2201,36 @@ class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
     final parallax = range > 0 ? heroHeight / range : 0.0;
     final heroTop = headerHeight - parallax * shrink;
 
-    // Search bar starts centered on the hero's bottom edge, then rises until it
+    // Search bar starts on the hero (inset from bottom), then rises until it
     // rests just below the green header.
     final searchTop = (headerHeight + heroHeight - searchOverlap - shrink)
         .clamp(headerHeight + searchTopGap, double.infinity);
-    final categoriesTop = searchTop + searchBarHeight + searchCategoriesGap;
+    final heroBottom = heroTop + heroHeight;
+    // Keep chips below both the search bar and the hero bottom edge.
+    final categoriesTopFromSearch =
+        searchTop + searchBarHeight + searchCategoriesGap;
+    final categoriesTopFromHero = heroBottom + searchCategoriesGap;
+    final categoriesTop = categoriesTopFromSearch > categoriesTopFromHero
+        ? categoriesTopFromSearch
+        : categoriesTopFromHero;
     final fadeTop = categoriesTop + categoriesHeight + categoriesBottomPad;
+    // Keep the solid fill under chips / pinned search, but not under the hero
+    // (rounded hero corners were revealing a white slab behind the search bar).
+    final backgroundTop = heroBottom < headerHeight ? headerHeight : heroBottom;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
         // Opaque background hides below-fold content scrolling under the header
         // (everything except the soft fade strip at the bottom).
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: fadeTop,
-          child: ColoredBox(color: backgroundColor),
-        ),
+        if (fadeTop > backgroundTop)
+          Positioned(
+            top: backgroundTop,
+            left: 0,
+            right: 0,
+            height: fadeTop - backgroundTop,
+            child: ColoredBox(color: backgroundColor),
+          ),
         // Hero banner (full width, parallax upward).
         Positioned(
           top: heroTop,
@@ -2215,7 +2266,7 @@ class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
           height: categoriesHeight,
           child: categories,
         ),
-        // Floating search bar (90% width, centered).
+        // Floating search bar (90% width, centered) on the hero bottom.
         Positioned(
           top: searchTop,
           left: 0,

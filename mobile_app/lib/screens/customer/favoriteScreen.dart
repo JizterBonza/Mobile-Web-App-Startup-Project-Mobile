@@ -3,6 +3,7 @@ import '../../constants/constants.dart';
 import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -18,7 +19,7 @@ class FavoriteScreen extends StatefulWidget {
 
 class _FavoriteScreenState extends State<FavoriteScreen> {
   List<Map<String, dynamic>> _favoriteProducts = [];
-  bool _isGridView = false;
+  bool _isGridView = true;
   bool _isLoading = true;
   String? _errorMessage;
   bool _isGuest = true;
@@ -361,7 +362,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           ),
           child: Icon(
             Icons.favorite,
-            color: AppColors.accentAmber,
+            color: AppColors.error,
             size: 18,
           ),
         ),
@@ -371,6 +372,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
 
   Widget _buildProductCard(Map<String, dynamic> product, int index,
       {required bool isGrid}) {
+    final imageUrl = resolveItemImageUrl(product['item_images']);
+
     return Container(
       margin: EdgeInsets.only(bottom: isGrid ? 0 : 12),
       decoration: BoxDecoration(
@@ -406,7 +409,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Product image placeholder
+                // Product image
                 Container(
                   height: isGrid ? 100 : 140,
                   width: double.infinity,
@@ -417,15 +420,31 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       color: AppColors.primaryGreen.withOpacity(0.2),
                     ),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Stack(
                     children: [
-                      Center(
-                        child: Icon(
-                          Icons.shopping_bag_outlined,
-                          color: AppColors.primaryGreen,
-                          size: isGrid ? 28 : 40,
+                      if (imageUrl != null)
+                        Image.network(
+                          imageUrl,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Icon(
+                              Icons.shopping_bag_outlined,
+                              color: AppColors.primaryGreen,
+                              size: isGrid ? 28 : 40,
+                            ),
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Icon(
+                            Icons.shopping_bag_outlined,
+                            color: AppColors.primaryGreen,
+                            size: isGrid ? 28 : 40,
+                          ),
                         ),
-                      ),
                       // Favorite button
                       Positioned(
                         top: 6,
@@ -450,7 +469,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                               ),
                               child: Icon(
                                 Icons.favorite,
-                                color: AppColors.accentAmber,
+                                color: AppColors.error,
                                 size: isGrid ? 14 : 18,
                               ),
                             ),
