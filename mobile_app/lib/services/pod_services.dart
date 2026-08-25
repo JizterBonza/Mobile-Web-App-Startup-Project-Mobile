@@ -5,8 +5,204 @@ import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../services/api_service.dart';
 
+typedef PodMultipartRequestFactory = http.MultipartRequest Function(
+  String method,
+  Uri uri,
+);
+typedef PodRequestSender = Future<http.StreamedResponse> Function(
+  http.BaseRequest request,
+);
+
 /// Service for managing POD (Proof of Delivery) operations
 class PodService extends ApiService {
+  PodService({
+    PodMultipartRequestFactory? multipartRequestFactory,
+    PodRequestSender? requestSender,
+  })  : _multipartRequestFactory = multipartRequestFactory,
+        _requestSender = requestSender;
+
+  final PodMultipartRequestFactory? _multipartRequestFactory;
+  final PodRequestSender? _requestSender;
+
+  static const int _maximumImageCount = 5;
+  static const int _maximumImageSize = 5 * 1024 * 1024;
+  static const Set<String> _allowedImageExtensions = {
+    'jpeg',
+    'png',
+    'jpg',
+    'gif',
+    'webp',
+  };
+
+  /// Upload one order-shop POD with one to five proof images.
+  Future<Map<String, dynamic>> uploadOrderShopPod({
+    required int orderId,
+    required int orderShopId,
+    required List<String> imagePaths,
+    required double latitude,
+    required double longitude,
+    required String remarks,
+    required String status,
+  }) async {
+    try {
+      final validationError = await _validateOrderShopPod(
+        orderId: orderId,
+        orderShopId: orderShopId,
+        imagePaths: imagePaths,
+        latitude: latitude,
+        longitude: longitude,
+        remarks: remarks,
+        status: status,
+      );
+      if (validationError != null) {
+        return _failure(validationError);
+      }
+
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return _failure('Authentication required. Please login.');
+      }
+
+      final uri = Uri.parse(ApiEndpoints.uploadProofOfDelivery);
+      final request = _multipartRequestFactory?.call('POST', uri) ??
+          http.MultipartRequest('POST', uri);
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+      request.fields.addAll({
+        'orderId': orderId.toString(),
+        'orderShopId': orderShopId.toString(),
+        'latitude': latitude.toString(),
+        'longitude': longitude.toString(),
+        'remarks': remarks,
+        'status': status.toLowerCase(),
+      });
+
+      for (final imagePath in imagePaths) {
+        final imageFile = File(imagePath);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images[]',
+            await imageFile.readAsBytes(),
+            filename: _fileName(imagePath),
+          ),
+        );
+      }
+
+      final streamedResponse =
+          await (_requestSender?.call(request) ?? request.send()).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Upload request timed out after 30 seconds');
+        },
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+
+      dynamic responseData;
+      if (response.body.trim().isEmpty) {
+        responseData = <String, dynamic>{};
+      } else {
+        try {
+          responseData = jsonDecode(response.body);
+        } on FormatException {
+          responseData = <String, dynamic>{};
+        }
+      }
+
+      final isSuccessStatus =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final apiReportedFailure =
+          responseData is Map && responseData['success'] == false;
+      if (isSuccessStatus && !apiReportedFailure) {
+        return {
+          'success': true,
+          'message': responseData is Map
+              ? responseData['message'] ?? 'POD uploaded successfully'
+              : 'POD uploaded successfully',
+          'data': responseData is Map
+              ? responseData['data'] ?? responseData
+              : responseData,
+        };
+      }
+
+      return _failure(
+        _responseError(responseData, 'Failed to upload POD'),
+        data: responseData,
+      );
+    } on TimeoutException catch (error) {
+      return _failure('Upload timeout: ${error.toString()}');
+    } catch (error) {
+      return _failure('Network error: ${error.toString()}');
+    }
+  }
+
+  Future<String?> _validateOrderShopPod({
+    required int orderId,
+    required int orderShopId,
+    required List<String> imagePaths,
+    required double latitude,
+    required double longitude,
+    required String remarks,
+    required String status,
+  }) async {
+    if (orderId <= 0) return 'Invalid order ID.';
+    if (orderShopId <= 0) return 'Invalid order-shop ID.';
+    if (imagePaths.isEmpty || imagePaths.length > _maximumImageCount) {
+      return 'Select between 1 and $_maximumImageCount delivery photos.';
+    }
+    if (latitude < -90 || latitude > 90) {
+      return 'Latitude must be between -90 and 90';
+    }
+    if (longitude < -180 || longitude > 180) {
+      return 'Longitude must be between -180 and 180';
+    }
+    if (remarks.length > 1000) {
+      return 'Remarks must not exceed 1000 characters';
+    }
+    if (!{'pending', 'delivered', 'failed'}.contains(status.toLowerCase())) {
+      return 'Status must be one of: pending, delivered, failed';
+    }
+
+    for (final imagePath in imagePaths) {
+      final imageFile = File(imagePath);
+      if (!await imageFile.exists()) return 'Image file not found';
+      if (await imageFile.length() > _maximumImageSize) {
+        return 'Image file size exceeds 5MB limit';
+      }
+      final extension = _fileName(imagePath).split('.').last.toLowerCase();
+      if (!_allowedImageExtensions.contains(extension)) {
+        return 'Invalid image format. Allowed: jpeg, png, jpg, gif, webp';
+      }
+    }
+    return null;
+  }
+
+  static String _fileName(String path) {
+    return path.split(RegExp(r'[\\/]')).last;
+  }
+
+  static String _responseError(dynamic responseData, String fallback) {
+    if (responseData is! Map) return fallback;
+    final message = responseData['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) return message;
+    final errors = responseData['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final first = errors.values.first;
+      if (first is List && first.isNotEmpty) return first.first.toString();
+      return first.toString();
+    }
+    return fallback;
+  }
+
+  static Map<String, dynamic> _failure(String message, {dynamic data}) {
+    return {
+      'success': false,
+      'message': message,
+      'data': data,
+    };
+  }
+
   /// Upload Proof of Delivery
   ///
   /// Required parameters:
@@ -139,7 +335,7 @@ class PodService extends ApiService {
 
       // Send request
       final streamedResponse = await request.send().timeout(
-        Duration(seconds: 30),
+        const Duration(seconds: 30),
         onTimeout: () {
           throw TimeoutException('Upload request timed out after 30 seconds');
         },

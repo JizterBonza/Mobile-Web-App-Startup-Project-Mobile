@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
@@ -133,9 +134,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
   }
 
   void _onNavTap(int index) {
-    if (index == 1) {
-      // Already handled by parent
-    }
+    if (index == 3) return;
     Navigator.pop(context, index);
   }
 
@@ -536,7 +535,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
         ),
       ),
       child: BottomNavigationBar(
-        currentIndex: 0,
+        currentIndex: 3,
         onTap: _onNavTap,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primaryGreen,
@@ -544,14 +543,46 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
         backgroundColor: Colors.white,
         items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            icon: SvgPicture.asset(
+              'assets/icons/home.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/home.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
-            label: 'Deliveries',
+            icon: SvgPicture.asset(
+              'assets/icons/Delivered.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/Delivered.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: 'Delivery',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history_outlined),
@@ -559,9 +590,25 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
             label: 'History',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
+            icon: SvgPicture.asset(
+              'assets/icons/wallet.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/wallet.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: 'Wallet',
           ),
         ],
       ),

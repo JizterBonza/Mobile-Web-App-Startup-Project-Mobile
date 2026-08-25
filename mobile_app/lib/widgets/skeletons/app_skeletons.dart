@@ -307,11 +307,13 @@ class _OrderCardSkeleton extends StatelessWidget {
 class OrderListSkeleton extends StatelessWidget {
   final int count;
   final EdgeInsetsGeometry padding;
+  final bool shrinkWrap;
 
   const OrderListSkeleton({
     super.key,
     this.count = 5,
     this.padding = const EdgeInsets.all(16),
+    this.shrinkWrap = false,
   });
 
   @override
@@ -319,6 +321,7 @@ class OrderListSkeleton extends StatelessWidget {
     return _skeletonize(
       child: ListView.builder(
         padding: padding,
+        shrinkWrap: shrinkWrap,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: count,
         itemBuilder: (_, __) => const _OrderCardSkeleton(),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
@@ -7,16 +8,19 @@ import '../../services/order_service.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
 import '../../utils/connectivity_helper.dart';
-import '../../widgets/dashboard_header.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../widgets/order_item_card.dart';
 import '../../widgets/rider_statistics_grid.dart';
 import '../../widgets/rider_quick_actions.dart';
+import '../../widgets/incoming_delivery_section.dart';
+import '../../widgets/delivery_acceptance_confirmation_dialog.dart';
+import '../../widgets/delivery_accepted_dialog.dart';
 import '../../widgets/active_deliveries_section.dart';
 import '../../widgets/view_header.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/order_details_dialog.dart';
-import '../../widgets/update_status_dialog.dart';
 import '../common/profileScreen.dart';
+import '../common/notificationScreen.dart';
 import 'riderPickupMap.dart';
 import 'riderDeliveryMap.dart';
 import 'riderAllDeliveriesScreen.dart';
@@ -33,17 +37,38 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   int _selectedIndex = 0;
   final OrderService _orderService = OrderService();
   List<Map<String, dynamic>> _allOrders = [];
-  bool _isLoadingOrders = true;
-  String? _orderError;
+  List<Map<String, dynamic>> _readyForDeliveryOrders = [];
+  int _readyForDeliveryCount = 0;
+  bool _hasLoadedReadyForDelivery = false;
+  List<Map<String, dynamic>> _activeDeliveryOrders = [];
+  int _activeDeliveryCount = 0;
+  bool _isLoadingActiveDeliveries = true;
+  String? _activeDeliveryError;
+  final Set<String> _acceptingReadyForDeliveryOrderIds = {};
+  final Set<String> _acceptConfirmationOrderIds = {};
   String? _userName;
+
+  int get _incomingDeliveryDisplayCount => _readyForDeliveryCount > 0
+      ? _readyForDeliveryCount
+      : _readyForDeliveryOrders.length;
+  int get _activeDeliveryDisplayCount => _activeDeliveryCount > 0
+      ? _activeDeliveryCount
+      : _activeDeliveryOrders.length;
 
   @override
   void initState() {
     super.initState();
-    _initializeOrderStatusProvider();
-    _loadOrders();
     _loadUserName();
-    _autoUploadPendingPods();
+    // Defer provider loads until after the build phase completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _initializeOrderStatusProvider();
+      _loadOrders();
+      _loadReadyForDeliveryOrders();
+      _loadActiveDeliveries();
+      _loadBadges();
+      _autoUploadPendingPods();
+    });
   }
 
   Future<void> _initializeOrderStatusProvider() async {
@@ -58,6 +83,15 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       if (mounted) setState(() {});
     } catch (e) {
       print('Error loading user name: $e');
+    }
+  }
+
+  Future<void> _loadBadges() async {
+    if (!mounted) return;
+    try {
+      await Provider.of<BadgeProvider>(context, listen: false).fetchBadges();
+    } catch (e) {
+      print('Error loading badges: $e');
     }
   }
 
@@ -112,35 +146,199 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   Future<void> _loadOrders({bool useCache = true}) async {
-    setState(() {
-      _isLoadingOrders = true;
-      _orderError = null;
-    });
-
     final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
 
     // Use fetchRiderOrders to get orders assigned to this rider
     await ordersProvider.fetchRiderOrders(useCache: useCache);
 
+    if (!mounted) return;
     setState(() {
       _allOrders = ordersProvider.orders;
-      _isLoadingOrders = ordersProvider.isLoading;
-      _orderError = ordersProvider.error;
-      if (ordersProvider.fromCache && _allOrders.isNotEmpty) {
-        _orderError = 'Using cached data (connection lost)';
-      }
     });
   }
 
+  Future<void> _loadReadyForDeliveryOrders() async {
+    if (!mounted) return;
+
+    try {
+      final result = await _orderService.fetchReadyForDeliveryOrders();
+      final rawOrders = result['orders'];
+      final orders = rawOrders is List
+          ? rawOrders
+              .whereType<Map>()
+              .map((order) => Map<String, dynamic>.from(order))
+              .toList()
+          : <Map<String, dynamic>>[];
+      final rawCount = result['count'];
+      final count = rawCount is num
+          ? rawCount.toInt()
+          : int.tryParse(rawCount?.toString() ?? '') ?? orders.length;
+
+      if (!mounted) return;
+      setState(() {
+        _readyForDeliveryOrders = orders;
+        _readyForDeliveryCount = count;
+        _hasLoadedReadyForDelivery = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _readyForDeliveryOrders = [];
+        _readyForDeliveryCount = 0;
+        _hasLoadedReadyForDelivery = true;
+      });
+    }
+  }
+
+  Future<void> _loadActiveDeliveries() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingActiveDeliveries = true;
+      _activeDeliveryError = null;
+    });
+
+    try {
+      final result = await _orderService.fetchActiveDeliveries();
+      final rawOrders = result['orders'];
+      final orders = rawOrders is List
+          ? rawOrders
+              .whereType<Map>()
+              .map((order) => Map<String, dynamic>.from(order))
+              .toList()
+          : <Map<String, dynamic>>[];
+      final rawCount = result['count'];
+      final parsedCount = rawCount is num
+          ? rawCount.toInt()
+          : int.tryParse(rawCount?.toString() ?? '');
+      final count = parsedCount != null && parsedCount >= orders.length
+          ? parsedCount
+          : orders.length;
+
+      if (!mounted) return;
+      setState(() {
+        _activeDeliveryOrders = orders;
+        _activeDeliveryCount = count;
+        _isLoadingActiveDeliveries = false;
+        _activeDeliveryError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _activeDeliveryOrders = [];
+        _activeDeliveryCount = 0;
+        _isLoadingActiveDeliveries = false;
+        _activeDeliveryError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  List<int>? _readyForDeliveryOrderShopIds(Map<String, dynamic> order) {
+    final rawShops = order['available_order_shops'];
+    if (rawShops is! List || rawShops.isEmpty) return null;
+
+    final ids = <int>[];
+    final seenIds = <int>{};
+    for (final rawShop in rawShops) {
+      if (rawShop is! Map) return null;
+      final rawId = rawShop['order_shop_id'];
+      final id =
+          rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? '');
+      if (id == null || id <= 0) return null;
+      if (seenIds.add(id)) ids.add(id);
+    }
+
+    return ids.isEmpty ? null : ids;
+  }
+
+  Future<void> _acceptReadyForDeliveryOrder(
+    Map<String, dynamic> order,
+  ) async {
+    final parsedOrderId = int.tryParse(order['order_id']?.toString() ?? '');
+    if (parsedOrderId == null || parsedOrderId <= 0) {
+      SnackbarHelper.showError(context, 'Invalid order ID.');
+      return;
+    }
+
+    final orderId = parsedOrderId.toString();
+    final orderShopIds = _readyForDeliveryOrderShopIds(order);
+    if (orderShopIds == null) {
+      SnackbarHelper.showError(
+        context,
+        'This order has invalid or missing pickup shop information.',
+      );
+      return;
+    }
+
+    if (_acceptingReadyForDeliveryOrderIds.contains(orderId) ||
+        _acceptConfirmationOrderIds.contains(orderId)) {
+      return;
+    }
+
+    _acceptConfirmationOrderIds.add(orderId);
+    final orderCode = order['order_code']?.toString().trim();
+    final confirmed = await DeliveryAcceptanceConfirmationDialog.show(
+      context,
+      orderLabel: orderCode?.isNotEmpty == true ? orderCode! : 'this order',
+      pickupStoreCount: orderShopIds.length,
+    );
+    _acceptConfirmationOrderIds.remove(orderId);
+
+    if (!mounted || confirmed != true) return;
+    setState(() {
+      _acceptingReadyForDeliveryOrderIds.add(orderId);
+    });
+
+    try {
+      final result = await _orderService.acceptReadyForDeliveryOrder(
+        orderId: orderId,
+        orderShopIds: orderShopIds,
+      );
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final refreshFuture = Future.wait([
+          _loadReadyForDeliveryOrders(),
+          _loadActiveDeliveries(),
+          _loadOrders(useCache: false),
+        ]);
+        await DeliveryAcceptedDialog.show(context);
+        await refreshFuture;
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to accept delivery.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error accepting delivery: ${e.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _acceptingReadyForDeliveryOrderIds.remove(orderId);
+        });
+      }
+    }
+  }
+
   Future<void> _onRefresh() async {
-    await _loadOrders(useCache: false);
+    await Future.wait([
+      _loadOrders(useCache: false),
+      _loadReadyForDeliveryOrders(),
+      _loadActiveDeliveries(),
+      _loadBadges(),
+    ]);
     // Trigger automatic POD upload on refresh if internet is available
     _autoUploadPendingPods();
     await Future.delayed(Duration(milliseconds: 500));
   }
 
-  PageRoute _createFadeRoute(Widget page) {
-    return PageRouteBuilder(
+  PageRoute<T> _createFadeRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
@@ -160,37 +358,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       transitionDuration: Duration(milliseconds: 150),
       reverseTransitionDuration: Duration(milliseconds: 150),
     );
-  }
-
-  List<Map<String, dynamic>> _getActiveDeliveries(
-      OrderStatusProvider orderStatusProvider) {
-    final filtered = _allOrders.where((order) {
-      final orderStatusId = order['order_status'];
-      int? statusId;
-      if (orderStatusId is int) {
-        statusId = orderStatusId;
-      } else if (orderStatusId is String) {
-        statusId = int.tryParse(orderStatusId);
-      } else if (orderStatusId != null) {
-        statusId = int.tryParse(orderStatusId.toString());
-      }
-
-      if (statusId == null) return false;
-
-      final statusDesc = orderStatusProvider
-              .getOrderStatusDescription(statusId)
-              ?.toLowerCase() ??
-          '';
-      return statusDesc != 'delivered' && statusDesc != 'cancelled';
-    }).toList();
-
-    final seenOrderIds = <String>{};
-    return filtered.where((order) {
-      final orderId = order['order_id']?.toString();
-      if (orderId == null || seenOrderIds.contains(orderId)) return false;
-      seenOrderIds.add(orderId);
-      return true;
-    }).toList();
   }
 
   List<Map<String, dynamic>> _getCompletedDeliveries(
@@ -247,7 +414,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         .length;
     final pendingDeliveries = _getPendingDeliveries(orderStatusProvider);
     final completedDeliveries = _getCompletedDeliveries(orderStatusProvider);
-    final activeDeliveries = _getActiveDeliveries(orderStatusProvider);
 
     final pendingCount = pendingDeliveries.length;
     final completedCount = completedDeliveries
@@ -255,7 +421,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         .where((id) => id != null)
         .toSet()
         .length;
-    final activeCount = activeDeliveries.length;
 
     // Calculate total earnings from completed deliveries
     double totalEarnings = 0.0;
@@ -268,7 +433,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return {
       'totalDeliveries': totalDeliveries,
       'pending': pendingCount,
-      'active': activeCount,
+      'incoming': _incomingDeliveryDisplayCount,
+      'active': _activeDeliveryDisplayCount,
       'completed': completedCount,
       'earnings': totalEarnings,
     };
@@ -379,44 +545,42 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         return _buildHomeView();
       case 2:
         return _buildHistoryView();
-      case 3:
-        return _buildProfileNavigation();
       default:
         return _buildHomeView();
     }
-  }
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
   }
 
   Widget _buildHomeView() {
     return Consumer<OrderStatusProvider>(
       builder: (context, orderStatusProvider, child) {
         final stats = _getStats(orderStatusProvider);
-        final activeDeliveries =
-            _getActiveDeliveries(orderStatusProvider).take(3).toList();
 
         return RefreshIndicator(
           onRefresh: _onRefresh,
           color: AppColors.primaryGreen,
           child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(activeDeliveries.length),
+                _buildHeader(),
+                SizedBox(height: 20),
+                _buildStatisticsCards(stats),
                 SizedBox(height: 24),
-                _buildStatisticsCards(stats, orderStatusProvider),
+                _buildActiveDeliveriesSection(),
                 SizedBox(height: 24),
+                if (_hasLoadedReadyForDelivery &&
+                    _readyForDeliveryOrders.isNotEmpty) ...[
+                  IncomingDeliverySection(
+                    orders: _readyForDeliveryOrders,
+                    count: _incomingDeliveryDisplayCount,
+                    acceptingOrderIds: _acceptingReadyForDeliveryOrderIds,
+                    onAccept: _acceptReadyForDeliveryOrder,
+                  ),
+                  SizedBox(height: 24),
+                ],
                 _buildQuickActions(),
-                SizedBox(height: 24),
-                _buildActiveDeliveriesSection(
-                    activeDeliveries, orderStatusProvider),
                 SizedBox(height: 24),
               ],
             ),
@@ -426,34 +590,120 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildHeader(int activeCount) {
-    return DashboardHeader(
-      greeting: _getGreeting(),
-      title: _userName ?? 'Rider',
-      subtitle: 'Manage your deliveries',
-      icon: Icons.delivery_dining,
-      userName: _userName,
-      activeCount: activeCount,
-      onIconTap: () {
-        setState(() {
-          _selectedIndex = 3;
-        });
-      },
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              _createFadeRoute(
+                const ProfileScreen(hideBottomNavigation: true),
+              ),
+            );
+          },
+          child: SvgPicture.asset(
+            'assets/icons/User.svg',
+            width: 40,
+            height: 40,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Kumusta!',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.0,
+                  color: Color(0xFF8E8E93),
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _userName ?? 'Rider',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Consumer<BadgeProvider>(
+          builder: (context, badges, _) {
+            final badgeCount =
+                BadgeProvider.formatBadgeCount(badges.unreadNotifications);
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  _createFadeRoute(const NotificationScreen()),
+                ).then((_) {
+                  _loadBadges();
+                });
+              },
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Center(
+                      child: SvgPicture.asset(
+                        'assets/icons/notif.svg',
+                        width: 20,
+                        height: 20,
+                      ),
+                    ),
+                    if (badgeCount != null)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE53935),
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            badgeCount,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildStatisticsCards(
-      Map<String, dynamic> stats, OrderStatusProvider orderStatusProvider) {
+  Widget _buildStatisticsCards(Map<String, dynamic> stats) {
     return RiderStatisticsGrid(
       stats: stats,
-      formatPrice: _formatPrice,
       onEarningsTap: () {
-        Navigator.push(
-          context,
-          _createFadeRoute(const RiderEarningsScreen()),
-        ).then((_) {
-          _loadOrders(useCache: false);
-        });
+        _navigateToEarnings();
       },
     );
   }
@@ -476,31 +726,34 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         _navigateToDeliveries();
       },
       onEarnings: () {
-        Navigator.push(
-          context,
-          _createFadeRoute(const RiderEarningsScreen()),
-        ).then((_) {
-          _loadOrders(useCache: false);
-        });
+        _navigateToEarnings();
       },
     );
   }
 
-  Widget _buildActiveDeliveriesSection(List<Map<String, dynamic>> deliveries,
-      OrderStatusProvider orderStatusProvider) {
+  Widget _buildActiveDeliveriesSection() {
     return ActiveDeliveriesSection(
-      deliveries: deliveries,
-      isLoading: _isLoadingOrders,
-      error: _orderError,
-      onRetry: () => _loadOrders(useCache: false),
-      onViewAll: () {
-        _navigateToDeliveries();
-      },
-      onUpdateStatus: (order) => _showUpdateStatusDialog(order),
-      onViewDetails: (order) => _showOrderDetails(order),
-      convertOrderToCardFormat: (order) =>
-          _convertOrderToCardFormat(order, orderStatusProvider),
+      orders: _activeDeliveryOrders,
+      count: _activeDeliveryDisplayCount,
+      isLoading: _isLoadingActiveDeliveries,
+      error: _activeDeliveryError,
+      onRetry: _loadActiveDeliveries,
+      onContinue: _continueActiveDelivery,
     );
+  }
+
+  Future<void> _continueActiveDelivery(Map<String, dynamic> order) async {
+    final completed = await Navigator.push<bool>(
+      context,
+      _createFadeRoute(RiderPickupMapScreen(order: order)),
+    );
+    if (!mounted) return;
+    await Future.wait([
+      _loadActiveDeliveries(),
+      _loadOrders(useCache: false),
+    ]);
+    if (!mounted || completed != true) return;
+    SnackbarHelper.showSuccess(context, 'Delivery completed successfully.');
   }
 
   void _navigateToDeliveries() {
@@ -508,14 +761,47 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       context,
       _createFadeRoute(const RiderAllDeliveriesScreen()),
     ).then((result) {
+      if (!mounted) return;
       // Refresh orders when returning
       _loadOrders(useCache: false);
-      // If a tab index was returned, switch to that tab
+      // If a tab index was returned, route to that destination.
       if (result != null && result is int) {
-        setState(() {
-          _selectedIndex = result;
-        });
+        _handleNavigationTap(result, refreshOrders: false);
       }
+    });
+  }
+
+  void _navigateToEarnings() {
+    Navigator.push(
+      context,
+      _createFadeRoute(const RiderEarningsScreen()),
+    ).then((result) {
+      if (!mounted) return;
+      _loadOrders(useCache: false);
+      if (result != null && result is int) {
+        _handleNavigationTap(result, refreshOrders: false);
+      }
+    });
+  }
+
+  void _handleNavigationTap(int index, {bool refreshOrders = true}) {
+    if (index == 1) {
+      _navigateToDeliveries();
+      return;
+    }
+
+    if (index == 3) {
+      _navigateToEarnings();
+      return;
+    }
+
+    if (index != 0 && index != 2) return;
+
+    if (refreshOrders && index != _selectedIndex) {
+      _loadOrders(useCache: false);
+    }
+    setState(() {
+      _selectedIndex = index;
     });
   }
 
@@ -570,10 +856,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildProfileNavigation() {
-    return ProfileScreen(hideBottomNavigation: true);
-  }
-
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
@@ -584,34 +866,53 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == 1) {
-            // Navigate to Deliveries screen
-            _navigateToDeliveries();
-            return;
-          }
-          // Reload API data when switching to Home or History tabs
-          if (index != _selectedIndex && index != 3) {
-            _loadOrders(useCache: false);
-          }
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onTap: _handleNavigationTap,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primaryGreen,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            icon: SvgPicture.asset(
+              'assets/icons/home.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/home.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
-            label: 'Deliveries',
+            icon: SvgPicture.asset(
+              'assets/icons/Delivered.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/Delivered.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: 'Delivery',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history_outlined),
@@ -619,75 +920,29 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             label: 'History',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
+            icon: SvgPicture.asset(
+              'assets/icons/wallet.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                Colors.grey[600]!,
+                BlendMode.srcIn,
+              ),
+            ),
+            activeIcon: SvgPicture.asset(
+              'assets/icons/wallet.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryGreen,
+                BlendMode.srcIn,
+              ),
+            ),
+            label: 'Wallet',
           ),
         ],
       ),
     );
-  }
-
-  void _showUpdateStatusDialog(Map<String, dynamic> order) {
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-
-    if (orderId == null || orderId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid order ID'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => UpdateStatusDialog(
-        order: order,
-        onStatusSelected: (status) {
-          _updateOrderStatus(order, status);
-        },
-      ),
-    );
-  }
-
-  Future<void> _updateOrderStatus(
-      Map<String, dynamic> order, String status) async {
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-    if (orderId == null || orderId.isEmpty) return;
-    final shopId = order['shop_id']?.toString();
-    try {
-      final result = await _orderService.updateOrderStatus(
-        orderId: orderId,
-        status: status,
-        shopId: shopId,
-      );
-
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.primaryGreen,
-          ),
-        );
-        await _loadOrders(useCache: false);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to update status'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating status: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
   }
 
   void _showOrderDetails(Map<String, dynamic> order) {

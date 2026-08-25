@@ -254,6 +254,26 @@ class _ConversationScreenState extends State<ConversationScreen> {
     return hasBody || _pendingAttachments.isNotEmpty;
   }
 
+  Future<bool> _dispatchSend({
+    required MessageProvider provider,
+    required dynamic conversationId,
+    String? body,
+    List<File> attachments = const [],
+  }) {
+    if (conversationId != null) {
+      return provider.sendMessage(
+        conversationId: conversationId,
+        body: body,
+        attachments: attachments,
+      );
+    }
+    return provider.startOrResumeConversation(
+      shopId: widget.shopId,
+      body: body,
+      attachments: attachments,
+    );
+  }
+
   Future<void> _send() async {
     final body = _bodyController.text.trim();
     if (body.isEmpty && _pendingAttachments.isEmpty) return;
@@ -269,25 +289,62 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final conversationId =
         provider.activeThread?.conversation.id ?? widget.conversationId;
     final attachments = List<File>.from(_pendingAttachments);
+    final hasBody = body.isNotEmpty;
+    final hasAttachments = attachments.isNotEmpty;
 
-    bool success;
-    if (conversationId != null) {
-      success = await provider.sendMessage(
-        conversationId: conversationId,
-        body: body.isEmpty ? null : body,
-        attachments: attachments,
-      );
-    } else if (widget.shopId != null) {
-      success = await provider.startOrResumeConversation(
-        shopId: widget.shopId,
-        body: body.isEmpty ? null : body,
-        attachments: attachments,
-      );
-    } else {
+    if (conversationId == null && widget.shopId == null) {
       SnackbarHelper.showError(context, 'No conversation to send to');
       return;
     }
 
+    // Backend drops caption on multipart image messages, so send files
+    // first, then the text as a separate message.
+    if (hasBody && hasAttachments) {
+      final imageOk = await _dispatchSend(
+        provider: provider,
+        conversationId: conversationId,
+        attachments: attachments,
+      );
+      if (!mounted) return;
+      if (!imageOk) {
+        if (provider.error != null) {
+          SnackbarHelper.showError(context, provider.error!);
+        }
+        return;
+      }
+
+      _pendingAttachments.clear();
+      _attachMenuOpen = false;
+      setState(() {});
+
+      final threadId =
+          provider.activeThread?.conversation.id ?? conversationId;
+      if (threadId == null) {
+        SnackbarHelper.showError(context, 'No conversation to send to');
+        return;
+      }
+
+      final textOk = await provider.sendMessage(
+        conversationId: threadId,
+        body: body,
+      );
+      if (!mounted) return;
+      if (textOk) {
+        _bodyController.clear();
+        setState(() {});
+        _scrollToBottom();
+      } else if (provider.error != null) {
+        SnackbarHelper.showError(context, provider.error!);
+      }
+      return;
+    }
+
+    final success = await _dispatchSend(
+      provider: provider,
+      conversationId: conversationId,
+      body: hasBody ? body : null,
+      attachments: attachments,
+    );
     if (!mounted) return;
     if (success) {
       _bodyController.clear();

@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
+import '../../utils/status_utils.dart';
 import '../../services/order_service.dart';
 import '../../provider/provider.dart';
 import '../../provider/pod_provider.dart';
@@ -33,7 +35,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
   // Status tabs for filtering (matching myOrderScreen style)
   final List<Map<String, dynamic>> _statusTabs = [
     {'label': 'All', 'status': null},
-    {'label': 'Ready for Pickup', 'status': 'ready for pickup'},
+    {'label': 'Ready for Delivery', 'status': 'ready for delivery'},
     {'label': 'In Transit', 'status': 'in-transit'},
     {'label': 'Delivered', 'status': 'delivered'},
     {'label': 'Pending', 'status': 'pending'},
@@ -64,9 +66,8 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
       final filterStatus = status.toLowerCase();
 
       // Handle various status formats
-      if (filterStatus == 'ready for pickup') {
-        return orderStatusDesc == 'ready for pickup' ||
-            orderStatusDesc == 'ready-for-pickup';
+      if (filterStatus == 'ready for delivery') {
+        return isReadyForDeliveryStatus(orderStatusDesc);
       } else if (filterStatus == 'in-transit') {
         return orderStatusDesc == 'in-transit' || orderStatusDesc == 'in transit';
       } else if (filterStatus == 'cancelled') {
@@ -193,7 +194,8 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
     final orderStatusDesc = statusId != null
         ? orderStatusProvider.getOrderStatusDescription(statusId)
         : null;
-    final orderStatus = orderStatusDesc ?? 'Pending';
+    final orderStatus =
+        OrderStatusColors.formatStatus(orderStatusDesc ?? 'Pending');
 
     return {
       'id': order['order_code']?.toString() ?? 'N/A',
@@ -556,8 +558,7 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           String? actionLabel;
           VoidCallback? actionCallback;
 
-          if (statusDesc == 'ready for pickup' ||
-              statusDesc == 'ready-for-pickup') {
+          if (isReadyForDeliveryStatus(statusDesc)) {
             actionLabel = 'Pickup';
             actionCallback = () => _handlePickup(order);
           } else if (statusDesc == 'in-transit' || statusDesc == 'in transit') {
@@ -687,14 +688,46 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
           backgroundColor: Colors.white,
           items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
+              icon: SvgPicture.asset(
+                'assets/icons/home.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+              ),
+              activeIcon: SvgPicture.asset(
+                'assets/icons/home.svg',
+                width: 20,
+                height: 20,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.primaryGreen,
+                  BlendMode.srcIn,
+                ),
+              ),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.local_shipping_outlined),
-              activeIcon: Icon(Icons.local_shipping),
-              label: 'Deliveries',
+              icon: SvgPicture.asset(
+                'assets/icons/Delivered.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+              ),
+              activeIcon: SvgPicture.asset(
+                'assets/icons/Delivered.svg',
+                width: 20,
+                height: 20,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.primaryGreen,
+                  BlendMode.srcIn,
+                ),
+              ),
+              label: 'Delivery',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history_outlined),
@@ -702,9 +735,25 @@ class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
               label: 'History',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
+              icon: SvgPicture.asset(
+                'assets/icons/wallet.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+              ),
+              activeIcon: SvgPicture.asset(
+                'assets/icons/wallet.svg',
+                width: 20,
+                height: 20,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.primaryGreen,
+                  BlendMode.srcIn,
+                ),
+              ),
+              label: 'Wallet',
             ),
           ],
         ),

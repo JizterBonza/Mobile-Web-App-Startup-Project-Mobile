@@ -8,9 +8,13 @@ import '../../provider/orders_provider.dart';
 import '../../provider/provider.dart';
 import '../../services/order_service.dart';
 import '../../services/directions_service.dart';
+import '../../utils/status_utils.dart';
+import 'selectedOrderPickupDetail.dart';
 
 class RiderPickupMapScreen extends StatefulWidget {
-  const RiderPickupMapScreen({super.key});
+  const RiderPickupMapScreen({super.key, this.order});
+
+  final Map<String, dynamic>? order;
 
   @override
   State<RiderPickupMapScreen> createState() => _RiderPickupMapScreenState();
@@ -44,6 +48,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.order != null) return;
     _initializeOrderStatusProvider();
     _loadOrders();
     _initLocationTracking();
@@ -151,26 +156,11 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
           Provider.of<OrdersProvider>(context, listen: false);
       await ordersProvider.fetchRiderOrders(useCache: false);
 
-      // Filter orders for pickup statuses: pending, processing, ready for pickup
+      // Temporarily show only orders that are ready for delivery.
       final allOrders = ordersProvider.orders;
       final orderStatusProvider =
           Provider.of<OrderStatusProvider>(context, listen: false);
       await orderStatusProvider.initialize();
-
-      // Get status IDs for pickup statuses
-      final pendingStatusId =
-          orderStatusProvider.getOrderStatusIdByDescription('pending');
-      final processingStatusId =
-          orderStatusProvider.getOrderStatusIdByDescription('processing');
-      final readyForPickupStatusId = orderStatusProvider
-              .getOrderStatusIdByDescription('ready for pickup') ??
-          orderStatusProvider.getOrderStatusIdByDescription('ready-for-pickup');
-
-      final pickupStatusIds = [
-        if (pendingStatusId != null) pendingStatusId,
-        if (processingStatusId != null) processingStatusId,
-        if (readyForPickupStatusId != null) readyForPickupStatusId,
-      ];
 
       _pickupOrders = allOrders.where((order) {
         final orderStatusId = order['order_status'];
@@ -182,7 +172,11 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         } else if (orderStatusId != null) {
           statusId = int.tryParse(orderStatusId.toString());
         }
-        return statusId != null && pickupStatusIds.contains(statusId);
+        if (statusId == null) return false;
+        final statusDescription =
+            orderStatusProvider.getOrderStatusDescription(statusId);
+        return statusDescription != null &&
+            isReadyForDeliveryStatus(statusDescription);
       }).toList();
 
       _createMarkers();
@@ -537,7 +531,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
             snippet: shopAddress,
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
-            _isReadyForPickup(order)
+            _isReadyForDelivery(order)
                 ? BitmapDescriptor.hueGreen
                 : BitmapDescriptor.hueOrange,
           ),
@@ -622,30 +616,18 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
     return OrderStatusColors.formatStatus(status);
   }
 
-  /// Check if order is ready for pickup using OrderStatusProvider
-  bool _isReadyForPickup(Map<String, dynamic> order) {
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
-    }
-
-    if (statusId == null) return false;
-
-    final readyForPickupStatusId = orderStatusProvider
-            .getOrderStatusIdByDescription('ready for pickup') ??
-        orderStatusProvider.getOrderStatusIdByDescription('ready-for-pickup');
-    return readyForPickupStatusId != null && statusId == readyForPickupStatusId;
+  /// Check if an order is in the rider's actionable pickup state.
+  bool _isReadyForDelivery(Map<String, dynamic> order) {
+    return isReadyForDeliveryStatus(_getOrderStatus(order));
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedOrder = widget.order;
+    if (selectedOrder != null) {
+      return SelectedOrderPickupDetailScreen(order: selectedOrder);
+    }
+
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
@@ -663,8 +645,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         iconTheme: IconThemeData(color: Colors.grey[700]),
         actions: [
           _buildAppBarAction(Icons.refresh, 'Refresh', _loadOrders),
-          _buildAppBarAction(
-              Icons.zoom_out_map, 'Fit All', _fitAllMarkers),
+          _buildAppBarAction(Icons.zoom_out_map, 'Fit All', _fitAllMarkers),
           SizedBox(width: 8),
         ],
       ),
@@ -721,10 +702,9 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                       runSpacing: 6,
                       children: [
                         _buildLegendItem(
-                            AppColors.statusReadyForPickup, 'Ready'),
-                        _buildLegendItem(AppColors.statusPending, 'Pending'),
-                        _buildLegendItem(
-                            AppColors.statusProcessing, 'Processing'),
+                          AppColors.statusReadyForDelivery,
+                          'Ready for Delivery',
+                        ),
                         if (_isLocationEnabled)
                           _buildLegendItem(AppColors.accentAmber, 'You'),
                       ],
@@ -849,19 +829,26 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildRouteButton(),
-                        Divider(height: 1, indent: 8, endIndent: 8,
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
                             color: Colors.grey[200]),
                         _buildZoomButton(Icons.add, () {
-                          _mapController
-                              ?.animateCamera(CameraUpdate.zoomIn());
+                          _mapController?.animateCamera(CameraUpdate.zoomIn());
                         }),
-                        Divider(height: 1, indent: 8, endIndent: 8,
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
                             color: Colors.grey[200]),
                         _buildZoomButton(Icons.remove, () {
-                          _mapController
-                              ?.animateCamera(CameraUpdate.zoomOut());
+                          _mapController?.animateCamera(CameraUpdate.zoomOut());
                         }),
-                        Divider(height: 1, indent: 8, endIndent: 8,
+                        Divider(
+                            height: 1,
+                            indent: 8,
+                            endIndent: 8,
                             color: Colors.grey[200]),
                         _buildZoomButton(Icons.my_location, () {
                           if (_currentPosition != null) {
@@ -874,8 +861,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                             );
                           } else {
                             _mapController?.animateCamera(
-                              CameraUpdate.newLatLngZoom(
-                                  _defaultCenter, 14),
+                              CameraUpdate.newLatLngZoom(_defaultCenter, 14),
                             );
                           }
                         }),
@@ -928,8 +914,8 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color:
-                                        AppColors.primaryGreen.withOpacity(0.08),
+                                    color: AppColors.primaryGreen
+                                        .withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -1060,9 +1046,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
         child: Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: _showRoute
-                ? AppColors.primaryGreen
-                : Colors.transparent,
+            color: _showRoute ? AppColors.primaryGreen : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: _isLoadingRoute
@@ -1171,8 +1155,8 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.store_outlined, size: 13,
-                          color: AppColors.primaryGreen),
+                      Icon(Icons.store_outlined,
+                          size: 13, color: AppColors.primaryGreen),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -1191,14 +1175,14 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on_outlined, size: 13,
-                          color: Colors.grey[500]),
+                      Icon(Icons.location_on_outlined,
+                          size: 13, color: Colors.grey[500]),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           shopAddress,
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey[600]),
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.grey[600]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1209,13 +1193,13 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                     SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.phone_outlined, size: 11,
-                            color: Colors.grey[400]),
+                        Icon(Icons.phone_outlined,
+                            size: 11, color: Colors.grey[400]),
                         SizedBox(width: 4),
                         Text(
                           shopContact,
-                          style: TextStyle(
-                              fontSize: 10, color: Colors.grey[500]),
+                          style:
+                              TextStyle(fontSize: 10, color: Colors.grey[500]),
                         ),
                       ],
                     ),
@@ -1228,13 +1212,12 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.person_outline, size: 13,
-                          color: Colors.grey[500]),
+                      Icon(Icons.person_outline,
+                          size: 13, color: Colors.grey[500]),
                       SizedBox(width: 4),
                       Text(
                         'Deliver to: ',
-                        style: TextStyle(
-                            fontSize: 10, color: Colors.grey[400]),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[400]),
                       ),
                       Expanded(
                         child: Text(
@@ -1252,14 +1235,14 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                   SizedBox(height: 2),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined, size: 13,
-                          color: Colors.grey[400]),
+                      Icon(Icons.location_on_outlined,
+                          size: 13, color: Colors.grey[400]),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           deliveryAddress,
-                          style: TextStyle(
-                              fontSize: 10, color: Colors.grey[500]),
+                          style:
+                              TextStyle(fontSize: 10, color: Colors.grey[500]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1288,26 +1271,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
                 ),
                 Builder(
                   builder: (context) {
-                    final orderStatusProvider =
-                        Provider.of<OrderStatusProvider>(context,
-                            listen: false);
-                    final orderStatusId = order['order_status'];
-                    int? statusId;
-                    if (orderStatusId is int) {
-                      statusId = orderStatusId;
-                    } else if (orderStatusId is String) {
-                      statusId = int.tryParse(orderStatusId);
-                    } else if (orderStatusId != null) {
-                      statusId = int.tryParse(orderStatusId.toString());
-                    }
-                    final readyForPickupStatusId = orderStatusProvider
-                            .getOrderStatusIdByDescription(
-                                'ready for pickup') ??
-                        orderStatusProvider
-                            .getOrderStatusIdByDescription('ready-for-pickup');
-                    if (statusId != null &&
-                        readyForPickupStatusId != null &&
-                        statusId == readyForPickupStatusId) {
+                    if (_isReadyForDelivery(order)) {
                       return Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: ElevatedButton(

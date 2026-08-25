@@ -90,6 +90,7 @@ class AppColors {
   // Order status semantic aliases
   static const Color statusPending        = warning;
   static const Color statusProcessing     = primaryGreenLight;
+  static const Color statusReadyForDelivery = success;
   static const Color statusReadyForPickup = success;
   static const Color statusInTransit      = primaryGreenLight;
   static const Color statusDelivered      = success;
@@ -108,7 +109,11 @@ class OrderStatusColors {
         return AppColors.statusPending;
       case 'processing':
         return AppColors.statusProcessing;
+      case 'ready for delivery':
+      case 'ready-for-delivery':
+        return AppColors.statusReadyForDelivery;
       case 'ready for pickup':
+      case 'ready-for-pickup':
         return AppColors.statusReadyForPickup;
       case 'in-transit':
       case 'in transit':
@@ -126,10 +131,23 @@ class OrderStatusColors {
 
   /// Format status text for display
   static String formatStatus(String status) {
-    if (status.toLowerCase() == 'in-transit') {
-      return 'In Transit';
+    final normalized = status
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    switch (normalized) {
+      case 'in transit':
+        return 'In Transit';
+      case 'ready for delivery':
+        return 'Ready for Delivery';
+      case 'ready for pickup':
+        return 'Ready for Pickup';
     }
+
     return status
+        .trim()
+        .replaceAll('-', ' ')
         .split(' ')
         .map((word) => word.isNotEmpty
             ? '${word[0].toUpperCase()}${word.substring(1)}'

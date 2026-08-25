@@ -6,6 +6,10 @@ import '../services/api_service.dart';
 
 /// Service for managing orders
 class OrderService extends ApiService {
+  OrderService({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
+
   /// Create a new order
   Future<Map<String, dynamic>> createOrder({
     required List<Map<String, dynamic>> items,
@@ -129,29 +133,28 @@ class OrderService extends ApiService {
 
       final response = await http
           .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode({
-              'user_id': userId,
-              'items': items,
-              if (shippingAddressId != null)
-                'shipping_address_id': shippingAddressId,
-              if (deliveryMethodId != null)
-                'delivery_method_id': deliveryMethodId,
-              if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
-                'voucher_code': trimmedVoucher,
-            }),
-          )
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'items': items,
+          if (shippingAddressId != null)
+            'shipping_address_id': shippingAddressId,
+          if (deliveryMethodId != null) 'delivery_method_id': deliveryMethodId,
+          if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
+            'voucher_code': trimmedVoucher,
+        }),
+      )
           .timeout(
-            Duration(seconds: 15),
-            onTimeout: () {
-              throw TimeoutException('Request timed out after 15 seconds');
-            },
-          );
+        Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 15 seconds');
+        },
+      );
 
       final responseData = jsonDecode(response.body);
 
@@ -253,9 +256,8 @@ class OrderService extends ApiService {
         final orders = (responseData['data'] as List).map((raw) {
           final order = Map<String, dynamic>.from(raw as Map);
           final detailRaw = order['order_detail'];
-          final orderDetail = detailRaw is Map
-              ? Map<String, dynamic>.from(detailRaw)
-              : null;
+          final orderDetail =
+              detailRaw is Map ? Map<String, dynamic>.from(detailRaw) : null;
 
           return <String, dynamic>{
             'id': order['id'],
@@ -460,6 +462,89 @@ class OrderService extends ApiService {
     }
   }
 
+  /// Update one shop within an order using the rider pickup payload.
+  Future<Map<String, dynamic>> updateShopOrderStatus({
+    required int orderId,
+    required int shopId,
+    required int statusId,
+    required String notes,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login.',
+          'data': null,
+        };
+      }
+
+      final uri = Uri.parse(
+        ApiEndpoints.updateOrderStatus.replaceAll('{id}', orderId.toString()),
+      );
+      final request = _httpClient?.put ?? http.put;
+      final response = await request(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'shop_id': shopId,
+          'status': statusId,
+          'notes': notes,
+        }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 10 seconds');
+        },
+      );
+
+      dynamic responseData;
+      if (response.body.trim().isEmpty) {
+        responseData = <String, dynamic>{};
+      } else {
+        try {
+          responseData = jsonDecode(response.body);
+        } on FormatException {
+          responseData = <String, dynamic>{};
+        }
+      }
+
+      final isSuccessStatus =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final apiReportedFailure =
+          responseData is Map && responseData['success'] == false;
+      if (isSuccessStatus && !apiReportedFailure) {
+        return {
+          'success': true,
+          'message': responseData is Map
+              ? responseData['message'] ?? 'Order picked up successfully.'
+              : 'Order picked up successfully.',
+          'data': responseData is Map
+              ? responseData['data'] ?? responseData
+              : responseData,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': responseData is Map
+            ? responseData['message'] ?? 'Failed to confirm pickup.'
+            : 'Failed to confirm pickup.',
+        'data': responseData,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
+  }
+
   /// Cancel an order
   Future<Map<String, dynamic>> cancelOrder(String orderId) async {
     try {
@@ -528,6 +613,264 @@ class OrderService extends ApiService {
     int? offset,
   }) async {
     return await fetchOrders();
+  }
+
+  /// Fetch orders that are available for a rider to accept.
+  Future<Map<String, dynamic>> fetchReadyForDeliveryOrders() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final response = await http.get(
+      Uri.parse(ApiEndpoints.readyForDelivery),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load ready-for-delivery orders: ${response.statusCode}',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['success'] != true) {
+      throw Exception('Failed to load ready-for-delivery orders.');
+    }
+
+    final rawData = decoded['data'];
+    final orders = rawData is List
+        ? rawData
+            .whereType<Map>()
+            .map((order) => Map<String, dynamic>.from(order))
+            .toList()
+        : <Map<String, dynamic>>[];
+    final rawCount = decoded['count'];
+    final count = rawCount is num
+        ? rawCount.toInt()
+        : int.tryParse(rawCount?.toString() ?? '') ?? orders.length;
+
+    return {
+      'orders': orders,
+      'count': count,
+    };
+  }
+
+  /// Fetch orders currently active for the authenticated rider.
+  Future<Map<String, dynamic>> fetchActiveDeliveries() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final response = await http.get(
+      Uri.parse(ApiEndpoints.activeDeliveries),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw Exception('Invalid active-deliveries response.');
+    }
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load active deliveries: ${response.statusCode}',
+      );
+    }
+    if (decoded is! Map || decoded['success'] != true) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load active deliveries.',
+      );
+    }
+
+    final rawData = decoded['data'];
+    final orders = rawData is List
+        ? rawData
+            .whereType<Map>()
+            .map((order) => Map<String, dynamic>.from(order))
+            .toList()
+        : <Map<String, dynamic>>[];
+    final rawCount = decoded['count'];
+    final parsedCount = rawCount is num
+        ? rawCount.toInt()
+        : int.tryParse(rawCount?.toString() ?? '');
+    final count = parsedCount != null && parsedCount >= orders.length
+        ? parsedCount
+        : orders.length;
+
+    return {
+      'orders': orders,
+      'count': count,
+    };
+  }
+
+  /// Fetch one active delivery for the authenticated rider.
+  Future<Map<String, dynamic>> fetchActiveDeliveryByOrderId(int orderId) async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final request = _httpClient?.get ?? http.get;
+    final response = await request(
+      Uri.parse(ApiEndpoints.activeDeliveryByOrderId(orderId)),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw Exception('Invalid active-delivery response.');
+    }
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load active delivery: ${response.statusCode}',
+      );
+    }
+    if (decoded is! Map || decoded['success'] != true) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load active delivery.',
+      );
+    }
+
+    final rawData = decoded['data'];
+    if (rawData is! Map) {
+      throw Exception('Invalid active-delivery data.');
+    }
+    return Map<String, dynamic>.from(rawData);
+  }
+
+  /// Accept all available shops for a ready-for-delivery order.
+  Future<Map<String, dynamic>> acceptReadyForDeliveryOrder({
+    required String orderId,
+    required List<int> orderShopIds,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login.',
+          'data': null,
+        };
+      }
+
+      if (orderShopIds.isEmpty) {
+        return {
+          'success': false,
+          'message': 'No pickup shops are available for this order.',
+          'data': null,
+        };
+      }
+
+      final uri = Uri.parse(
+        ApiEndpoints.acceptReadyForDeliveryOrder.replaceAll(
+          '{orderId}',
+          orderId,
+        ),
+      );
+      final response = await http
+          .post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'order_shop_ids': orderShopIds}),
+      )
+          .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 10 seconds');
+        },
+      );
+
+      dynamic responseData;
+      if (response.body.trim().isEmpty) {
+        responseData = <String, dynamic>{};
+      } else {
+        try {
+          responseData = jsonDecode(response.body);
+        } on FormatException {
+          responseData = <String, dynamic>{};
+        }
+      }
+
+      final isSuccessStatus =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final apiReportedFailure =
+          responseData is Map && responseData['success'] == false;
+      if (isSuccessStatus && !apiReportedFailure) {
+        return {
+          'success': true,
+          'message': responseData is Map
+              ? responseData['message'] ?? 'Delivery accepted successfully.'
+              : 'Delivery accepted successfully.',
+          'data': responseData is Map
+              ? responseData['data'] ?? responseData
+              : responseData,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': responseData is Map
+            ? responseData['message'] ?? 'Failed to accept delivery.'
+            : 'Failed to accept delivery.',
+        'data': responseData,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'data': null,
+      };
+    }
   }
 
   /// Fetch orders assigned to a specific rider

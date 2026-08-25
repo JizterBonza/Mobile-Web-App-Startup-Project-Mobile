@@ -39,6 +39,13 @@ class ApiEndpoints {
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
   static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
+  static String get readyForDelivery =>
+      '$baseUrl/api/orders/ready-for-delivery';
+  static String get acceptReadyForDeliveryOrder =>
+      '$baseUrl/api/orders/{orderId}/accept';
+  static String get activeDeliveries => '$baseUrl/api/rider/active-deliveries';
+  static String activeDeliveryByOrderId(int orderId) =>
+      '$baseUrl/api/rider/active-deliveries/$orderId';
   static String get getOrdersByRiderId =>
       '$baseUrl/api/orders/rider/{rider_id}';
   static String get calculateOrder => '$baseUrl/api/orders/calculate-fee';
@@ -93,8 +100,7 @@ class ApiEndpoints {
       '$baseUrl/api/messages/unread-count';
   static String get startShopConversation =>
       '$baseUrl/api/shops/{shopId}/messages';
-  static String get getConversation =>
-      '$baseUrl/api/messages/{conversationId}';
+  static String get getConversation => '$baseUrl/api/messages/{conversationId}';
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
   static String get getShopMessageProducts =>
       '$baseUrl/api/shops/{shopId}/messages/products';
