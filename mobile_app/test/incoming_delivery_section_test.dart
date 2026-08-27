@@ -195,4 +195,14 @@ void main() {
     expect(find.text('Rate'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('removes a leading hash from the displayed order code', (
+    tester,
+  ) async {
+    final incomingOrder = order()..['order_code'] = '#ORD-20313';
+    await pumpSection(tester, orders: [incomingOrder]);
+
+    expect(find.text('ORD-20313'), findsOneWidget);
+    expect(find.text('#ORD-20313'), findsNothing);
+  });
 }

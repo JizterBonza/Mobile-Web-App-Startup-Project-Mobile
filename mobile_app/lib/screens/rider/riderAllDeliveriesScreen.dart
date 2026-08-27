@@ -1,762 +1,564 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+
 import '../../constants/constants.dart';
-import '../../utils/status_utils.dart';
 import '../../services/order_service.dart';
-import '../../provider/provider.dart';
-import '../../provider/pod_provider.dart';
-import '../../widgets/order_item_card.dart';
-import '../../widgets/skeletons/app_skeletons.dart';
-import '../../widgets/view_header.dart';
-import '../../widgets/empty_state_widget.dart';
-import '../../widgets/order_details_dialog.dart';
-import 'delivery_photo_preview_screen.dart';
+import '../../utils/rider_nav.dart';
+import '../../utils/snackbar_helper.dart';
+import '../../widgets/active_deliveries_section.dart';
+import '../../widgets/delivery_acceptance_confirmation_dialog.dart';
+import '../../widgets/delivery_accepted_dialog.dart';
+import '../../widgets/incoming_delivery_section.dart';
+import 'riderPickupMap.dart';
 
 class RiderAllDeliveriesScreen extends StatefulWidget {
-  const RiderAllDeliveriesScreen({super.key});
+  const RiderAllDeliveriesScreen({super.key, this.orderService});
+
+  final OrderService? orderService;
 
   @override
   State<RiderAllDeliveriesScreen> createState() =>
       _RiderAllDeliveriesScreenState();
 }
 
-class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen>
-    with SingleTickerProviderStateMixin {
-  final OrderService _orderService = OrderService();
-  List<Map<String, dynamic>> _allOrders = [];
-  bool _isLoadingOrders = true;
-  String? _orderError;
-  late TabController _tabController;
+class _RiderAllDeliveriesScreenState extends State<RiderAllDeliveriesScreen> {
+  late final OrderService _orderService;
+  List<Map<String, dynamic>> _activeOrders = [];
+  List<Map<String, dynamic>> _incomingOrders = [];
+  int _activeCount = 0;
+  int _incomingCount = 0;
+  bool _isLoadingActive = true;
+  bool _isLoadingIncoming = true;
+  String? _activeError;
+  String? _incomingError;
+  int _selectedTab = 0;
+  int _activeRequestId = 0;
+  int _incomingRequestId = 0;
+  final Set<String> _acceptingOrderIds = {};
+  final Set<String> _acceptConfirmationOrderIds = {};
 
-  // Status tabs for filtering (matching myOrderScreen style)
-  final List<Map<String, dynamic>> _statusTabs = [
-    {'label': 'All', 'status': null},
-    {'label': 'Ready for Delivery', 'status': 'ready for delivery'},
-    {'label': 'In Transit', 'status': 'in-transit'},
-    {'label': 'Delivered', 'status': 'delivered'},
-    {'label': 'Pending', 'status': 'pending'},
-    {'label': 'Processing', 'status': 'processing'},
-    {'label': 'Cancelled', 'status': 'cancelled'},
-  ];
-
-  List<Map<String, dynamic>> _filterOrdersByStatus(
-      String? status, OrderStatusProvider orderStatusProvider) {
-    if (status == null) return _allOrders;
-    return _allOrders.where((order) {
-      final orderStatusId = order['order_status'];
-      int? statusId;
-      if (orderStatusId is int) {
-        statusId = orderStatusId;
-      } else if (orderStatusId is String) {
-        statusId = int.tryParse(orderStatusId);
-      } else if (orderStatusId != null) {
-        statusId = int.tryParse(orderStatusId.toString());
-      }
-
-      if (statusId == null) return false;
-
-      final orderStatusDesc = orderStatusProvider
-              .getOrderStatusDescription(statusId)
-              ?.toLowerCase() ??
-          '';
-      final filterStatus = status.toLowerCase();
-
-      // Handle various status formats
-      if (filterStatus == 'ready for delivery') {
-        return isReadyForDeliveryStatus(orderStatusDesc);
-      } else if (filterStatus == 'in-transit') {
-        return orderStatusDesc == 'in-transit' || orderStatusDesc == 'in transit';
-      } else if (filterStatus == 'cancelled') {
-        return orderStatusDesc == 'cancelled' || orderStatusDesc == 'canceled';
-      }
-      return orderStatusDesc == filterStatus;
-    }).toList();
-  }
+  int get _activeDisplayCount =>
+      _activeCount > 0 ? _activeCount : _activeOrders.length;
+  int get _incomingDisplayCount =>
+      _incomingCount > 0 ? _incomingCount : _incomingOrders.length;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _statusTabs.length, vsync: this);
-    _initializeOrderStatusProvider();
-    _loadOrders();
+    _orderService = widget.orderService ?? OrderService();
+    _loadBothTabs();
   }
 
-  Future<void> _initializeOrderStatusProvider() async {
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    await orderStatusProvider.initialize();
+  Future<void> _loadBothTabs() async {
+    await Future.wait([_loadActiveDeliveries(), _loadIncomingDeliveries()]);
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadOrders({bool useCache = true}) async {
+  Future<void> _loadActiveDeliveries() async {
+    if (!mounted) return;
+    final requestId = ++_activeRequestId;
     setState(() {
-      _isLoadingOrders = true;
-      _orderError = null;
+      _isLoadingActive = true;
+      _activeError = null;
     });
+    try {
+      final result = await _orderService.fetchActiveDeliveries();
+      final orders = _ordersFrom(result['orders']);
+      final count = _countFrom(result['count'], orders.length);
+      if (!mounted || requestId != _activeRequestId) return;
+      setState(() {
+        _activeOrders = orders;
+        _activeCount = count;
+        _isLoadingActive = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _activeRequestId) return;
+      setState(() {
+        _activeOrders = [];
+        _activeCount = 0;
+        _isLoadingActive = false;
+        _activeError = _errorMessage(error);
+      });
+    }
+  }
 
-    final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
-
-    await ordersProvider.fetchRiderOrders(useCache: useCache);
-
+  Future<void> _loadIncomingDeliveries() async {
+    if (!mounted) return;
+    final requestId = ++_incomingRequestId;
     setState(() {
-      _allOrders = ordersProvider.orders;
-      _isLoadingOrders = ordersProvider.isLoading;
-      _orderError = ordersProvider.error;
-      if (ordersProvider.fromCache && _allOrders.isNotEmpty) {
-        _orderError = 'Using cached data (connection lost)';
-      }
+      _isLoadingIncoming = true;
+      _incomingError = null;
     });
-  }
-
-  Future<void> _onRefresh() async {
-    await _loadOrders(useCache: false);
-    await Future.delayed(Duration(milliseconds: 500));
-  }
-
-  String _formatOrderDate(String dateString) {
-    if (dateString.isEmpty) return 'N/A';
     try {
-      final dateTime = DateTime.tryParse(dateString);
-      if (dateTime != null) {
-        final months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec'
-        ];
-        return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
-      }
-    } catch (e) {
-      print('Error formatting date: $e');
+      final result = await _orderService.fetchReadyForDeliveryOrders();
+      final orders = _ordersFrom(result['orders']);
+      final count = _countFrom(result['count'], orders.length);
+      if (!mounted || requestId != _incomingRequestId) return;
+      setState(() {
+        _incomingOrders = orders;
+        _incomingCount = count;
+        _isLoadingIncoming = false;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _incomingRequestId) return;
+      setState(() {
+        _incomingOrders = [];
+        _incomingCount = 0;
+        _isLoadingIncoming = false;
+        _incomingError = _errorMessage(error);
+      });
     }
-    return dateString;
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
+  List<Map<String, dynamic>> _ordersFrom(dynamic value) {
+    if (value is! List) return <Map<String, dynamic>>[];
+    return value
+        .whereType<Map>()
+        .map((order) => Map<String, dynamic>.from(order))
+        .toList();
+  }
+
+  int _countFrom(dynamic value, int orderCount) {
+    final parsed =
+        value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');
+    return parsed != null && parsed >= orderCount ? parsed : orderCount;
+  }
+
+  String _errorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    return message.isEmpty ? 'Unable to load deliveries.' : message;
+  }
+
+  Future<void> _continueActiveDelivery(Map<String, dynamic> order) async {
+    final completed = await Navigator.push<bool>(
+      context,
+      _createFadeRoute(RiderPickupMapScreen(order: order)),
+    );
+    if (!mounted) return;
+    await _loadBothTabs();
+    if (!mounted || completed != true) return;
+    SnackbarHelper.showSuccess(context, 'Delivery completed successfully.');
+  }
+
+  List<int>? _incomingOrderShopIds(Map<String, dynamic> order) {
+    final rawShops = order['available_order_shops'];
+    if (rawShops is! List || rawShops.isEmpty) return null;
+    final ids = <int>[];
+    final seenIds = <int>{};
+    for (final rawShop in rawShops) {
+      if (rawShop is! Map) return null;
+      final rawId = rawShop['order_shop_id'];
+      final id =
+          rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? '');
+      if (id == null || id <= 0) return null;
+      if (seenIds.add(id)) ids.add(id);
+    }
+    return ids.isEmpty ? null : ids;
+  }
+
+  Future<void> _acceptIncomingDelivery(Map<String, dynamic> order) async {
+    final parsedOrderId = int.tryParse(order['order_id']?.toString() ?? '');
+    if (parsedOrderId == null || parsedOrderId <= 0) {
+      SnackbarHelper.showError(context, 'Invalid order ID.');
+      return;
+    }
+    final orderId = parsedOrderId.toString();
+    final orderShopIds = _incomingOrderShopIds(order);
+    if (orderShopIds == null) {
+      SnackbarHelper.showError(
+        context,
+        'This order has invalid or missing pickup shop information.',
+      );
+      return;
+    }
+    if (_acceptingOrderIds.contains(orderId) ||
+        _acceptConfirmationOrderIds.contains(orderId)) {
+      return;
+    }
+
+    _acceptConfirmationOrderIds.add(orderId);
+    final rawOrderCode = order['order_code']?.toString().trim() ?? '';
+    final orderCode = rawOrderCode.replaceFirst(RegExp(r'^#+'), '').trim();
+    final confirmed = await DeliveryAcceptanceConfirmationDialog.show(
+      context,
+      orderLabel: orderCode.isNotEmpty ? orderCode : 'this order',
+      pickupStoreCount: orderShopIds.length,
+    );
+    _acceptConfirmationOrderIds.remove(orderId);
+    if (!mounted || confirmed != true) return;
+    setState(() => _acceptingOrderIds.add(orderId));
+
     try {
-      if (price is num) {
-        return '₱${price.toStringAsFixed(2)}';
-      } else if (price is String) {
-        final parsed = double.tryParse(price);
-        return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-      }
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0.00';
-  }
-
-  Map<String, dynamic> _convertOrderToCardFormat(
-      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
-    final user = order['user'] as Map<String, dynamic>?;
-    // Use recipient_name from address if available, fallback to user name
-    final recipientName = order['recipient_name']?.toString().isNotEmpty == true
-        ? order['recipient_name'].toString()
-        : (user != null
-            ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
-            : 'Unknown Customer');
-    // Use recipient_contact from address if available, fallback to user mobile
-    final recipientContact =
-        order['recipient_contact']?.toString().isNotEmpty == true
-            ? order['recipient_contact'].toString()
-            : (user?['mobile_number']?.toString() ?? '');
-
-    // Parse order_status as ID (number) and get description from provider
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
-    }
-
-    // Get status description from provider using ID
-    final orderStatusDesc = statusId != null
-        ? orderStatusProvider.getOrderStatusDescription(statusId)
-        : null;
-    final orderStatus =
-        OrderStatusColors.formatStatus(orderStatusDesc ?? 'Pending');
-
-    return {
-      'id': order['order_code']?.toString() ?? 'N/A',
-      'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
-      'status': orderStatus,
-      'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
-      'total':
-          double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
-      'items': (order['order_items'] as List?)?.length ?? 0,
-      'phone': recipientContact,
-      'address': order['shipping_address']?.toString() ?? '',
-      'order_id': order['order_id']?.toString() ?? order['id']?.toString(),
-    };
-  }
-
-  Future<void> _updateOrderStatus(
-      String orderId, String status, String? shopId) async {
-    try {
-      final result = await _orderService.updateOrderStatus(
+      final result = await _orderService.acceptReadyForDeliveryOrder(
         orderId: orderId,
-        status: status,
-        shopId: shopId,
+        orderShopIds: orderShopIds,
       );
-
+      if (!mounted) return;
       if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Order status updated successfully'),
-            backgroundColor: AppColors.primaryGreen,
-          ),
-        );
-        await _loadOrders(useCache: false);
+        final refresh = _loadBothTabs();
+        await DeliveryAcceptedDialog.show(context);
+        await refresh;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to update status'),
-            backgroundColor: AppColors.error,
-          ),
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to accept delivery.',
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating status: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+    } catch (error) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error accepting delivery: ${error.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _acceptingOrderIds.remove(orderId));
     }
   }
 
-  void _showOrderDetails(Map<String, dynamic> order) {
-    // Get order ID
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-
-    // Check if order is delivered and retrieve photo from Hive
-    String? deliveryPhotoPath;
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
-    }
-
-    final statusDesc = statusId != null
-        ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
-        : null;
-    final status = statusDesc ?? '';
-
-    if (status == 'delivered' && orderId != null) {
-      try {
-        final box = Hive.box('delivery_photos');
-        // Search for photo with matching orderId
-        for (int i = 0; i < box.length; i++) {
-          final photoData = box.getAt(i);
-          if (photoData is Map && photoData['orderId'] == orderId) {
-            final imagePath = photoData['imagePath']?.toString();
-            if (imagePath != null && File(imagePath).existsSync()) {
-              deliveryPhotoPath = imagePath;
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        print('Error retrieving delivery photo: $e');
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => OrderDetailsDialog(
-        order: order,
-        formatOrderDate: _formatOrderDate,
-        formatPrice: _formatPrice,
-        deliveryPhotoPath: deliveryPhotoPath,
-      ),
+  PageRoute<T> _createFadeRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
+      pageBuilder: (_, animation, __) => page,
+      transitionsBuilder: (_, animation, __, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.98, end: 1).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
-  void _handlePickup(Map<String, dynamic> order) {
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-    if (orderId == null || orderId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid order ID'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    // Get status code for "in-transit" from OrderStatusProvider
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final inTransitStatusId = orderStatusProvider
-            .getOrderStatusIdByDescription('in-transit') ??
-        orderStatusProvider.getOrderStatusIdByDescription('in transit');
-
-    if (inTransitStatusId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to find "In Transit" status. Please try again.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    final shopId = order['shop_id']?.toString();
-    _updateOrderStatus(orderId, inTransitStatusId.toString(), shopId);
-  }
-
-  Future<void> _handleDelivered(Map<String, dynamic> order) async {
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
-    if (orderId == null || orderId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid order ID'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
-    final ImagePicker picker = ImagePicker();
-    bool photoConfirmed = false;
-
-    // Loop until user confirms photo or cancels
-    while (!photoConfirmed && mounted) {
-      XFile? imageFile;
-
-      // Capture image from camera
-      try {
-        imageFile = await picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 85,
-        );
-
-        if (imageFile == null) {
-          // User cancelled camera
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Delivery photo is required'),
-              backgroundColor: AppColors.warning,
-            ),
-          );
-          return;
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error accessing camera: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
-      }
-
-      // Navigate to preview screen
-      if (!mounted) return;
-
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DeliveryPhotoPreviewScreen(
-            imageFile: imageFile!,
-            order: order,
-            orderId: orderId,
-          ),
-        ),
-      );
-
-      // If photo was confirmed and saved successfully, exit loop and reload orders
-      if (result == true) {
-        photoConfirmed = true;
-        if (mounted) {
-          await _loadOrders(useCache: false);
-        }
-        break;
-      }
-      // If result is false, user wants to retake - loop will continue
-      // If result is null, user closed preview - exit
-      if (result == null) {
-        return;
-      }
-    }
-  }
-
-  Future<void> _uploadPendingPhotos() async {
-    try {
-      final podProvider = Provider.of<PodProvider>(context, listen: false);
-
-      if (podProvider.isUploading) return;
-
-      print('=== POD UPLOAD DEBUG: Starting upload process via Provider ===');
-
-      // Show progress dialog
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => WillPopScope(
-          onWillPop: () async => false,
-          child: AlertDialog(
-            content: Consumer<PodProvider>(
-              builder: (context, provider, child) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: AppColors.primaryGreen),
-                    SizedBox(height: 16),
-                    if (provider.totalToUpload > 0)
-                      Text(
-                        'Uploading ${provider.uploadProgress}/${provider.totalToUpload} photo(s)...',
-                      )
-                    else
-                      Text('Preparing upload...'),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      );
-
-      // Use provider to upload all pending PODs
-      final result = await podProvider.uploadAllPendingPods();
-
-      // Close progress dialog
-      if (mounted) {
-        Navigator.pop(context);
-      }
-
-      // Show result
-      if (mounted) {
-        String message = result['message'] ?? 'Upload completed';
-        Color backgroundColor;
-
-        if (result['success'] == true) {
-          final data = result['data'] as Map<String, dynamic>?;
-          final successCount = data?['successCount'] ?? 0;
-          final total = data?['total'] ?? 0;
-
-          if (successCount == total) {
-            backgroundColor = AppColors.primaryGreen;
-          } else {
-            backgroundColor = AppColors.warning;
-          }
-        } else {
-          backgroundColor = AppColors.error;
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: backgroundColor,
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      print('\n=== POD UPLOAD DEBUG: CRITICAL ERROR ===');
-      print('DEBUG: Error: $e');
-      print('DEBUG: Stack trace: $stackTrace');
-      if (mounted) {
-        Navigator.pop(context); // Close progress dialog if still open
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error during upload: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   void _onNavTap(int index) {
-    if (index == 1) {
-      // Already on Deliveries, do nothing
-      return;
-    }
-    // Pop back to dashboard and let it handle the navigation
-    Navigator.pop(context, index);
-  }
-
-  Widget _buildOrdersList(List<Map<String, dynamic>> orders,
-      OrderStatusProvider orderStatusProvider) {
-    if (orders.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: _onRefresh,
-        color: AppColors.primaryGreen,
-        child: SingleChildScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: EmptyStateWidget(
-              icon: Icons.inbox_outlined,
-              message: 'No deliveries found',
-              subtitle: _orderError,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _onRefresh,
-      color: AppColors.primaryGreen,
-      child: ListView.builder(
-        padding: EdgeInsets.all(16),
-        itemCount: orders.length,
-        itemBuilder: (context, index) {
-          final order = orders[index];
-          final cardData =
-              _convertOrderToCardFormat(order, orderStatusProvider);
-
-          // Parse order_status as ID to get description
-          final orderStatusId = order['order_status'];
-          int? statusId;
-          if (orderStatusId is int) {
-            statusId = orderStatusId;
-          } else if (orderStatusId is String) {
-            statusId = int.tryParse(orderStatusId);
-          } else if (orderStatusId != null) {
-            statusId = int.tryParse(orderStatusId.toString());
-          }
-
-          final statusDesc = statusId != null
-              ? orderStatusProvider
-                      .getOrderStatusDescription(statusId)
-                      ?.toLowerCase() ??
-                  ''
-              : '';
-
-          // Determine action button based on status
-          String? actionLabel;
-          VoidCallback? actionCallback;
-
-          if (isReadyForDeliveryStatus(statusDesc)) {
-            actionLabel = 'Pickup';
-            actionCallback = () => _handlePickup(order);
-          } else if (statusDesc == 'in-transit' || statusDesc == 'in transit') {
-            actionLabel = 'Delivered';
-            actionCallback = () => _handleDelivered(order);
-          }
-
-          return OrderItemCard(
-            order: cardData,
-            showDetails: true,
-            onUpdateStatus: actionCallback,
-            actionButtonLabel: actionLabel,
-            onViewDetails: () {
-              _showOrderDetails(order);
-            },
-          );
-        },
-      ),
+    handleRiderNavTap(
+      context,
+      targetIndex: index,
+      currentIndex: RiderNavIndex.delivery,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: const Color(0xFFF4F4F4),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ViewHeader(
-              title: 'All Deliveries',
-              onBack: () {
-                Navigator.pop(context);
-              },
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Consumer<PodProvider>(
-                    builder: (context, podProvider, child) {
-                      return IconButton(
-                        icon: podProvider.isUploading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.primaryGreen,
-                                ),
-                              )
-                            : Icon(Icons.cloud_upload,
-                                color: AppColors.primaryGreen),
-                        onPressed: podProvider.isUploading
-                            ? null
-                            : _uploadPendingPhotos,
-                        tooltip: 'Upload Pending Photos',
-                      );
-                    },
-                  ),
-                  if (_orderError != null)
-                    IconButton(
-                      icon: Icon(Icons.refresh, color: AppColors.primaryGreen),
-                      onPressed: () => _loadOrders(useCache: false),
-                      tooltip: 'Retry',
-                    ),
-                ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 0),
+              child: Text(
+                'All Delivery',
+                key: ValueKey('all-delivery-title'),
+                style: TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 24,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
               ),
             ),
-            // Status filter tabs (matching myOrderScreen style)
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey[200]!),
-                ),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                labelColor: AppColors.primaryGreen,
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: AppColors.primaryGreen,
-                indicatorWeight: 3,
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.normal,
-                  fontSize: 14,
-                ),
-                tabs:
-                    _statusTabs.map((tab) => Tab(text: tab['label'])).toList(),
-              ),
+            _DeliveryTabs(
+              selectedIndex: _selectedTab,
+              activeCount: _activeDisplayCount,
+              incomingCount: _incomingDisplayCount,
+              onSelected: (index) => setState(() => _selectedTab = index),
             ),
             Expanded(
-              child: _isLoadingOrders
-                  ? const OrderListSkeleton()
-                  : Consumer<OrderStatusProvider>(
-                      builder: (context, orderStatusProvider, child) {
-                        return TabBarView(
-                          controller: _tabController,
-                          children: _statusTabs.map((tab) {
-                            final filteredOrders = _filterOrdersByStatus(
-                                tab['status'], orderStatusProvider);
-                            return _buildOrdersList(
-                                filteredOrders, orderStatusProvider);
-                          }).toList(),
-                        );
-                      },
-                    ),
+              child: IndexedStack(
+                index: _selectedTab,
+                children: [
+                  _DeliveryList(
+                    key: const ValueKey('active-delivery-tab-view'),
+                    type: _DeliveryListType.active,
+                    orders: _activeOrders,
+                    isLoading: _isLoadingActive,
+                    error: _activeError,
+                    onRefresh: _loadBothTabs,
+                    onRetry: _loadActiveDeliveries,
+                    onContinue: _continueActiveDelivery,
+                  ),
+                  _DeliveryList(
+                    key: const ValueKey('incoming-delivery-tab-view'),
+                    type: _DeliveryListType.incoming,
+                    orders: _incomingOrders,
+                    isLoading: _isLoadingIncoming,
+                    error: _incomingError,
+                    acceptingOrderIds: _acceptingOrderIds,
+                    onRefresh: _loadBothTabs,
+                    onRetry: _loadIncomingDeliveries,
+                    onAccept: _acceptIncomingDelivery,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.grey[300]!),
+      bottomNavigationBar: buildRiderBottomNavigationBar(
+        currentIndex: RiderNavIndex.delivery,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+}
+
+class _DeliveryTabs extends StatelessWidget {
+  const _DeliveryTabs({
+    required this.selectedIndex,
+    required this.activeCount,
+    required this.incomingCount,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final int activeCount;
+  final int incomingCount;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 9),
+      child: Row(
+        children: [
+          Expanded(
+            child: _DeliveryTab(
+              key: const ValueKey('active-delivery-tab'),
+              label: 'Active Delivery',
+              count: activeCount,
+              selected: selectedIndex == 0,
+              onTap: () => onSelected(0),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _DeliveryTab(
+              key: const ValueKey('incoming-delivery-tab'),
+              label: 'Incoming Delivery',
+              count: incomingCount,
+              selected: selectedIndex == 1,
+              onTap: () => onSelected(1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryTab extends StatelessWidget {
+  const _DeliveryTab({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? Colors.white : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border:
+                selected ? Border.all(color: const Color(0xFFE1E1E1)) : null,
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x0D000000),
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Container(
+                key: ValueKey(
+                  label.startsWith('Active')
+                      ? 'active-delivery-tab-count'
+                      : 'incoming-delivery-tab-count',
+                ),
+                height: 18,
+                constraints: const BoxConstraints(minWidth: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF05252),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8.5,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: 1, // Deliveries tab is selected
-          onTap: _onNavTap,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primaryGreen,
-          unselectedItemColor: Colors.grey[600],
-          backgroundColor: Colors.white,
-          items: [
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/home.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  Colors.grey[600]!,
-                  BlendMode.srcIn,
-                ),
-              ),
-              activeIcon: SvgPicture.asset(
-                'assets/icons/home.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryGreen,
-                  BlendMode.srcIn,
-                ),
-              ),
-              label: 'Home',
+      ),
+    );
+  }
+}
+
+enum _DeliveryListType { active, incoming }
+
+class _DeliveryList extends StatelessWidget {
+  const _DeliveryList({
+    super.key,
+    required this.type,
+    required this.orders,
+    required this.isLoading,
+    required this.error,
+    required this.onRefresh,
+    required this.onRetry,
+    this.acceptingOrderIds = const {},
+    this.onContinue,
+    this.onAccept,
+  });
+
+  final _DeliveryListType type;
+  final List<Map<String, dynamic>> orders;
+  final bool isLoading;
+  final String? error;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onRetry;
+  final Set<String> acceptingOrderIds;
+  final ValueChanged<Map<String, dynamic>>? onContinue;
+  final ValueChanged<Map<String, dynamic>>? onAccept;
+
+  String get _prefix =>
+      type == _DeliveryListType.active ? 'active' : 'incoming';
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          key: ValueKey('$_prefix-delivery-screen-loading'),
+          color: type == _DeliveryListType.active
+              ? const Color(0xFFF0A000)
+              : const Color(0xFF0A8CFF),
+        ),
+      );
+    }
+    if (error != null) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primaryGreen,
+        child: ListView(
+          key: ValueKey('$_prefix-delivery-screen-error'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+          children: [
+            const Icon(Icons.error_outline, size: 38, color: Color(0xFF999999)),
+            const SizedBox(height: 10),
+            Text(
+              error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF737373), fontSize: 13),
             ),
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/Delivered.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  Colors.grey[600]!,
-                  BlendMode.srcIn,
-                ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                key: ValueKey('$_prefix-delivery-screen-retry'),
+                onPressed: onRetry,
+                child: const Text('Retry'),
               ),
-              activeIcon: SvgPicture.asset(
-                'assets/icons/Delivered.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryGreen,
-                  BlendMode.srcIn,
-                ),
-              ),
-              label: 'Delivery',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/wallet.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  Colors.grey[600]!,
-                  BlendMode.srcIn,
-                ),
-              ),
-              activeIcon: SvgPicture.asset(
-                'assets/icons/wallet.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryGreen,
-                  BlendMode.srcIn,
-                ),
-              ),
-              label: 'Wallet',
             ),
           ],
         ),
+      );
+    }
+    if (orders.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primaryGreen,
+        child: ListView(
+          key: ValueKey('$_prefix-delivery-screen-empty'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+          children: [
+            const Icon(Icons.inbox_outlined,
+                size: 38, color: Color(0xFF999999)),
+            const SizedBox(height: 10),
+            Text(
+              type == _DeliveryListType.active
+                  ? 'No active deliveries'
+                  : 'No incoming deliveries',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF737373), fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primaryGreen,
+      child: ListView.separated(
+        key: ValueKey('$_prefix-delivery-screen-list'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 3, 16, 20),
+        itemCount: orders.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final order = orders[index];
+          if (type == _DeliveryListType.active) {
+            return ActiveDeliveryCard(
+              order: order,
+              fullWidth: true,
+              onContinue: () => onContinue?.call(order),
+            );
+          }
+          final orderId = order['order_id']?.toString() ?? '';
+          return IncomingDeliveryCard(
+            order: order,
+            isAccepting: acceptingOrderIds.contains(orderId),
+            fullWidth: true,
+            onAccept: () => onAccept?.call(order),
+          );
+        },
       ),
     );
   }

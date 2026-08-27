@@ -44,6 +44,9 @@ class ApiEndpoints {
   static String get acceptReadyForDeliveryOrder =>
       '$baseUrl/api/orders/{orderId}/accept';
   static String get activeDeliveries => '$baseUrl/api/rider/active-deliveries';
+  static String get riderDeliveries => '$baseUrl/api/rider/deliveries';
+  static String riderDeliveryByOrderId(int orderId) =>
+      '$baseUrl/api/rider/deliveries/$orderId';
   static String activeDeliveryByOrderId(int orderId) =>
       '$baseUrl/api/rider/active-deliveries/$orderId';
   static String get getOrdersByRiderId =>

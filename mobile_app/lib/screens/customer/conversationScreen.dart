@@ -999,21 +999,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           label: 'Products',
                           onTap: isSending ? null : _openProductPicker,
                         ),
-                        _buildAttachTile(
-                          icon: SvgPicture.asset(
-                            'assets/icons/orders.svg',
-                            width: 18,
-                            height: 20,
-                            colorFilter: const ColorFilter.mode(
-                              iconGrey,
-                              BlendMode.srcIn,
-                            ),
-                          ),
-                          label: 'Orders',
-                          onTap: isSending
-                              ? null
-                              : () => setState(() => _attachMenuOpen = false),
-                        ),
                       ],
                     ),
                   )

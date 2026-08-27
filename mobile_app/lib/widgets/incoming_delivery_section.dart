@@ -24,8 +24,7 @@ class IncomingDeliverySection extends StatelessWidget {
     if (orders.isEmpty) return const SizedBox.shrink();
 
     final displayCount = count > 0 ? count : orders.length;
-    final hasAnyRate =
-        orders.any((order) => _formatRate(order['rate']) != null);
+    final hasAnyRate = orders.any((order) => formatRate(order['rate']) != null);
     final listHeight = hasAnyRate ? 224.0 : 202.0;
 
     return Column(
@@ -90,7 +89,7 @@ class IncomingDeliverySection extends StatelessWidget {
                       '';
                   return SizedBox(
                     width: cardWidth,
-                    child: _IncomingDeliveryCard(
+                    child: IncomingDeliveryCard(
                       order: order,
                       isAccepting: acceptingOrderIds.contains(orderKey),
                       onAccept: () => onAccept?.call(order),
@@ -105,7 +104,7 @@ class IncomingDeliverySection extends StatelessWidget {
     );
   }
 
-  static String? _formatRate(dynamic value) {
+  static String? formatRate(dynamic value) {
     if (value == null || value.toString().trim().isEmpty) return null;
     final amount = value is num
         ? value.toDouble()
@@ -118,15 +117,18 @@ class IncomingDeliverySection extends StatelessWidget {
   }
 }
 
-class _IncomingDeliveryCard extends StatelessWidget {
+class IncomingDeliveryCard extends StatelessWidget {
   final Map<String, dynamic> order;
   final bool isAccepting;
   final VoidCallback onAccept;
+  final bool fullWidth;
 
-  const _IncomingDeliveryCard({
+  const IncomingDeliveryCard({
+    super.key,
     required this.order,
     required this.isAccepting,
     required this.onAccept,
+    this.fullWidth = false,
   });
 
   int _asInt(dynamic value) {
@@ -137,6 +139,12 @@ class _IncomingDeliveryCard extends StatelessWidget {
   String _valueOrFallback(dynamic value, String fallback) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? fallback : text;
+  }
+
+  String _formatOrderCode(dynamic value) {
+    final raw = _valueOrFallback(value, 'Order');
+    final code = raw.startsWith('#') ? raw.substring(1).trim() : raw;
+    return code.isEmpty ? 'Order' : code;
   }
 
   String _formatDate(dynamic value) {
@@ -190,17 +198,21 @@ class _IncomingDeliveryCard extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 14, color: const Color(0xFF999999)),
+          child: Icon(
+            icon,
+            size: fullWidth ? 15 : 14,
+            color: const Color(0xFF999999),
+          ),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: fullWidth ? 7 : 5),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF242424),
-              fontSize: 11,
+            style: TextStyle(
+              color: const Color(0xFF242424),
+              fontSize: fullWidth ? 12 : 11,
               height: 1.2,
               fontWeight: FontWeight.w500,
             ),
@@ -212,24 +224,30 @@ class _IncomingDeliveryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderCode = _valueOrFallback(order['order_code'], 'Order');
+    final orderCode = _formatOrderCode(order['order_code']);
     final recipient =
         _valueOrFallback(order['recipient_name'], 'Unknown recipient');
     final address =
         _valueOrFallback(order['delivery_address'], 'Address unavailable');
     final pickupCount = _asInt(order['pickup_store_count']);
     final itemCount = _asInt(order['item_count']);
-    final rate = IncomingDeliverySection._formatRate(order['rate']);
+    final rate = IncomingDeliverySection.formatRate(order['rate']);
     final pickupLabel = pickupCount == 1 ? 'pickup store' : 'pickup stores';
     final itemLabel = itemCount == 1 ? 'item' : 'items';
 
     return Container(
       key: ValueKey('incoming-delivery-card-${order['order_id'] ?? orderCode}'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: fullWidth
+          ? const EdgeInsets.all(18)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: IncomingDeliverySection._borderBlue),
+        borderRadius: BorderRadius.circular(fullWidth ? 8 : 9),
+        border: Border.all(
+          color: fullWidth
+              ? const Color(0xFF8DCAFF)
+              : IncomingDeliverySection._borderBlue,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,19 +263,19 @@ class _IncomingDeliveryCard extends StatelessWidget {
                       orderCode,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
+                        fontSize: fullWidth ? 16 : 14,
                         fontWeight: FontWeight.w800,
                         color: Colors.black,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: fullWidth ? 4 : 2),
                     Text(
                       _formatDate(order['ordered_at']),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 8,
+                      style: TextStyle(
+                        fontSize: fullWidth ? 10 : 8,
                         color: Colors.black,
                       ),
                     ),
@@ -266,7 +284,10 @@ class _IncomingDeliveryCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: fullWidth ? 10 : 9,
+                  vertical: fullWidth ? 6 : 5,
+                ),
                 decoration: BoxDecoration(
                   color: IncomingDeliverySection._lightBlue,
                   borderRadius: BorderRadius.circular(14),
@@ -283,11 +304,11 @@ class _IncomingDeliveryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: fullWidth ? 23 : 14),
           _detailRow(Icons.person, recipient),
-          const SizedBox(height: 5),
+          SizedBox(height: fullWidth ? 8 : 5),
           _detailRow(Icons.location_on, address),
-          const SizedBox(height: 5),
+          SizedBox(height: fullWidth ? 8 : 5),
           _detailRow(
             Icons.shopping_bag,
             '$pickupCount $pickupLabel • $itemCount $itemLabel',
@@ -318,12 +339,12 @@ class _IncomingDeliveryCard extends StatelessWidget {
               ],
             ),
           ],
-          const Spacer(),
+          if (fullWidth) const SizedBox(height: 8) else const Spacer(),
           const Divider(height: 1, color: Color(0xFFEAEAEA)),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            height: 30,
+            height: fullWidth ? 34 : 30,
             child: ElevatedButton(
               key: ValueKey(
                 'incoming-delivery-accept-${order['order_id'] ?? orderCode}',
@@ -353,8 +374,10 @@ class _IncomingDeliveryCard extends StatelessWidget {
                     )
                   : const Text(
                       'Accept',
-                      style:
-                          TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
             ),
           ),

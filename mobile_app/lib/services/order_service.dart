@@ -731,6 +731,163 @@ class OrderService extends ApiService {
     };
   }
 
+  /// Fetch the authenticated rider's delivery history for one month.
+  Future<Map<String, dynamic>> fetchRiderDeliveryHistory({
+    required int month,
+    required int year,
+    required String status,
+  }) async {
+    if (month < 1 || month > 12) {
+      throw ArgumentError.value(month, 'month', 'Must be between 1 and 12.');
+    }
+
+    final normalizedStatus = status.trim().toLowerCase();
+    const supportedStatuses = {'all', 'delivered', 'failed'};
+    if (!supportedStatuses.contains(normalizedStatus)) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Must be all, delivered, or failed.',
+      );
+    }
+
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final uri = Uri.parse(ApiEndpoints.riderDeliveries).replace(
+      queryParameters: {
+        'month': month.toString(),
+        'year': year.toString(),
+        'status': normalizedStatus,
+      },
+    );
+    final request = _httpClient?.get ?? http.get;
+    final response = await request(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw Exception('Invalid delivery-history response.');
+    }
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load delivery history: ${response.statusCode}',
+      );
+    }
+    if (decoded is! Map || decoded['success'] != true) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load delivery history.',
+      );
+    }
+
+    final rawData = decoded['data'];
+    if (rawData is! List) {
+      throw Exception('Invalid delivery-history data.');
+    }
+    final deliveries = rawData
+        .whereType<Map>()
+        .map((delivery) => Map<String, dynamic>.from(delivery))
+        .toList();
+    final rawCount = decoded['count'];
+    final count = rawCount is num
+        ? rawCount.toInt()
+        : int.tryParse(rawCount?.toString() ?? '') ?? deliveries.length;
+    final rawFilters = decoded['filters'];
+
+    return {
+      'deliveries': deliveries,
+      'count': count,
+      'filters': rawFilters is Map
+          ? Map<String, dynamic>.from(rawFilters)
+          : <String, dynamic>{
+              'month': month,
+              'year': year,
+              'status': normalizedStatus,
+            },
+    };
+  }
+
+  /// Fetch one completed or failed delivery for the authenticated rider.
+  Future<Map<String, dynamic>> fetchRiderDeliveryHistoryDetail(
+    int orderId,
+  ) async {
+    if (orderId <= 0) {
+      throw ArgumentError.value(orderId, 'orderId', 'Must be positive.');
+    }
+
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication required. Please login.');
+    }
+
+    final request = _httpClient?.get ?? http.get;
+    final response = await request(
+      Uri.parse(ApiEndpoints.riderDeliveryByOrderId(orderId)),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 10 seconds');
+      },
+    );
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw Exception('Invalid delivery-detail response.');
+    }
+
+    if (response.statusCode != 200) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load delivery details: ${response.statusCode}',
+      );
+    }
+    if (decoded is! Map || decoded['success'] != true) {
+      final message = decoded is Map ? decoded['message']?.toString() : null;
+      throw Exception(
+        message?.trim().isNotEmpty == true
+            ? message
+            : 'Failed to load delivery details.',
+      );
+    }
+
+    final rawData = decoded['data'];
+    if (rawData is! Map) {
+      throw Exception('Invalid delivery-detail data.');
+    }
+    return Map<String, dynamic>.from(rawData);
+  }
+
   /// Fetch one active delivery for the authenticated rider.
   Future<Map<String, dynamic>> fetchActiveDeliveryByOrderId(int orderId) async {
     final token = await ApiService.getToken();

@@ -1,29 +1,24 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
 import '../../utils/connectivity_helper.dart';
+import '../../utils/rider_nav.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../widgets/order_item_card.dart';
 import '../../widgets/rider_statistics_grid.dart';
-import '../../widgets/rider_quick_actions.dart';
 import '../../widgets/incoming_delivery_section.dart';
 import '../../widgets/delivery_acceptance_confirmation_dialog.dart';
 import '../../widgets/delivery_accepted_dialog.dart';
 import '../../widgets/active_deliveries_section.dart';
-import '../../widgets/view_header.dart';
 import '../../widgets/empty_state_widget.dart';
-import '../../widgets/order_details_dialog.dart';
 import '../common/profileScreen.dart';
 import '../common/notificationScreen.dart';
 import 'riderPickupMap.dart';
-import 'riderDeliveryMap.dart';
 import 'riderAllDeliveriesScreen.dart';
+import 'riderDeliveryHistoryDetailScreen.dart';
 import 'riderEarningsScreen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
@@ -46,6 +41,17 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   String? _activeDeliveryError;
   final Set<String> _acceptingReadyForDeliveryOrderIds = {};
   final Set<String> _acceptConfirmationOrderIds = {};
+  final TextEditingController _historySearchController =
+      TextEditingController();
+  List<Map<String, dynamic>> _historyDeliveries = [];
+  bool _isLoadingHistory = false;
+  bool _hasLoadedHistory = false;
+  String? _historyError;
+  String _historySearchQuery = '';
+  late int _historyMonth;
+  late int _historyYear;
+  String _historyStatus = 'all';
+  int _historyRequestId = 0;
   String? _userName;
 
   int get _incomingDeliveryDisplayCount => _readyForDeliveryCount > 0
@@ -58,6 +64,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _historyMonth = now.month;
+    _historyYear = now.year;
+    riderDashboardTab.reset();
+    riderDashboardTab.addListener(_syncRequestedTab);
     _loadUserName();
     // Defer provider loads until after the build phase completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,6 +80,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       _loadBadges();
       _autoUploadPendingPods();
     });
+  }
+
+  @override
+  void dispose() {
+    riderDashboardTab.removeListener(_syncRequestedTab);
+    _historySearchController.dispose();
+    super.dispose();
+  }
+
+  /// A route above the dashboard asked for one of the dashboard-hosted tabs.
+  void _syncRequestedTab() {
+    if (!mounted) return;
+    _loadOrders(useCache: false);
+    _handleNavigationTap(riderDashboardTab.index, refreshOrders: false);
   }
 
   Future<void> _initializeOrderStatusProvider() async {
@@ -230,6 +255,75 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         _activeDeliveryError = e.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  Future<void> _loadDeliveryHistory() async {
+    if (!mounted) return;
+    final requestId = ++_historyRequestId;
+    setState(() {
+      _isLoadingHistory = true;
+      _historyError = null;
+    });
+
+    try {
+      final result = await _orderService.fetchRiderDeliveryHistory(
+        month: _historyMonth,
+        year: _historyYear,
+        status: _historyStatus,
+      );
+      final rawDeliveries = result['deliveries'];
+      final deliveries = rawDeliveries is List
+          ? rawDeliveries
+              .whereType<Map>()
+              .map((delivery) => Map<String, dynamic>.from(delivery))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      if (!mounted || requestId != _historyRequestId) return;
+      setState(() {
+        _historyDeliveries = deliveries;
+        _isLoadingHistory = false;
+        _hasLoadedHistory = true;
+        _historyError = null;
+      });
+    } catch (error) {
+      if (!mounted || requestId != _historyRequestId) return;
+      setState(() {
+        _historyDeliveries = [];
+        _isLoadingHistory = false;
+        _hasLoadedHistory = true;
+        _historyError = error.toString().replaceFirst('Exception: ', '').trim();
+      });
+    }
+  }
+
+  void _selectHistoryMonth(int month) {
+    if (month == _historyMonth) return;
+    setState(() => _historyMonth = month);
+    _loadDeliveryHistory();
+  }
+
+  void _selectHistoryYear(int year) {
+    if (year == _historyYear) return;
+    setState(() => _historyYear = year);
+    _loadDeliveryHistory();
+  }
+
+  void _selectHistoryStatus(String status) {
+    if (status == _historyStatus) return;
+    setState(() => _historyStatus = status);
+    _loadDeliveryHistory();
+  }
+
+  List<Map<String, dynamic>> get _visibleHistoryDeliveries {
+    final query = _historySearchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _historyDeliveries;
+    return _historyDeliveries.where((delivery) {
+      final orderCode = delivery['order_code']?.toString().toLowerCase() ?? '';
+      final recipient =
+          delivery['recipient_name']?.toString().toLowerCase() ?? '';
+      return orderCode.contains(query) || recipient.contains(query);
+    }).toList();
   }
 
   List<int>? _readyForDeliveryOrderShopIds(Map<String, dynamic> order) {
@@ -440,94 +534,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     };
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    try {
-      if (price is num) {
-        return '₱${price.toStringAsFixed(2)}';
-      } else if (price is String) {
-        final parsed = double.tryParse(price);
-        return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-      }
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0.00';
-  }
-
-  String _formatOrderDate(String dateString) {
-    if (dateString.isEmpty) return 'N/A';
-    try {
-      final dateTime = DateTime.tryParse(dateString);
-      if (dateTime != null) {
-        final months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec'
-        ];
-        return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
-      }
-    } catch (e) {
-      print('Error formatting date: $e');
-    }
-    return dateString;
-  }
-
-  Map<String, dynamic> _convertOrderToCardFormat(
-      Map<String, dynamic> order, OrderStatusProvider orderStatusProvider) {
-    final user = order['user'] as Map<String, dynamic>?;
-    // Use recipient_name from address if available, fallback to user name
-    final recipientName = order['recipient_name']?.toString().isNotEmpty == true
-        ? order['recipient_name'].toString()
-        : (user != null
-            ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'.trim()
-            : 'Unknown Customer');
-    // Use recipient_contact from address if available, fallback to user mobile
-    final recipientContact =
-        order['recipient_contact']?.toString().isNotEmpty == true
-            ? order['recipient_contact'].toString()
-            : (user?['mobile_number']?.toString() ?? '');
-
-    // Parse order_status as ID (number) and get description from provider
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
-    }
-
-    // Get status description from provider using ID
-    final orderStatusDesc = statusId != null
-        ? orderStatusProvider.getOrderStatusDescription(statusId)
-        : null;
-    final orderStatus = orderStatusDesc ?? 'Pending';
-
-    return {
-      'id': order['order_code']?.toString() ?? 'N/A',
-      'customer': recipientName.isNotEmpty ? recipientName : 'Unknown Customer',
-      'status': orderStatus,
-      'date': _formatOrderDate(order['ordered_at']?.toString() ?? ''),
-      'total':
-          double.tryParse(order['total_amount']?.toString() ?? '0.0') ?? 0.0,
-      'items': (order['order_items'] as List?)?.length ?? 0,
-      'phone': recipientContact,
-      'address': order['shipping_address']?.toString() ?? '',
-      'order_id': order['order_id']?.toString() ?? order['id']?.toString(),
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -580,8 +586,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   ),
                   SizedBox(height: 24),
                 ],
-                _buildQuickActions(),
-                SizedBox(height: 24),
               ],
             ),
           ),
@@ -708,29 +712,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions() {
-    return RiderQuickActions(
-      onPickupMap: () {
-        Navigator.push(
-          context,
-          _createFadeRoute(const RiderPickupMapScreen()),
-        );
-      },
-      onDeliveryMap: () {
-        Navigator.push(
-          context,
-          _createFadeRoute(const RiderDeliveryMapScreen()),
-        );
-      },
-      onAllDeliveries: () {
-        _navigateToDeliveries();
-      },
-      onEarnings: () {
-        _navigateToEarnings();
-      },
-    );
-  }
-
   Widget _buildActiveDeliveriesSection() {
     return ActiveDeliveriesSection(
       orders: _activeDeliveryOrders,
@@ -757,30 +738,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   }
 
   void _navigateToDeliveries() {
-    Navigator.push(
-      context,
-      _createFadeRoute(const RiderAllDeliveriesScreen()),
-    ).then((result) {
-      if (!mounted) return;
-      // Refresh orders when returning
-      _loadOrders(useCache: false);
-      // If a tab index was returned, route to that destination.
-      if (result != null && result is int) {
-        _handleNavigationTap(result, refreshOrders: false);
-      }
-    });
+    _pushRiderTab(const RiderAllDeliveriesScreen());
   }
 
   void _navigateToEarnings() {
-    Navigator.push(
-      context,
-      _createFadeRoute(const RiderEarningsScreen()),
-    ).then((result) {
-      if (!mounted) return;
+    _pushRiderTab(const RiderEarningsScreen());
+  }
+
+  /// Nav taps on the pushed tab routes report back through
+  /// [riderDashboardTab], so only an unannounced exit (system back) has to
+  /// refresh here.
+  void _pushRiderTab(Widget screen) {
+    Navigator.push(context, riderFadeRoute(screen)).then((result) {
+      if (!mounted || result != null) return;
       _loadOrders(useCache: false);
-      if (result != null && result is int) {
-        _handleNavigationTap(result, refreshOrders: false);
-      }
     });
   }
 
@@ -797,204 +768,643 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
     if (index != 0 && index != 2) return;
 
-    if (refreshOrders && index != _selectedIndex) {
+    final isChangingTab = index != _selectedIndex;
+    if (refreshOrders && index == 0 && isChangingTab) {
       _loadOrders(useCache: false);
     }
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 2 && (isChangingTab || !_hasLoadedHistory)) {
+      _loadDeliveryHistory();
+    }
   }
 
   Widget _buildHistoryView() {
-    return Consumer<OrderStatusProvider>(
-      builder: (context, orderStatusProvider, child) {
-        final completedDeliveries =
-            _getCompletedDeliveries(orderStatusProvider);
+    final historyDeliveries = _visibleHistoryDeliveries;
 
-        return Column(
-          children: [
-            ViewHeader(
-              title: 'Delivery History',
-              onBack: () {
-                _loadOrders(useCache: false);
-                setState(() {
-                  _selectedIndex = 0; // Switch to Home tab
-                });
+    return ColoredBox(
+      color: const Color(0xFFF4F4F4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+            child: Text(
+              'Delivery History',
+              key: ValueKey('delivery-history-title'),
+              style: TextStyle(
+                color: Color(0xFF111111),
+                fontSize: 24,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _DeliveryHistoryControls(
+              searchController: _historySearchController,
+              month: _historyMonth,
+              year: _historyYear,
+              status: _historyStatus,
+              enabled: !_isLoadingHistory,
+              onSearchChanged: (query) {
+                setState(() => _historySearchQuery = query);
               },
+              onMonthChanged: _selectHistoryMonth,
+              onYearChanged: _selectHistoryYear,
+              onStatusChanged: _selectHistoryStatus,
             ),
-            Expanded(
-              child: completedDeliveries.isEmpty
-                  ? EmptyStateWidget(
-                      icon: Icons.history_outlined,
-                      message: 'No completed deliveries yet',
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _onRefresh,
-                      color: AppColors.primaryGreen,
-                      child: ListView.builder(
-                        padding: EdgeInsets.all(16),
-                        itemCount: completedDeliveries.length,
-                        itemBuilder: (context, index) {
-                          final order = completedDeliveries[index];
-                          final cardData = _convertOrderToCardFormat(
-                              order, orderStatusProvider);
-
-                          return OrderItemCard(
-                            order: cardData,
-                            showDetails: true,
-                            onViewDetails: () {
-                              _showOrderDetails(order);
-                            },
-                          );
-                        },
-                      ),
+          ),
+          const SizedBox(height: 15),
+          Expanded(
+            child: _isLoadingHistory
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      key: ValueKey('delivery-history-loading'),
+                      color: AppColors.primaryGreenLight,
                     ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+                  )
+                : _historyError != null
+                    ? EmptyStateWidget(
+                        icon: Icons.cloud_off_outlined,
+                        message: 'Unable to load delivery history',
+                        subtitle: _historyError,
+                        action: ElevatedButton(
+                          key: const ValueKey('delivery-history-retry'),
+                          onPressed: _loadDeliveryHistory,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreenLight,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      )
+                    : historyDeliveries.isEmpty
+                        ? EmptyStateWidget(
+                            icon: Icons.history_outlined,
+                            message: _historySearchQuery.trim().isEmpty
+                                ? 'No deliveries found'
+                                : 'No matching deliveries',
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadDeliveryHistory,
+                            color: AppColors.primaryGreenLight,
+                            child: ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                              itemCount: historyDeliveries.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final delivery = historyDeliveries[index];
+                                final orderCode = _historyOrderCode(
+                                  delivery['order_code'],
+                                );
 
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _handleNavigationTap,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey[600],
-        backgroundColor: Colors.white,
-        items: [
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/home.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
-            ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/home.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/Delivered.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
-            ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/Delivered.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Delivery',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/wallet.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
-            ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/wallet.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Wallet',
+                                return _DeliveryHistoryCard(
+                                  key: ValueKey(
+                                    'delivery-history-card-$orderCode-$index',
+                                  ),
+                                  orderCode: orderCode,
+                                  date: _formatHistoryDate(delivery),
+                                  customer: delivery['recipient_name']
+                                          ?.toString()
+                                          .trim() ??
+                                      '',
+                                  address: _historyAddress(delivery),
+                                  pickupStoreCount:
+                                      _historyPickupStoreCount(delivery),
+                                  itemCount: _historyItemCount(delivery),
+                                  status: _historyStatusLabel(delivery),
+                                  onTap: () =>
+                                      _openDeliveryHistoryDetail(delivery),
+                                );
+                              },
+                            ),
+                          ),
           ),
         ],
       ),
     );
   }
 
-  void _showOrderDetails(Map<String, dynamic> order) {
-    // Get order ID
-    final orderId = order['order_id']?.toString() ?? order['id']?.toString();
+  String _historyStatusLabel(Map<String, dynamic> delivery) {
+    final rawStatus = delivery['status'];
+    if (rawStatus is Map) {
+      final label = rawStatus['label']?.toString().trim() ?? '';
+      if (label.isNotEmpty) return label;
+      final key = rawStatus['key']?.toString().trim() ?? '';
+      if (key.isNotEmpty) return key;
+    }
+    final label = delivery['status_label']?.toString().trim() ?? '';
+    if (label.isNotEmpty) return label;
+    return rawStatus?.toString().trim() ?? '';
+  }
 
-    // Check if order is delivered and retrieve photo from Hive
-    String? deliveryPhotoPath;
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
+  String _historyAddress(Map<String, dynamic> delivery) {
+    final address = delivery['delivery_address']?.toString().trim() ?? '';
+    return address.isEmpty ? 'Delivery address unavailable' : address;
+  }
+
+  int _historyPickupStoreCount(Map<String, dynamic> delivery) {
+    return int.tryParse(delivery['pickup_store_count']?.toString() ?? '') ?? 0;
+  }
+
+  int _historyItemCount(Map<String, dynamic> delivery) {
+    return int.tryParse(delivery['item_count']?.toString() ?? '') ?? 0;
+  }
+
+  void _openDeliveryHistoryDetail(Map<String, dynamic> delivery) {
+    final orderId = int.tryParse(delivery['order_id']?.toString() ?? '');
+    if (orderId == null || orderId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This delivery has an invalid order ID.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
 
-    final statusDesc = statusId != null
-        ? orderStatusProvider.getOrderStatusDescription(statusId)?.toLowerCase()
-        : null;
-    final status = statusDesc ?? '';
-
-    if (status == 'delivered' && orderId != null) {
-      try {
-        final box = Hive.box('delivery_photos');
-        // Search for photo with matching orderId
-        for (int i = 0; i < box.length; i++) {
-          final photoData = box.getAt(i);
-          if (photoData is Map && photoData['orderId'] == orderId) {
-            final imagePath = photoData['imagePath']?.toString();
-            if (imagePath != null && File(imagePath).existsSync()) {
-              deliveryPhotoPath = imagePath;
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        print('Error retrieving delivery photo: $e');
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => OrderDetailsDialog(
-        order: order,
-        formatOrderDate: _formatOrderDate,
-        formatPrice: _formatPrice,
-        deliveryPhotoPath: deliveryPhotoPath,
+    Navigator.push(
+      context,
+      _createFadeRoute(
+        RiderDeliveryHistoryDetailScreen(orderId: orderId),
       ),
+    );
+  }
+
+  String _historyOrderCode(dynamic value) {
+    final code = value?.toString().trim() ?? '';
+    if (code.isEmpty || code == 'N/A') return 'ORDER';
+    return code.startsWith('#') ? code.substring(1) : code;
+  }
+
+  String _formatHistoryDate(Map<String, dynamic> order) {
+    final raw =
+        (order['delivered_at'] ?? order['updated_at'] ?? order['ordered_at'])
+            ?.toString()
+            .trim();
+    final date = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    if (date == null) {
+      return raw?.isNotEmpty == true ? raw! : 'Date unavailable';
+    }
+
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final meridiem = date.hour < 12 ? 'am' : 'pm';
+    return '${months[date.month - 1]} ${date.day}, ${date.year} '
+        '• $hour:$minute$meridiem';
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return buildRiderBottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _handleNavigationTap,
+    );
+  }
+}
+
+class _DeliveryHistoryControls extends StatelessWidget {
+  const _DeliveryHistoryControls({
+    required this.searchController,
+    required this.month,
+    required this.year,
+    required this.status,
+    required this.enabled,
+    required this.onSearchChanged,
+    required this.onMonthChanged,
+    required this.onYearChanged,
+    required this.onStatusChanged,
+  });
+
+  final TextEditingController searchController;
+  final int month;
+  final int year;
+  final String status;
+  final bool enabled;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<int> onMonthChanged;
+  final ValueChanged<int> onYearChanged;
+  final ValueChanged<String> onStatusChanged;
+
+  static const _months = <int, String>{
+    1: 'Jan',
+    2: 'Feb',
+    3: 'Mar',
+    4: 'Apr',
+    5: 'May',
+    6: 'Jun',
+    7: 'Jul',
+    8: 'Aug',
+    9: 'Sep',
+    10: 'Oct',
+    11: 'Nov',
+    12: 'Dec',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final latestYear = DateTime.now().year + 1;
+    final years = <int>{
+      for (var value = 2020; value <= latestYear; value++) value,
+      year,
+    }.toList()
+      ..sort((left, right) => right.compareTo(left));
+
+    return Column(
+      children: [
+        Container(
+          key: const ValueKey('delivery-history-search'),
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFD8D8D8)),
+          ),
+          child: TextField(
+            controller: searchController,
+            enabled: enabled,
+            onChanged: onSearchChanged,
+            textInputAction: TextInputAction.search,
+            style: const TextStyle(
+              color: Color(0xFF222222),
+              fontSize: 12,
+            ),
+            decoration: const InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              prefixIcon: Icon(
+                Icons.search,
+                size: 18,
+                color: Color(0xFF9A9A9A),
+              ),
+              prefixIconConstraints: BoxConstraints(
+                minWidth: 38,
+                minHeight: 40,
+              ),
+              hintText: 'Search order number or customer',
+              hintStyle: TextStyle(
+                color: Color(0xFF8D8D8D),
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            Expanded(
+              child: _HistorySelect<int>(
+                key: const ValueKey('delivery-history-month'),
+                value: month,
+                enabled: enabled,
+                items: _months,
+                onChanged: onMonthChanged,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: _HistorySelect<int>(
+                key: const ValueKey('delivery-history-year'),
+                value: year,
+                enabled: enabled,
+                items: {for (final value in years) value: value.toString()},
+                onChanged: onYearChanged,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _HistoryFilter(
+                label: 'All',
+                value: 'all',
+                selected: status == 'all',
+                enabled: enabled,
+                onSelected: onStatusChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _HistoryFilter(
+                label: 'Delivered',
+                value: 'delivered',
+                selected: status == 'delivered',
+                enabled: enabled,
+                onSelected: onStatusChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _HistoryFilter(
+                label: 'Failed',
+                value: 'failed',
+                selected: status == 'failed',
+                enabled: enabled,
+                onSelected: onStatusChanged,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HistorySelect<T> extends StatelessWidget {
+  const _HistorySelect({
+    super.key,
+    required this.value,
+    required this.enabled,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final T value;
+  final bool enabled;
+  final Map<T, String> items;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD8D8D8)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          icon: const Icon(
+            Icons.keyboard_arrow_down,
+            size: 18,
+            color: Color(0xFF111111),
+          ),
+          style: const TextStyle(
+            color: Color(0xFF8A8A8A),
+            fontSize: 12,
+          ),
+          items: items.entries
+              .map(
+                (entry) => DropdownMenuItem<T>(
+                  value: entry.key,
+                  child: Text(entry.value),
+                ),
+              )
+              .toList(),
+          onChanged: enabled
+              ? (selected) {
+                  if (selected != null) onChanged(selected);
+                }
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryFilter extends StatelessWidget {
+  const _HistoryFilter({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final String label;
+  final String value;
+  final bool selected;
+  final bool enabled;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('delivery-history-$value-filter'),
+        onTap: enabled ? () => onSelected(value) : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 31,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryGreenLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border:
+                selected ? null : Border.all(color: const Color(0xFFD8D8D8)),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : const Color(0xFF777777),
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryHistoryCard extends StatelessWidget {
+  const _DeliveryHistoryCard({
+    super.key,
+    required this.orderCode,
+    required this.date,
+    required this.customer,
+    required this.address,
+    required this.pickupStoreCount,
+    required this.itemCount,
+    required this.status,
+    required this.onTap,
+  });
+
+  final String orderCode;
+  final String date;
+  final String customer;
+  final String address;
+  final int pickupStoreCount;
+  final int itemCount;
+  final String status;
+  final VoidCallback onTap;
+
+  bool get _isFailed {
+    final value = status.toLowerCase();
+    return value.contains('fail') ||
+        value.contains('cancel') ||
+        value.contains('return');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = _isFailed ? 'Failed' : 'Delivered';
+    final statusColor =
+        _isFailed ? const Color(0xFFFF334F) : const Color(0xFF149755);
+    final statusFill =
+        _isFailed ? const Color(0xFFFFF0F2) : const Color(0xFFE1F7EA);
+    final statusBorder =
+        _isFailed ? const Color(0xFFFF6378) : const Color(0xFF77D4A0);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFDDDDDD)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          orderCode,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF111111),
+                            fontSize: 16,
+                            height: 1.1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          date,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF111111),
+                            fontSize: 10,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 60),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusFill,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusBorder, width: 0.7),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 9,
+                        height: 1,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 23),
+              _HistoryDetailLine(
+                icon: Icons.person,
+                text: customer.isEmpty ? 'Unknown Customer' : customer,
+              ),
+              const SizedBox(height: 8),
+              _HistoryDetailLine(
+                icon: Icons.location_on,
+                text: address,
+              ),
+              const SizedBox(height: 8),
+              _HistoryDetailLine(
+                icon: Icons.store,
+                text: '$pickupStoreCount pickup '
+                    '${pickupStoreCount == 1 ? 'store' : 'stores'} '
+                    '• $itemCount ${itemCount == 1 ? 'item' : 'items'}',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryDetailLine extends StatelessWidget {
+  const _HistoryDetailLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: const Color(0xFFA2A2A2)),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF111111),
+              fontSize: 12,
+              height: 1.1,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

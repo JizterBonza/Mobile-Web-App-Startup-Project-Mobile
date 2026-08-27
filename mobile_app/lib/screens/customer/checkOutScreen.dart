@@ -1464,7 +1464,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       final appliedCode =
           (result['voucher_code']?.toString() ?? code).trim();
       final name = result['name']?.toString();
-      final message = result['message']?.toString();
 
       setState(() {
         _appliedVoucherCode = appliedCode;
@@ -1480,16 +1479,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         }
         _voucherController.text = appliedCode;
         _voucherErrorMessage = null;
-        if (name != null && name.isNotEmpty) {
-          _voucherSuccessMessage = discount > 0
-              ? '$name · ₱${discount.toStringAsFixed(2)} off'
-              : name;
-        } else if (discount > 0) {
-          _voucherSuccessMessage =
-              '₱${discount.toStringAsFixed(2)} off applied';
-        } else {
-          _voucherSuccessMessage = message ?? 'Voucher applied';
-        }
+        _voucherSuccessMessage =
+            name != null && name.isNotEmpty ? name : null;
         _isValidatingVoucher = false;
       });
       await _maybeRecalculateOrder();

@@ -143,7 +143,7 @@ class _ActiveDeliveryList extends StatelessWidget {
               final order = orders[index];
               return SizedBox(
                 width: cardWidth,
-                child: _ActiveDeliveryCard(
+                child: ActiveDeliveryCard(
                   order: order,
                   onContinue:
                       onContinue == null ? null : () => onContinue!(order),
@@ -157,11 +157,17 @@ class _ActiveDeliveryList extends StatelessWidget {
   }
 }
 
-class _ActiveDeliveryCard extends StatelessWidget {
-  const _ActiveDeliveryCard({required this.order, this.onContinue});
+class ActiveDeliveryCard extends StatelessWidget {
+  const ActiveDeliveryCard({
+    super.key,
+    required this.order,
+    this.onContinue,
+    this.fullWidth = false,
+  });
 
   final Map<String, dynamic> order;
   final VoidCallback? onContinue;
+  final bool fullWidth;
 
   int _asInt(dynamic value) {
     final parsed = value is num
@@ -173,6 +179,12 @@ class _ActiveDeliveryCard extends StatelessWidget {
   String _valueOrFallback(dynamic value, String fallback) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? fallback : text;
+  }
+
+  String _formatOrderCode(dynamic value) {
+    final raw = _valueOrFallback(value, 'Order');
+    final code = raw.startsWith('#') ? raw.substring(1).trim() : raw;
+    return code.isEmpty ? 'Order' : code;
   }
 
   String _formatStatus() {
@@ -251,17 +263,21 @@ class _ActiveDeliveryCard extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 14, color: const Color(0xFF999999)),
+          child: Icon(
+            icon,
+            size: fullWidth ? 15 : 14,
+            color: const Color(0xFF999999),
+          ),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: fullWidth ? 7 : 5),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF242424),
-              fontSize: 11,
+            style: TextStyle(
+              color: const Color(0xFF242424),
+              fontSize: fullWidth ? 12 : 11,
               height: 1.2,
               fontWeight: FontWeight.w500,
             ),
@@ -273,7 +289,7 @@ class _ActiveDeliveryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderCode = _valueOrFallback(order['order_code'], 'Order');
+    final orderCode = _formatOrderCode(order['order_code']);
     final recipient =
         _valueOrFallback(order['recipient_name'], 'Unknown recipient');
     final address =
@@ -287,11 +303,17 @@ class _ActiveDeliveryCard extends StatelessWidget {
 
     return Container(
       key: ValueKey('active-delivery-card-$cardKey'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: fullWidth
+          ? const EdgeInsets.all(18)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: ActiveDeliveriesSection._borderOrange),
+        borderRadius: BorderRadius.circular(fullWidth ? 8 : 9),
+        border: Border.all(
+          color: fullWidth
+              ? const Color(0xFFF1C15F)
+              : ActiveDeliveriesSection._borderOrange,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,18 +329,21 @@ class _ActiveDeliveryCard extends StatelessWidget {
                       orderCode,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: TextStyle(
+                        fontSize: fullWidth ? 16 : 14,
                         fontWeight: FontWeight.w800,
                         color: Colors.black,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: fullWidth ? 4 : 2),
                     Text(
                       _formatDate(order['ordered_at']),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 8, color: Colors.black),
+                      style: TextStyle(
+                        fontSize: fullWidth ? 10 : 8,
+                        color: Colors.black,
+                      ),
                     ),
                   ],
                 ),
@@ -327,8 +352,10 @@ class _ActiveDeliveryCard extends StatelessWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 105),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: fullWidth ? 10 : 9,
+                    vertical: fullWidth ? 6 : 5,
+                  ),
                   decoration: BoxDecoration(
                     color: ActiveDeliveriesSection._lightOrange,
                     borderRadius: BorderRadius.circular(14),
@@ -348,11 +375,11 @@ class _ActiveDeliveryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: fullWidth ? 23 : 14),
           _detailRow(Icons.person, recipient),
-          const SizedBox(height: 5),
+          SizedBox(height: fullWidth ? 8 : 5),
           _detailRow(Icons.location_on, address),
-          const SizedBox(height: 5),
+          SizedBox(height: fullWidth ? 8 : 5),
           _detailRow(
             Icons.shopping_bag,
             '$pickupCount $pickupLabel • $itemCount $itemLabel',
@@ -381,12 +408,12 @@ class _ActiveDeliveryCard extends StatelessWidget {
               ],
             ),
           ],
-          const Spacer(),
+          if (fullWidth) const SizedBox(height: 8) else const Spacer(),
           const Divider(height: 1, color: Color(0xFFEAEAEA)),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            height: 30,
+            height: fullWidth ? 34 : 30,
             child: ElevatedButton(
               key: ValueKey('active-delivery-continue-$cardKey'),
               onPressed: onContinue,
@@ -407,7 +434,10 @@ class _ActiveDeliveryCard extends StatelessWidget {
                 children: [
                   Text(
                     'Continue Delivery',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   SizedBox(width: 8),
                   Icon(Icons.chevron_right, size: 16),

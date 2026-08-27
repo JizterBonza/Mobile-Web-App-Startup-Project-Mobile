@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
-import '../../widgets/skeletons/app_skeletons.dart';
+import '../../utils/rider_nav.dart';
+import '../../widgets/empty_state_widget.dart';
 
 class RiderEarningsScreen extends StatefulWidget {
   const RiderEarningsScreen({super.key});
@@ -15,161 +17,164 @@ class RiderEarningsScreen extends StatefulWidget {
 class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
   List<Map<String, dynamic>> _allOrders = [];
   bool _isLoading = true;
-  String _selectedPeriod = 'All Time';
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOrders());
   }
 
   Future<void> _loadOrders({bool useCache = true}) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
-    final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
-    await ordersProvider.fetchRiderOrders(useCache: useCache);
-
-    setState(() {
-      _allOrders = ordersProvider.orders;
-      _isLoading = ordersProvider.isLoading;
-    });
-  }
-
-  Future<void> _onRefresh() async {
-    await _loadOrders(useCache: false);
-  }
-
-  List<Map<String, dynamic>> get _completedDeliveries {
-    return _allOrders
-        .where((order) =>
-            order['order_status']?.toString().toLowerCase() == 'delivered')
-        .toList();
-  }
-
-  List<Map<String, dynamic>> get _filteredDeliveries {
-    final now = DateTime.now();
-    final completed = _completedDeliveries;
-
-    switch (_selectedPeriod) {
-      case 'Today':
-        return completed.where((order) {
-          final orderDate = DateTime.tryParse(order['ordered_at'] ?? '');
-          if (orderDate == null) return false;
-          return orderDate.year == now.year &&
-              orderDate.month == now.month &&
-              orderDate.day == now.day;
-        }).toList();
-      case 'This Week':
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        return completed.where((order) {
-          final orderDate = DateTime.tryParse(order['ordered_at'] ?? '');
-          if (orderDate == null) return false;
-          return orderDate.isAfter(startOfWeek.subtract(Duration(days: 1)));
-        }).toList();
-      case 'This Month':
-        return completed.where((order) {
-          final orderDate = DateTime.tryParse(order['ordered_at'] ?? '');
-          if (orderDate == null) return false;
-          return orderDate.year == now.year && orderDate.month == now.month;
-        }).toList();
-      case 'All Time':
-      default:
-        return completed;
+    final ordersProvider = context.read<OrdersProvider>();
+    try {
+      await ordersProvider.fetchRiderOrders(useCache: useCache);
+      if (!mounted) return;
+      setState(() {
+        _allOrders = ordersProvider.orders;
+        _error = ordersProvider.error;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _isLoading = false;
+      });
     }
   }
 
+  Future<void> _onRefresh() => _loadOrders(useCache: false);
+
+  List<Map<String, dynamic>> get _completedDeliveries => _allOrders
+      .where(
+        (order) =>
+            order['order_status']?.toString().trim().toLowerCase() ==
+            'delivered',
+      )
+      .toList();
+
   double get _totalEarnings {
-    double total = 0.0;
-    for (var order in _filteredDeliveries) {
-      final shippingFee =
-          double.tryParse(order['shipping_fee']?.toString() ?? '0.0') ?? 0.0;
-      total += shippingFee;
+    var total = 0.0;
+    for (final order in _completedDeliveries) {
+      total += _shippingFee(order);
     }
     return total;
   }
 
-  double get _averageEarning {
-    if (_filteredDeliveries.isEmpty) return 0.0;
-    return _totalEarnings / _filteredDeliveries.length;
+  double _shippingFee(Map<String, dynamic> order) {
+    return double.tryParse(order['shipping_fee']?.toString() ?? '') ?? 0;
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    if (price is num) {
-      return '₱${price.toStringAsFixed(2)}';
-    } else if (price is String) {
-      final parsed = double.tryParse(price);
-      return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-    }
-    return '₱0.00';
-  }
+  String _formatCurrency(double amount, {bool showPositiveSign = false}) {
+    final absoluteAmount = amount.abs();
+    final fixed = absoluteAmount == absoluteAmount.truncateToDouble()
+        ? absoluteAmount.toStringAsFixed(0)
+        : absoluteAmount.toStringAsFixed(2);
+    final parts = fixed.split('.');
+    final digits = parts.first;
+    final grouped = StringBuffer();
 
-  String _formatOrderDate(String dateString) {
-    if (dateString.isEmpty) return 'N/A';
-    try {
-      final dateTime = DateTime.tryParse(dateString);
-      if (dateTime != null) {
-        final months = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec'
-        ];
-        return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+    for (var index = 0; index < digits.length; index++) {
+      if (index > 0 && (digits.length - index) % 3 == 0) {
+        grouped.write(',');
       }
-    } catch (e) {
-      print('Error formatting date: $e');
+      grouped.write(digits[index]);
     }
-    return dateString;
+
+    final decimals = parts.length == 2 ? '.${parts.last}' : '';
+    final sign = amount < 0
+        ? '-'
+        : showPositiveSign
+            ? '+'
+            : '';
+    return '$sign₱$grouped$decimals';
+  }
+
+  String _formatOrderDate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.isEmpty ? 'Date unavailable' : raw;
+
+    final date = parsed.toLocal();
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final meridiem = date.hour < 12 ? 'am' : 'pm';
+    return '${months[date.month - 1]} ${date.day}, ${date.year} '
+        '• $hour:$minute$meridiem';
+  }
+
+  String _orderCode(Map<String, dynamic> order) {
+    final value = order['order_code']?.toString().trim() ?? '';
+    if (value.isEmpty) return 'ORDER';
+    return value.startsWith('#') ? value.substring(1) : value;
   }
 
   void _onNavTap(int index) {
-    if (index == 3) return;
-    Navigator.pop(context, index);
+    handleRiderNavTap(
+      context,
+      targetIndex: index,
+      currentIndex: RiderNavIndex.wallet,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: const Color(0xFFF4F4F4),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const GenericListSkeleton(count: 4, itemHeight: 120)
-                  : RefreshIndicator(
-                      onRefresh: _onRefresh,
-                      color: AppColors.primaryGreen,
-                      child: SingleChildScrollView(
-                        physics: AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildPeriodSelector(),
-                            SizedBox(height: 20),
-                            _buildEarningsCard(),
-                            SizedBox(height: 20),
-                            _buildStatsRow(),
-                            SizedBox(height: 24),
-                            _buildRecentEarnings(),
-                          ],
-                        ),
-                      ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Wallet',
+                    key: ValueKey('wallet-title'),
+                    style: TextStyle(
+                      color: Color(0xFF111111),
+                      fontSize: 24,
+                      height: 1.15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
                     ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Your delivery earnings.',
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontSize: 10,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
@@ -177,95 +182,98 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[200]!),
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          key: ValueKey('wallet-loading'),
+          color: AppColors.primaryGreenLight,
         ),
-      ),
-      child: Row(
+      );
+    }
+
+    if (_error != null) {
+      return EmptyStateWidget(
+        icon: Icons.cloud_off_outlined,
+        message: 'Unable to load earnings',
+        subtitle: _error,
+        action: ElevatedButton(
+          key: const ValueKey('wallet-retry'),
+          onPressed: () => _loadOrders(useCache: false),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryGreenLight,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Retry'),
+        ),
+      );
+    }
+
+    final deliveries = _completedDeliveries;
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primaryGreenLight,
+      child: ListView(
+        key: const ValueKey('wallet-scroll-view'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
-            onPressed: () => Navigator.pop(context),
-          ),
-          SizedBox(width: 8),
-          Text(
-            'Earnings',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[900],
-            ),
-          ),
-          Spacer(),
-          IconButton(
-            icon: Icon(Icons.refresh, color: AppColors.primaryGreen),
-            onPressed: _onRefresh,
-          ),
+          _WalletBalanceCard(amount: _formatCurrency(_totalEarnings)),
+          const SizedBox(height: 28),
+          const _WalletTabs(),
+          const SizedBox(height: 6),
+          if (deliveries.isEmpty)
+            const _WalletEmptyEarnings()
+          else
+            for (var index = 0; index < deliveries.length; index++) ...[
+              _WalletEarningRow(
+                key: ValueKey('wallet-earning-row-$index'),
+                orderCode: _orderCode(deliveries[index]),
+                date: _formatOrderDate(deliveries[index]['ordered_at']),
+                amount: _formatCurrency(
+                  _shippingFee(deliveries[index]),
+                  showPositiveSign: true,
+                ),
+              ),
+              if (index != deliveries.length - 1)
+                const Divider(height: 1, color: Color(0xFFE2E2E2)),
+            ],
         ],
       ),
     );
   }
 
-  Widget _buildPeriodSelector() {
-    final periods = ['All Time', 'Today', 'This Week', 'This Month'];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: periods.map((period) {
-          final isSelected = _selectedPeriod == period;
-          return Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(period),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() {
-                    _selectedPeriod = period;
-                  });
-                }
-              },
-              selectedColor: AppColors.primaryGreen,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-              backgroundColor: Colors.white,
-              side: BorderSide(
-                color: isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+  Widget _buildBottomNavigationBar() {
+    return buildRiderBottomNavigationBar(
+      currentIndex: RiderNavIndex.wallet,
+      onTap: _onNavTap,
     );
   }
+}
 
-  Widget _buildEarningsCard() {
+class _WalletBalanceCard extends StatelessWidget {
+  const _WalletBalanceCard({required this.amount});
+
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey('wallet-balance-card'),
       width: double.infinity,
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 17),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryGreen,
-            AppColors.primaryGreen.withOpacity(0.8)
-          ],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF21975C), Color(0xFF08713F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
           BoxShadow(
-            color: AppColors.primaryGreen.withOpacity(0.3),
-            blurRadius: 12,
-            offset: Offset(0, 6),
+            color: Color(0x14000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -274,343 +282,253 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
         children: [
           Row(
             children: [
-              Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet,
-                  color: Colors.white,
-                  size: 24,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Available Balance',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        height: 1.2,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      amount,
+                      key: const ValueKey('wallet-available-balance'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(width: 12),
-              Text(
-                'Total Earnings',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              Container(
+                width: 31,
+                height: 27,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 1.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: SvgPicture.asset(
+                  'assets/icons/wallet.svg',
+                  width: 18,
+                  height: 18,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 11),
+          const Divider(height: 1, color: Color(0x66FFFFFF)),
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.show_chart, size: 14, color: Colors.white),
+              SizedBox(width: 4),
+              Text(
+                'Total Earned',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
           Text(
-            _formatPrice(_totalEarnings),
-            style: TextStyle(
+            amount,
+            key: const ValueKey('wallet-total-earned'),
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
+              fontSize: 13,
+              height: 1.1,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            _selectedPeriod,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
+          const SizedBox(height: 13),
+          SizedBox(
+            width: double.infinity,
+            height: 34,
+            child: ElevatedButton(
+              key: const ValueKey('wallet-withdraw-button'),
+              onPressed: null,
+              style: ElevatedButton.styleFrom(
+                disabledBackgroundColor: Colors.white,
+                disabledForegroundColor: const Color(0xFF16834E),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              child: const Text(
+                'Withdraw Earnings',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildStatsRow() {
+class _WalletTabs extends StatelessWidget {
+  const _WalletTabs();
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _buildStatCard(
-            icon: Icons.local_shipping,
-            label: 'Deliveries',
-            value: '${_filteredDeliveries.length}',
-            color: AppColors.primaryGreenLight,
+          child: Container(
+            key: const ValueKey('wallet-earnings-tab'),
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreenLight,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'Earnings',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
-          child: _buildStatCard(
-            icon: Icons.trending_up,
-            label: 'Avg. Earning',
-            value: _formatPrice(_averageEarning),
-            color: AppColors.accentAmber,
+          child: SizedBox(
+            height: 34,
+            child: OutlinedButton(
+              key: const ValueKey('wallet-withdrawals-tab'),
+              onPressed: null,
+              style: OutlinedButton.styleFrom(
+                disabledForegroundColor: AppColors.primaryGreen,
+                side: const BorderSide(color: AppColors.primaryGreenLight),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: const Text(
+                'Withdrawals',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ),
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
+class _WalletEarningRow extends StatelessWidget {
+  const _WalletEarningRow({
+    super.key,
+    required this.orderCode,
+    required this.date,
+    required this.amount,
+  });
+
+  final String orderCode;
+  final String date;
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFDDF4E8),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[900],
+            child: const Icon(
+              Icons.south_west,
+              color: AppColors.primaryGreenLight,
+              size: 15,
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentEarnings() {
-    final deliveries = _filteredDeliveries;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Earnings History',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[900],
-          ),
-        ),
-        SizedBox(height: 16),
-        if (deliveries.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.receipt_long_outlined,
-                  size: 48,
-                  color: Colors.grey[400],
-                ),
-                SizedBox(height: 12),
                 Text(
-                  'No completed deliveries',
-                  style: TextStyle(
-                    color: Colors.grey[600],
+                  orderCode,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
                     fontSize: 14,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'for $_selectedPeriod',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
+                  date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF777777),
+                    fontSize: 10,
+                    height: 1.1,
                   ),
                 ),
               ],
             ),
-          )
-        else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: deliveries.length,
-              separatorBuilder: (context, index) => Divider(height: 1),
-              itemBuilder: (context, index) {
-                final order = deliveries[index];
-                final shippingFee = double.tryParse(
-                        order['shipping_fee']?.toString() ?? '0.0') ??
-                    0.0;
-                final user = order['user'] as Map<String, dynamic>?;
-                // Use recipient_name from address if available, fallback to user name
-                final recipientName = order['recipient_name']
-                            ?.toString()
-                            .isNotEmpty ==
-                        true
-                    ? order['recipient_name'].toString()
-                    : (user != null
-                        ? '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'
-                            .trim()
-                        : 'Customer');
-
-                return ListTile(
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: Container(
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: AppColors.primaryGreen,
-                      size: 24,
-                    ),
-                  ),
-                  title: Text(
-                    order['order_code']?.toString() ?? 'Order',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 4),
-                      Text(
-                        recipientName.isNotEmpty ? recipientName : 'Customer',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      Text(
-                        _formatOrderDate(order['ordered_at']?.toString() ?? ''),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                  trailing: Text(
-                    _formatPrice(shippingFee),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppColors.primaryGreen,
-                    ),
-                  ),
-                );
-              },
-            ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: 3,
-        onTap: _onNavTap,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey[600],
-        backgroundColor: Colors.white,
-        items: [
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/home.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
+          const SizedBox(width: 8),
+          Text(
+            amount,
+            style: const TextStyle(
+              color: AppColors.primaryGreenLight,
+              fontSize: 14,
+              height: 1.1,
+              fontWeight: FontWeight.w800,
             ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/home.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/Delivered.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
-            ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/Delivered.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Delivery',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_outlined),
-            activeIcon: Icon(Icons.history),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              'assets/icons/wallet.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(
-                Colors.grey[600]!,
-                BlendMode.srcIn,
-              ),
-            ),
-            activeIcon: SvgPicture.asset(
-              'assets/icons/wallet.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                AppColors.primaryGreen,
-                BlendMode.srcIn,
-              ),
-            ),
-            label: 'Wallet',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WalletEmptyEarnings extends StatelessWidget {
+  const _WalletEmptyEarnings();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 230,
+      child: EmptyStateWidget(
+        icon: Icons.account_balance_wallet_outlined,
+        message: 'No earnings yet',
+        subtitle: 'Completed delivery earnings will appear here.',
       ),
     );
   }
