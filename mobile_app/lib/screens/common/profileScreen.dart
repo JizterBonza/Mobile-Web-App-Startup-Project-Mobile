@@ -12,6 +12,7 @@ import '../../provider/shops_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/google_auth_service.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/user_profile_avatar.dart';
 import 'loginScreen.dart';
 import '../customer/customerDashboardScreen.dart';
 import '../rider/riderDashboardScreen.dart';
@@ -37,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _userEmail;
   String? _userPhone;
   String? _userAddress;
+  String? _profileImageUrl;
   AddressModel? _defaultAddress;
   bool _isLoading = true;
 
@@ -53,6 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userEmail = await ApiService.getUserEmail();
       final userPhone = await ApiService.getUserMobileNumber();
       final userAddress = await ApiService.getUserAddress();
+      final profileImageUrl = await ApiService.getProfileImageUrl();
 
       // Fetch addresses from provider
       if (mounted) {
@@ -67,6 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userName = userName ?? 'User';
           _userEmail = userEmail ?? 'No email';
           _userPhone = userPhone ?? 'No phone number';
+          _profileImageUrl = profileImageUrl;
           // Use default address from provider if available
           if (_defaultAddress != null) {
             _userAddress = _defaultAddress!.fullAddress;
@@ -183,21 +187,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           // Profile avatar
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primaryGreen.withOpacity(0.3),
-                width: 3,
-              ),
-            ),
-            child: Icon(
-              Icons.person,
-              size: 50,
-              color: AppColors.primaryGreen,
+          UserProfileAvatar(
+            size: 100,
+            imageUrl: _profileImageUrl,
+            backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+            iconColor: AppColors.primaryGreen,
+            iconSize: 50,
+            border: Border.all(
+              color: AppColors.primaryGreen.withOpacity(0.3),
+              width: 3,
             ),
           ),
           SizedBox(height: 16),

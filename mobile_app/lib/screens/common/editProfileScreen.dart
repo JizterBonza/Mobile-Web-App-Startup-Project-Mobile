@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/media_url.dart';
 import '../../widgets/form_widgets.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/user_profile_avatar.dart';
 import 'editAddressScreen.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -24,9 +29,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = false;
   bool _isInitialLoading = true;
   AddressModel? _defaultAddress;
+  String? _profileImageUrl;
+  XFile? _selectedProfileImage;
+  Uint8List? _selectedProfileImageBytes;
 
   @override
   void initState() {
@@ -55,6 +64,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final userEmail = await ApiService.getUserEmail();
       final userPhone = await ApiService.getUserMobileNumber();
       final userAddress = await ApiService.getUserAddress();
+      final profileImageUrl = await ApiService.getProfileImageUrl();
 
       // Fetch addresses from provider
       if (mounted) {
@@ -77,6 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           } else {
             _addressController.text = userAddress ?? '';
           }
+          _profileImageUrl = profileImageUrl;
           _isInitialLoading = false;
         });
       }
@@ -114,48 +125,119 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         shippingAddress: _addressController.text.trim().isEmpty
             ? null
             : _addressController.text.trim(),
+        profileImage: _selectedProfileImage,
       );
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (!mounted) return;
+      setState(() => _isLoading = false);
 
       if (result['success'] == true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text(result['message'] ?? 'Profile updated successfully!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          Navigator.pop(context, true); // Return true to indicate success
+        final updatedImageUrl = result['profile_image_url']?.toString();
+        final resolvedImageUrl = resolveMediaUrl(
+          updatedImageUrl?.isNotEmpty == true
+              ? updatedImageUrl
+              : _profileImageUrl,
+        );
+        if (_selectedProfileImage != null && resolvedImageUrl != null) {
+          await NetworkImage(resolvedImageUrl).evict();
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message'] ??
-                  'Failed to update profile. Please try again.'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('An error occurred: ${e.toString()}'),
+            content: Text(
+              result['message'] ?? 'Profile updated successfully!',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context, true); // Return true to indicate success
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ??
+                'Failed to update profile. Please try again.'),
             backgroundColor: AppColors.error,
           ),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred: ${e.toString()}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
+  }
+
+  Future<void> _showProfileImageSourceSheet() async {
+    if (_isLoading) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take photo'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickProfileImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickProfileImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickProfileImage(ImageSource source) async {
+    try {
+      final image = await _imagePicker.pickImage(source: source);
+      if (image == null) return;
+
+      final validationError = await ApiService.validateProfileImage(image);
+      if (validationError != null) {
+        if (mounted) _showImageError(validationError);
+        return;
+      }
+
+      final bytes = await image.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _selectedProfileImage = image;
+        _selectedProfileImageBytes = bytes;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final sourceName = source == ImageSource.camera ? 'camera' : 'gallery';
+      _showImageError('Could not open $sourceName: $e');
+    }
+  }
+
+  void _showImageError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+      ),
+    );
   }
 
   Future<void> _navigateToAddAddress() async {
@@ -492,21 +574,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       child: Column(
                         children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.primaryGreen.withOpacity(0.3),
-                                width: 2,
+                          Semantics(
+                            button: true,
+                            label: 'Change profile photo',
+                            child: GestureDetector(
+                              onTap: _showProfileImageSourceSheet,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  UserProfileAvatar(
+                                    size: 80,
+                                    imageUrl: _profileImageUrl,
+                                    imageBytes: _selectedProfileImageBytes,
+                                    backgroundColor:
+                                        AppColors.primaryGreen.withOpacity(0.1),
+                                    iconColor: AppColors.primaryGreen,
+                                    iconSize: 40,
+                                    border: Border.all(
+                                      color: AppColors.primaryGreen
+                                          .withOpacity(0.3),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: -4,
+                                    bottom: -4,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryGreen,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 15,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Icon(
-                              Icons.person,
-                              size: 40,
-                              color: AppColors.primaryGreen,
+                          ),
+                          TextButton.icon(
+                            onPressed: _isLoading
+                                ? null
+                                : _showProfileImageSourceSheet,
+                            icon: const Icon(Icons.upload_outlined, size: 18),
+                            label: Text(
+                              _selectedProfileImage == null
+                                  ? 'Change photo'
+                                  : 'Photo selected',
                             ),
                           ),
                           SizedBox(height: 16),

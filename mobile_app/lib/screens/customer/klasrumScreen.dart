@@ -10,6 +10,7 @@ import '../../utils/customer_nav.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/user_profile_avatar.dart';
 import '../common/profileScreen.dart';
 import 'cartScreenV2.dart';
 import 'messagesScreen.dart';
@@ -24,6 +25,7 @@ class KlasrumScreen extends StatefulWidget {
 class _KlasrumScreenState extends State<KlasrumScreen> {
   bool _isGuest = true;
   String? _userName;
+  String? _profileImageUrl;
   dynamic _selectedCategoryId;
   final TextEditingController _searchController = TextEditingController();
 
@@ -48,9 +50,13 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
       final name = await ApiService.getUserName();
       if (!mounted) return;
       final isGuest = token == null || token.isEmpty;
+      final profileImageUrl =
+          isGuest ? null : await ApiService.getProfileImageUrl();
+      if (!mounted) return;
       setState(() {
         _isGuest = isGuest;
         _userName = name;
+        _profileImageUrl = profileImageUrl;
       });
       if (isGuest) {
         _clearBadges();
@@ -63,6 +69,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
         setState(() {
           _isGuest = true;
           _userName = null;
+          _profileImageUrl = null;
         });
       }
     }
@@ -302,16 +309,16 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
               Navigator.push(
                 context,
                 _createFadeRoute(const ProfileScreen()),
-              );
+              ).then((_) {
+                if (mounted) _loadUserState();
+              });
             }),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.person, color: Colors.grey[600], size: 22),
+            child: UserProfileAvatar(
+              size: 40,
+              imageUrl: _isGuest ? null : _profileImageUrl,
+              backgroundColor: Colors.white,
+              iconColor: Colors.grey[600]!,
+              iconSize: 22,
             ),
           ),
           const SizedBox(width: 12),

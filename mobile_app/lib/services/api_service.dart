@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/api_endpoints.dart';
 import 'order_status_service.dart';
+
+typedef ProfileUpdateRequestSender = Future<http.StreamedResponse> Function(
+  http.BaseRequest request,
+);
 
 class ApiService {
   // SharedPreferences key for storing auth token
@@ -25,6 +31,7 @@ class ApiService {
   static const String _firstNameKey = 'first_name';
   static const String _middleNameKey = 'middle_name';
   static const String _lastNameKey = 'last_name';
+  static const String _profileImageUrlKey = 'profile_image_url';
 
   static Completer<bool>? _refreshCompleter;
 
@@ -107,6 +114,86 @@ class ApiService {
           address['street_address']?.toString() ??
           address['map_address']?.toString();
     }
+    return null;
+  }
+
+  static String? _normalizeOptionalUrl(dynamic value) {
+    if (value == null) return null;
+    final trimmed = value.toString().trim();
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'null') return null;
+    return trimmed;
+  }
+
+  static String? _profileImageUrlFromUser(Map user) {
+    if (user['user_detail'] is! Map) return null;
+    final detail = user['user_detail'] as Map;
+    return _normalizeOptionalUrl(detail['profile_image_url']) ??
+        _normalizeOptionalUrl(detail['avatar']);
+  }
+
+  static String? _profileImageUrlFromResponse(dynamic value) {
+    if (value is! Map) return null;
+
+    final directUrl = _normalizeOptionalUrl(value['profile_image_url']) ??
+        _normalizeOptionalUrl(value['avatar']);
+    if (directUrl != null) return directUrl;
+
+    final userDetail = value['user_detail'] ?? value['user_details'];
+    if (userDetail is Map) {
+      final detailUrl =
+          _normalizeOptionalUrl(userDetail['profile_image_url']) ??
+              _normalizeOptionalUrl(userDetail['avatar']);
+      if (detailUrl != null) return detailUrl;
+    }
+
+    final user = value['user'];
+    if (user is Map) {
+      final userUrl =
+          _profileImageUrlFromUser(user) ?? _profileImageUrlFromResponse(user);
+      if (userUrl != null) return userUrl;
+    }
+
+    return _profileImageUrlFromResponse(value['data']);
+  }
+
+  static const int _maximumProfileImageSize = 5 * 1024 * 1024;
+  static const Set<String> _allowedProfileImageExtensions = {
+    'jpeg',
+    'png',
+    'jpg',
+    'webp',
+  };
+
+  static String _fileExtension(String fileName) {
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex < 0 || dotIndex == fileName.length - 1) return '';
+    return fileName.substring(dotIndex + 1).toLowerCase();
+  }
+
+  static String _profileImageFileName(XFile profileImage) {
+    final rawName = profileImage.name.trim().isNotEmpty
+        ? profileImage.name
+        : profileImage.path;
+    return rawName.replaceAll('\\', '/').split('/').last;
+  }
+
+  /// Returns a user-facing validation error, or null when the image is valid.
+  static Future<String?> validateProfileImage(XFile profileImage) async {
+    final extension = _fileExtension(_profileImageFileName(profileImage));
+    if (!_allowedProfileImageExtensions.contains(extension)) {
+      return 'Please select a JPEG, PNG, JPG, or WebP image.';
+    }
+
+    try {
+      final length = await profileImage.length();
+      if (length == 0) return 'The selected image is empty.';
+      if (length > _maximumProfileImageSize) {
+        return 'Profile image must be 5 MB or smaller.';
+      }
+    } catch (_) {
+      return 'The selected image could not be read.';
+    }
+
     return null;
   }
 
@@ -234,6 +321,8 @@ class ApiService {
     String? firstName;
     String? middleName;
     String? lastName;
+    String? profileImageUrl;
+    var sawUserDetail = false;
 
     token = responseData['token']?.toString() ??
         responseData['access_token']?.toString() ??
@@ -293,6 +382,10 @@ class ApiService {
       lastName = user['user_detail'] is Map
           ? user['user_detail']['last_name']?.toString()
           : null;
+      if (user['user_detail'] is Map) {
+        sawUserDetail = true;
+        profileImageUrl = _profileImageUrlFromUser(user);
+      }
     }
 
     if (responseData['data'] is Map && responseData['data']['user'] is Map) {
@@ -321,6 +414,10 @@ class ApiService {
       lastName ??= user['user_detail'] is Map
           ? user['user_detail']['last_name']?.toString()
           : null;
+      if (user['user_detail'] is Map) {
+        sawUserDetail = true;
+        profileImageUrl ??= _profileImageUrlFromUser(user);
+      }
     }
 
     userAddress = _formatDefaultAddress(responseData['default_address']);
@@ -370,6 +467,13 @@ class ApiService {
       }
       if (lastName != null && lastName.isNotEmpty) {
         await prefs.setString(_lastNameKey, lastName);
+      }
+      if (sawUserDetail) {
+        if (profileImageUrl != null) {
+          await prefs.setString(_profileImageUrlKey, profileImageUrl);
+        } else {
+          await prefs.remove(_profileImageUrlKey);
+        }
       }
     } catch (e) {
       print('Error saving auth session to SharedPreferences: $e');
@@ -722,6 +826,17 @@ class ApiService {
     }
   }
 
+  /// Get the stored profile image URL from login.
+  static Future<String?> getProfileImageUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return _normalizeOptionalUrl(prefs.getString(_profileImageUrlKey));
+    } catch (e) {
+      print('Error getting profile image URL from SharedPreferences: $e');
+      return null;
+    }
+  }
+
   static Future<void> _clearAuthSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -740,6 +855,7 @@ class ApiService {
       await prefs.remove(_firstNameKey);
       await prefs.remove(_middleNameKey);
       await prefs.remove(_lastNameKey);
+      await prefs.remove(_profileImageUrlKey);
     } catch (e) {
       print('Error clearing auth session: $e');
     }
@@ -875,6 +991,8 @@ class ApiService {
     required String email,
     String? mobileNumber,
     String? shippingAddress,
+    XFile? profileImage,
+    ProfileUpdateRequestSender? requestSender,
   }) async {
     try {
       final authToken = await getToken();
@@ -888,7 +1006,18 @@ class ApiService {
 
       final uri = Uri.parse(ApiEndpoints.updateProfile);
 
-      final body = <String, dynamic>{
+      if (profileImage != null) {
+        final validationError = await validateProfileImage(profileImage);
+        if (validationError != null) {
+          return {
+            'success': false,
+            'message': validationError,
+            'data': null,
+          };
+        }
+      }
+
+      final body = <String, String>{
         'first_name': firstName,
         'last_name': lastName,
         'username': username,
@@ -906,19 +1035,54 @@ class ApiService {
         body['shipping_address'] = shippingAddress;
       }
 
-      final response = await http.put(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: jsonEncode(body),
-      );
+      late final http.BaseRequest request;
+      if (profileImage == null) {
+        request = http.Request('PUT', uri)
+          ..headers.addAll({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $authToken',
+          })
+          ..body = jsonEncode(body);
+      } else {
+        final fileName = _profileImageFileName(profileImage);
+        final extension = _fileExtension(fileName);
+        request = http.MultipartRequest('POST', uri)
+          ..headers.addAll({
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $authToken',
+          })
+          ..fields.addAll(body)
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'profile_image',
+              await profileImage.readAsBytes(),
+              filename: fileName,
+              contentType: MediaType(
+                'image',
+                extension == 'jpg' ? 'jpeg' : extension,
+              ),
+            ),
+          );
+      }
+      final streamedResponse =
+          await (requestSender?.call(request) ?? request.send());
+      final response = await http.Response.fromStream(streamedResponse);
 
-      final responseData = jsonDecode(response.body);
+      dynamic responseData;
+      if (response.body.trim().isEmpty) {
+        responseData = <String, dynamic>{};
+      } else {
+        try {
+          responseData = jsonDecode(response.body);
+        } on FormatException {
+          responseData = <String, dynamic>{};
+        }
+      }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final updatedProfileImageUrl =
+            _profileImageUrlFromResponse(responseData);
         // Update SharedPreferences with new user data
         try {
           final prefs = await SharedPreferences.getInstance();
@@ -944,14 +1108,23 @@ class ApiService {
           if (lastName.isNotEmpty) {
             await prefs.setString(_lastNameKey, lastName);
           }
+          if (updatedProfileImageUrl != null) {
+            await prefs.setString(
+              _profileImageUrlKey,
+              updatedProfileImageUrl,
+            );
+          }
         } catch (e) {
           print('Error updating SharedPreferences: $e');
         }
 
         return {
           'success': true,
-          'message': responseData['message'] ?? 'Profile updated successfully',
+          'message': responseData is Map
+              ? responseData['message'] ?? 'Profile updated successfully'
+              : 'Profile updated successfully',
           'data': responseData,
+          'profile_image_url': updatedProfileImageUrl,
         };
       } else {
         String errorMessage = 'Profile update failed';
