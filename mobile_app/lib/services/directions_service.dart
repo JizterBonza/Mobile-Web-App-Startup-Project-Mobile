@@ -68,8 +68,27 @@ class DirectionsService {
     List<LatLng>? waypoints,
     bool optimizeWaypoints = true,
   }) async {
+    final routes = await getAlternativeDirections(
+      origin: origin,
+      destination: destination,
+      waypoints: waypoints,
+      optimizeWaypoints: optimizeWaypoints,
+      requestAlternatives: false,
+    );
+    return routes.isEmpty ? null : routes.first;
+  }
+
+  /// Returns the default route followed by any alternatives supplied by
+  /// Google. Alternatives are requested only when there are no intermediate
+  /// waypoints, matching the Directions API restriction.
+  static Future<List<DirectionsRoute>> getAlternativeDirections({
+    required LatLng origin,
+    required LatLng destination,
+    List<LatLng>? waypoints,
+    bool optimizeWaypoints = true,
+    bool requestAlternatives = true,
+  }) async {
     try {
-      // Build the waypoints parameter string
       String? waypointsParam;
       if (waypoints != null && waypoints.isNotEmpty) {
         final waypointStrings =
@@ -79,7 +98,6 @@ class DirectionsService {
             : waypointStrings;
       }
 
-      // Build the request URL
       final queryParams = {
         'origin': '${origin.latitude},${origin.longitude}',
         'destination': '${destination.latitude},${destination.longitude}',
@@ -89,109 +107,128 @@ class DirectionsService {
 
       if (waypointsParam != null) {
         queryParams['waypoints'] = waypointsParam;
+      } else if (requestAlternatives) {
+        queryParams['alternatives'] = 'true';
       }
 
       final uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);
-
-      print('Directions API URL: $uri');
-
       final response = await http.get(uri);
 
       if (response.statusCode != 200) {
         print('Directions API error: Status ${response.statusCode}');
-        return null;
+        return <DirectionsRoute>[];
       }
 
-      final data = json.decode(response.body);
+      final decoded = json.decode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return <DirectionsRoute>[];
+      }
 
-      if (data['status'] != 'OK') {
+      if (decoded['status'] != 'OK') {
         print(
-            'Directions API error: ${data['status']} - ${data['error_message'] ?? 'Unknown error'}');
-        return null;
+            'Directions API error: ${decoded['status']} - ${decoded['error_message'] ?? 'Unknown error'}');
+        return <DirectionsRoute>[];
       }
 
-      if (data['routes'] == null || (data['routes'] as List).isEmpty) {
-        print('Directions API: No routes found');
-        return null;
-      }
-
-      final route = data['routes'][0];
-
-      // Decode the overview polyline
-      final encodedPolyline = route['overview_polyline']['points'] as String;
-      final polylinePoints = _decodePolyline(encodedPolyline);
-
-      // Parse bounds
-      final boundsData = route['bounds'];
-      final bounds = LatLngBounds(
-        southwest: LatLng(
-          boundsData['southwest']['lat'].toDouble(),
-          boundsData['southwest']['lng'].toDouble(),
-        ),
-        northeast: LatLng(
-          boundsData['northeast']['lat'].toDouble(),
-          boundsData['northeast']['lng'].toDouble(),
-        ),
-      );
-
-      // Parse legs
-      final legsData = route['legs'] as List;
-      final legs = legsData.map((leg) {
-        return RouteLeg(
-          startAddress: leg['start_address'] ?? '',
-          endAddress: leg['end_address'] ?? '',
-          startLocation: LatLng(
-            leg['start_location']['lat'].toDouble(),
-            leg['start_location']['lng'].toDouble(),
-          ),
-          endLocation: LatLng(
-            leg['end_location']['lat'].toDouble(),
-            leg['end_location']['lng'].toDouble(),
-          ),
-          distance: leg['distance']['text'] ?? '',
-          duration: leg['duration']['text'] ?? '',
-        );
-      }).toList();
-
-      // Calculate total distance and duration
-      String totalDistance = '';
-      String totalDuration = '';
-      int totalDistanceMeters = 0;
-      int totalDurationSeconds = 0;
-
-      for (var leg in legsData) {
-        totalDistanceMeters += (leg['distance']['value'] as int);
-        totalDurationSeconds += (leg['duration']['value'] as int);
-      }
-
-      // Format total distance
-      if (totalDistanceMeters >= 1000) {
-        totalDistance = '${(totalDistanceMeters / 1000).toStringAsFixed(1)} km';
-      } else {
-        totalDistance = '$totalDistanceMeters m';
-      }
-
-      // Format total duration
-      if (totalDurationSeconds >= 3600) {
-        final hours = totalDurationSeconds ~/ 3600;
-        final minutes = (totalDurationSeconds % 3600) ~/ 60;
-        totalDuration = '$hours hr ${minutes} min';
-      } else {
-        final minutes = totalDurationSeconds ~/ 60;
-        totalDuration = '$minutes min';
-      }
-
-      return DirectionsRoute(
-        polylinePoints: polylinePoints,
-        totalDistance: totalDistance,
-        totalDuration: totalDuration,
-        bounds: bounds,
-        legs: legs,
-      );
+      return parseDirectionsRoutes(decoded);
     } catch (e) {
       print('Error getting directions: $e');
-      return null;
+      return <DirectionsRoute>[];
     }
+  }
+
+  static List<DirectionsRoute> parseDirectionsRoutes(
+    Map<String, dynamic> data,
+  ) {
+    final rawRoutes = data['routes'];
+    if (rawRoutes is! List) return <DirectionsRoute>[];
+
+    final routes = <DirectionsRoute>[];
+    for (final rawRoute in rawRoutes.whereType<Map>()) {
+      try {
+        routes.add(_parseRoute(Map<String, dynamic>.from(rawRoute)));
+      } catch (_) {
+        // Ignore malformed alternatives while retaining valid routes.
+      }
+    }
+    return routes;
+  }
+
+  static DirectionsRoute _parseRoute(Map<String, dynamic> route) {
+    final overview = route['overview_polyline'] as Map;
+    final polylinePoints = _decodePolyline(overview['points'] as String);
+    final boundsData = route['bounds'] as Map;
+    final southwest = boundsData['southwest'] as Map;
+    final northeast = boundsData['northeast'] as Map;
+    final bounds = LatLngBounds(
+      southwest: LatLng(
+        (southwest['lat'] as num).toDouble(),
+        (southwest['lng'] as num).toDouble(),
+      ),
+      northeast: LatLng(
+        (northeast['lat'] as num).toDouble(),
+        (northeast['lng'] as num).toDouble(),
+      ),
+    );
+
+    final legsData = route['legs'] as List;
+    final legs = legsData.whereType<Map>().map((rawLeg) {
+      final leg = Map<String, dynamic>.from(rawLeg);
+      final start = leg['start_location'] as Map;
+      final end = leg['end_location'] as Map;
+      final distance = leg['distance'] as Map;
+      final duration = leg['duration'] as Map;
+      return RouteLeg(
+        startAddress: leg['start_address']?.toString() ?? '',
+        endAddress: leg['end_address']?.toString() ?? '',
+        startLocation: LatLng(
+          (start['lat'] as num).toDouble(),
+          (start['lng'] as num).toDouble(),
+        ),
+        endLocation: LatLng(
+          (end['lat'] as num).toDouble(),
+          (end['lng'] as num).toDouble(),
+        ),
+        distance: distance['text']?.toString() ?? '',
+        duration: duration['text']?.toString() ?? '',
+      );
+    }).toList();
+
+    var totalDistanceMeters = 0;
+    var totalDurationSeconds = 0;
+    for (final rawLeg in legsData.whereType<Map>()) {
+      final distance = rawLeg['distance'];
+      final duration = rawLeg['duration'];
+      if (distance is Map && distance['value'] is num) {
+        totalDistanceMeters += (distance['value'] as num).toInt();
+      }
+      if (duration is Map && duration['value'] is num) {
+        totalDurationSeconds += (duration['value'] as num).toInt();
+      }
+    }
+
+    return DirectionsRoute(
+      polylinePoints: polylinePoints,
+      totalDistance: _formatDistance(totalDistanceMeters),
+      totalDuration: _formatDuration(totalDurationSeconds),
+      bounds: bounds,
+      legs: legs,
+    );
+  }
+
+  static String _formatDistance(int meters) {
+    return meters >= 1000
+        ? '${(meters / 1000).toStringAsFixed(1)} km'
+        : '$meters m';
+  }
+
+  static String _formatDuration(int seconds) {
+    if (seconds >= 3600) {
+      final hours = seconds ~/ 3600;
+      final minutes = (seconds % 3600) ~/ 60;
+      return '$hours hr $minutes min';
+    }
+    return '${seconds ~/ 60} min';
   }
 
   /// Decode an encoded polyline string into a list of LatLng points

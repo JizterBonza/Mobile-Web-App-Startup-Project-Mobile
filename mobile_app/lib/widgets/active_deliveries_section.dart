@@ -163,11 +163,15 @@ class ActiveDeliveryCard extends StatelessWidget {
     required this.order,
     this.onContinue,
     this.fullWidth = false,
+    this.actionLabel = 'Continue Delivery',
+    this.statusLabel,
   });
 
   final Map<String, dynamic> order;
   final VoidCallback? onContinue;
   final bool fullWidth;
+  final String actionLabel;
+  final String? statusLabel;
 
   int _asInt(dynamic value) {
     final parsed = value is num
@@ -188,6 +192,9 @@ class ActiveDeliveryCard extends StatelessWidget {
   }
 
   String _formatStatus() {
+    final explicitLabel = statusLabel?.trim() ?? '';
+    if (explicitLabel.isNotEmpty) return explicitLabel;
+
     final activeOrderShops = order['active_order_shops'];
     if (activeOrderShops is List && activeOrderShops.isNotEmpty) {
       final firstShop = activeOrderShops.first;
@@ -428,19 +435,19 @@ class ActiveDeliveryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Continue Delivery',
-                    style: TextStyle(
+                    actionLabel,
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Icon(Icons.chevron_right, size: 16),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, size: 16),
                 ],
               ),
             ),

@@ -9,6 +9,7 @@ import '../../utils/connectivity_helper.dart';
 import '../../utils/rider_nav.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/rider_statistics_grid.dart';
+import '../../widgets/rider_quick_actions.dart';
 import '../../widgets/incoming_delivery_section.dart';
 import '../../widgets/delivery_acceptance_confirmation_dialog.dart';
 import '../../widgets/delivery_accepted_dialog.dart';
@@ -17,6 +18,7 @@ import '../../widgets/empty_state_widget.dart';
 import '../common/profileScreen.dart';
 import '../common/notificationScreen.dart';
 import 'riderPickupMap.dart';
+import 'riderDeliveryMap.dart';
 import 'riderAllDeliveriesScreen.dart';
 import 'riderDeliveryHistoryDetailScreen.dart';
 import 'riderEarningsScreen.dart';
@@ -574,7 +576,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 SizedBox(height: 20),
                 _buildStatisticsCards(stats),
                 SizedBox(height: 24),
-                _buildActiveDeliveriesSection(),
+                _buildQuickActions(),
                 SizedBox(height: 24),
                 if (_hasLoadedReadyForDelivery &&
                     _readyForDeliveryOrders.isNotEmpty) ...[
@@ -586,6 +588,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   ),
                   SizedBox(height: 24),
                 ],
+                _buildActiveDeliveriesSection(),
               ],
             ),
           ),
@@ -708,6 +711,23 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       stats: stats,
       onEarningsTap: () {
         _navigateToEarnings();
+      },
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return RiderQuickActions(
+      onPickupMap: () {
+        Navigator.push(
+          context,
+          _createFadeRoute(const RiderPickupMapScreen()),
+        );
+      },
+      onDeliveryMap: () {
+        Navigator.push(
+          context,
+          _createFadeRoute(const RiderDeliveryMapScreen()),
+        );
       },
     );
   }

@@ -74,6 +74,18 @@ List<Map<String, dynamic>> extractActiveOrderShops(
       .toList();
 }
 
+bool isPendingPickupShop(Map<String, dynamic> shop) {
+  return isReadyForDeliveryStatus(
+    shop['order_status_description']?.toString() ?? '',
+  );
+}
+
+List<Map<String, dynamic>> extractPendingPickupShops(
+  Map<String, dynamic> order,
+) {
+  return extractActiveOrderShops(order).where(isPendingPickupShop).toList();
+}
+
 Map<String, dynamic> markActiveOrderShopInTransit(
   Map<String, dynamic> order,
   int shopId,
@@ -280,9 +292,15 @@ class SelectedOrderPickupDetailScreen extends StatefulWidget {
   const SelectedOrderPickupDetailScreen({
     super.key,
     required this.order,
+    this.pickupOnly = false,
+    this.initialShopId,
+    this.orderService,
   });
 
   final Map<String, dynamic> order;
+  final bool pickupOnly;
+  final int? initialShopId;
+  final OrderService? orderService;
 
   @override
   State<SelectedOrderPickupDetailScreen> createState() =>
@@ -306,20 +324,25 @@ class _SelectedOrderPickupDetailScreenState
   bool _routeLoading = false;
   int? _selectedShopIndex;
   int? _updatingShopId;
+  bool _initialShopFocused = false;
   late Map<String, dynamic> _order;
-  final OrderService _orderService = OrderService();
+  late final OrderService _orderService;
 
   List<Map<String, dynamic>> get _shops => extractActiveOrderShops(_order);
 
+  List<Map<String, dynamic>> get _pendingShops =>
+      extractPendingPickupShops(_order);
+
   PickupProgress get _progress => PickupProgress.fromOrder(_order);
 
-  bool get _isDeliveryMode => _progress.inTransitActive;
+  bool get _isDeliveryMode => !widget.pickupOnly && _progress.inTransitActive;
 
   LatLng? get _dropOffLocation => extractDropOffLocation(_order);
 
   @override
   void initState() {
     super.initState();
+    _orderService = widget.orderService ?? OrderService();
     _order = Map<String, dynamic>.from(widget.order);
     _initializeLocation();
     _loadLatestOrder();
@@ -388,7 +411,7 @@ class _SelectedOrderPickupDetailScreenState
 
   List<LatLng> get _shopLocations {
     final locations = <LatLng>[];
-    for (final shopEntry in _shops) {
+    for (final shopEntry in _pendingShops) {
       final shop = _shopData(shopEntry);
       final latitude = _asDouble(shop['shop_lat']);
       final longitude = _asDouble(shop['shop_long']);
@@ -429,12 +452,12 @@ class _SelectedOrderPickupDetailScreenState
     final markers = <Marker>{};
     for (var index = 0; index < _shops.length; index++) {
       final entry = _shops[index];
+      if (!isPendingPickupShop(entry)) continue;
       final shop = _shopData(entry);
       final latitude = _asDouble(shop['shop_lat']);
       final longitude = _asDouble(shop['shop_long']);
       if (latitude == null || longitude == null) continue;
 
-      final status = _normalizedShopStatus(entry);
       markers.add(
         Marker(
           markerId: MarkerId(
@@ -449,9 +472,7 @@ class _SelectedOrderPickupDetailScreenState
                 _textOrFallback(shop['shop_address'], 'Address unavailable'),
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
-            _hasReachedPickup(status)
-                ? BitmapDescriptor.hueGreen
-                : BitmapDescriptor.hueOrange,
+            BitmapDescriptor.hueOrange,
           ),
           onTap: () => _focusShop(index),
         ),
@@ -577,6 +598,18 @@ class _SelectedOrderPickupDetailScreenState
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+  Future<void> _focusInitialShopIfNeeded() async {
+    if (_initialShopFocused || widget.initialShopId == null) return;
+    final index = _shops.indexWhere((entry) {
+      final shop = _shopData(entry);
+      return _asInt(entry['shop_id'] ?? shop['id']) == widget.initialShopId;
+    });
+    _initialShopFocused = true;
+    if (index >= 0 && isPendingPickupShop(_shops[index])) {
+      await _focusShop(index);
     }
   }
 
@@ -840,15 +873,19 @@ class _SelectedOrderPickupDetailScreenState
   void _replaceOrder(Map<String, dynamic> nextOrder) {
     final wasDeliveryMode = _isDeliveryMode;
     final previousDropOff = _dropOffLocation;
-    final willBeDeliveryMode =
+    final previousPickupTargets = _pickupTargetSignature(_order);
+    final willBeDeliveryMode = !widget.pickupOnly &&
         PickupProgress.fromOrder(nextOrder).inTransitActive;
     final nextDropOff = extractDropOffLocation(nextOrder);
+    final nextPickupTargets = _pickupTargetSignature(nextOrder);
     final deliveryTargetChanged = willBeDeliveryMode &&
         (previousDropOff?.latitude != nextDropOff?.latitude ||
             previousDropOff?.longitude != nextDropOff?.longitude);
     setState(() {
       _order = Map<String, dynamic>.from(nextOrder);
-      if (wasDeliveryMode != willBeDeliveryMode || deliveryTargetChanged) {
+      if (wasDeliveryMode != willBeDeliveryMode ||
+          deliveryTargetChanged ||
+          previousPickupTargets != nextPickupTargets) {
         _route = null;
         _routeRequested = false;
         _routeLoading = false;
@@ -871,6 +908,15 @@ class _SelectedOrderPickupDetailScreenState
         _tryLoadRoute();
       });
     }
+  }
+
+  String _pickupTargetSignature(Map<String, dynamic> order) {
+    return extractPendingPickupShops(order).map((entry) {
+      final shop = _shopData(entry);
+      return '${entry['order_shop_id'] ?? ''}:'
+          '${entry['shop_id'] ?? shop['id'] ?? ''}:'
+          '${shop['shop_lat'] ?? ''}:${shop['shop_long'] ?? ''}';
+    }).join('|');
   }
 
   Future<void> _confirmPickup(Map<String, dynamic> shopEntry) async {
@@ -945,6 +991,10 @@ class _SelectedOrderPickupDetailScreenState
     if (!mounted) return;
     _closePickupLoading();
     setState(() => _updatingShopId = null);
+    if (widget.pickupOnly && _pendingShops.isEmpty) {
+      Navigator.of(context).pop(true);
+      return;
+    }
     _showMessage(
       refreshed
           ? 'Order picked up successfully!'
@@ -1105,7 +1155,12 @@ class _SelectedOrderPickupDetailScreenState
                 Future<void>.delayed(
                   const Duration(milliseconds: 350),
                   () async {
-                    if (mounted) await _showOverview();
+                    if (!mounted) return;
+                    if (widget.initialShopId != null) {
+                      await _focusInitialShopIfNeeded();
+                    } else {
+                      await _showOverview();
+                    }
                   },
                 );
               },
@@ -1679,12 +1734,6 @@ class _SelectedOrderPickupDetailScreenState
     return normalizeOrderStatus(
       entry['order_status_description']?.toString() ?? '',
     );
-  }
-
-  bool _hasReachedPickup(String status) {
-    return status == 'picked up' ||
-        status == 'in transit' ||
-        status == 'delivered';
   }
 
   String _shopStatusLabel(String status) {

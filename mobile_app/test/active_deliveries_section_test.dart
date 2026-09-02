@@ -174,6 +174,22 @@ void main() {
     expect(find.text('₱80'), findsOneWidget);
   });
 
+  testWidgets('supports a pickup-specific action label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActiveDeliveryCard(
+            order: order(),
+            actionLabel: 'Continue Pickup',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Continue Pickup'), findsOneWidget);
+    expect(find.text('Continue Delivery'), findsNothing);
+  });
+
   testWidgets('shows loading, empty, and retryable error states', (
     tester,
   ) async {

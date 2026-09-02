@@ -1,752 +1,458 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../../constants/constants.dart';
-import '../../provider/orders_provider.dart';
-import '../../provider/provider.dart';
 import '../../services/directions_service.dart';
-import '../../services/payment_service.dart';
-import 'delivery_photo_preview_screen.dart';
+import '../../services/order_service.dart';
+import '../../widgets/active_deliveries_section.dart';
+import 'selectedOrderPickupDetail.dart';
+
+const Color _deliveryBlue = Color(0xFF1268E8);
+
+typedef DeliveryMapRouteLoader = Future<DirectionsRoute?> Function({
+  required LatLng riderLocation,
+  required List<LatLng> dropOffLocations,
+});
+
+class DeliveryMapPoint {
+  const DeliveryMapPoint({
+    required this.order,
+    required this.markerId,
+    required this.position,
+  });
+
+  final Map<String, dynamic> order;
+  final String markerId;
+  final LatLng position;
+
+  String get recipientName =>
+      _textOrFallback(order['recipient_name'], 'Delivery customer');
+
+  String get deliveryAddress =>
+      _textOrFallback(order['delivery_address'], 'Address unavailable');
+}
+
+bool isOrderForDelivery(Map<String, dynamic> order) =>
+    PickupProgress.fromOrder(order).inTransitActive;
+
+List<Map<String, dynamic>> extractDeliveryMapOrders(dynamic rawOrders) {
+  if (rawOrders is! List) return <Map<String, dynamic>>[];
+
+  final orders = <Map<String, dynamic>>[];
+  final seenIds = <String>{};
+  for (var index = 0; index < rawOrders.length; index++) {
+    final rawOrder = rawOrders[index];
+    if (rawOrder is! Map) continue;
+    final order = Map<String, dynamic>.from(rawOrder);
+    if (!isOrderForDelivery(order)) continue;
+
+    final orderId = _positiveInt(order['order_id'] ?? order['id']);
+    final orderCode = order['order_code']?.toString().trim() ?? '';
+    final identity = orderId != null
+        ? 'id-$orderId'
+        : orderCode.isNotEmpty
+            ? 'code-$orderCode'
+            : 'index-$index';
+    if (seenIds.add(identity)) orders.add(order);
+  }
+  return orders;
+}
+
+List<DeliveryMapPoint> extractDeliveryMapPoints(
+  List<Map<String, dynamic>> orders,
+) {
+  final points = <DeliveryMapPoint>[];
+  final markerIds = <String>{};
+  for (var index = 0; index < orders.length; index++) {
+    final order = orders[index];
+    final location = extractDropOffLocation(order);
+    if (location == null) continue;
+
+    final orderId = _positiveInt(order['order_id'] ?? order['id']);
+    var markerId = orderId == null
+        ? 'delivery-fallback-$index'
+        : 'delivery-order-$orderId';
+    if (!markerIds.add(markerId)) {
+      markerId = '$markerId-$index';
+      markerIds.add(markerId);
+    }
+    points.add(
+      DeliveryMapPoint(
+        order: order,
+        markerId: markerId,
+        position: location,
+      ),
+    );
+  }
+  return points;
+}
+
+int? _positiveInt(dynamic value) {
+  final parsed =
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');
+  return parsed != null && parsed > 0 ? parsed : null;
+}
+
+String _textOrFallback(dynamic value, String fallback) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
+}
 
 class RiderDeliveryMapScreen extends StatefulWidget {
-  const RiderDeliveryMapScreen({super.key});
+  const RiderDeliveryMapScreen({
+    super.key,
+    this.orderService,
+    this.initialRiderLocation,
+    this.routeLoader,
+  });
+
+  final OrderService? orderService;
+  final LatLng? initialRiderLocation;
+  final DeliveryMapRouteLoader? routeLoader;
 
   @override
   State<RiderDeliveryMapScreen> createState() => _RiderDeliveryMapScreenState();
 }
 
 class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
-  GoogleMapController? _mapController;
-  final DraggableScrollableController _sheetController =
-      DraggableScrollableController();
-
-  // Default center for the map (Davao Region, Philippines based on sample data)
   static const LatLng _defaultCenter = LatLng(7.3775, 125.8199);
 
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
-  int? _selectedOrderIndex;
-  List<Map<String, dynamic>> _deliveryOrders = [];
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  GoogleMapController? _mapController;
+  StreamSubscription<Position>? _positionSubscription;
+  late final OrderService _orderService;
+  late final DeliveryMapRouteLoader _routeLoader;
+
+  List<Map<String, dynamic>> _deliveryOrders = <Map<String, dynamic>>[];
+  List<DeliveryMapPoint> _deliveryPoints = <DeliveryMapPoint>[];
+  LatLng? _currentPosition;
+  DirectionsRoute? _route;
+  String? _routedPointSignature;
+  bool _locationEnabled = false;
   bool _isLoading = true;
-  String? _error;
-  bool _isUpdatingStatus = false;
-
-  // Live location tracking
-  StreamSubscription<Position>? _positionStreamSubscription;
-  Position? _currentPosition;
-  bool _isLocationEnabled = false;
-
-  // Route information
-  DirectionsRoute? _currentRoute;
   bool _isLoadingRoute = false;
   bool _showRoute = false;
+  String? _error;
+  int _requestId = 0;
+  int _routeRequestId = 0;
 
-  Map<String, String> _paymentMethodNames = {};
+  Set<Marker> get _markers => _deliveryPoints.map((point) {
+        return Marker(
+          markerId: MarkerId(point.markerId),
+          position: point.position,
+          infoWindow: InfoWindow(
+            title: point.recipientName,
+            snippet: point.deliveryAddress,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueBlue,
+          ),
+          onTap: () => _openDeliveryDetail(point.order),
+        );
+      }).toSet();
+
+  Set<Polyline> get _polylines {
+    final route = _route;
+    if (!_showRoute || route == null) return <Polyline>{};
+    return {
+      Polyline(
+        polylineId: const PolylineId('all-deliveries-route'),
+        points: route.polylinePoints,
+        color: _deliveryBlue,
+        width: 6,
+      ),
+    };
+  }
 
   @override
   void initState() {
     super.initState();
-    _initializeOrderStatusProvider();
-    _loadOrders();
-    _loadPaymentMethodNames();
-    _initLocationTracking();
+    _orderService = widget.orderService ?? OrderService();
+    _routeLoader = widget.routeLoader ??
+        ({
+          required LatLng riderLocation,
+          required List<LatLng> dropOffLocations,
+        }) {
+          return DirectionsService.getDeliveryRoute(
+            riderLocation: riderLocation,
+            dropOffLocations: dropOffLocations,
+            optimizeRoute: true,
+          );
+        };
+    _currentPosition = widget.initialRiderLocation;
+    _locationEnabled = widget.initialRiderLocation != null;
+    _loadDeliveries();
+    if (widget.initialRiderLocation == null) _initializeLocation();
   }
 
-  Future<void> _loadPaymentMethodNames() async {
-    final names = await PaymentService.getPaymentMethodNames();
-    if (mounted) setState(() => _paymentMethodNames = names);
-  }
-
-  Future<void> _initializeOrderStatusProvider() async {
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    await orderStatusProvider.initialize();
-  }
-
-  Future<void> _initLocationTracking() async {
-    try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print('Location services are disabled');
-        return;
-      }
-
-      // Check and request permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print('Location permission denied');
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        print('Location permission permanently denied');
-        return;
-      }
-
+  Future<void> _loadDeliveries({bool preserveExisting = false}) async {
+    final requestId = ++_requestId;
+    if (mounted) {
       setState(() {
-        _isLocationEnabled = true;
+        _isLoading = !preserveExisting;
+        _error = null;
+      });
+    }
+
+    try {
+      final result = await _orderService.fetchActiveDeliveries();
+      final orders = extractDeliveryMapOrders(result['orders']);
+      final points = extractDeliveryMapPoints(orders);
+      if (!mounted || requestId != _requestId) return;
+
+      final previousSignature = _pointSignature(_deliveryPoints);
+      final nextSignature = _pointSignature(points);
+      setState(() {
+        _deliveryOrders = orders;
+        _deliveryPoints = points;
+        _isLoading = false;
+        _error = null;
+        if (previousSignature != nextSignature) {
+          _routeRequestId++;
+          _route = null;
+          _routedPointSignature = null;
+          _showRoute = false;
+          _isLoadingRoute = false;
+        }
       });
 
-      // Get initial position
+      if (_currentPosition != null &&
+          points.isNotEmpty &&
+          (previousSignature != nextSignature || _route == null)) {
+        await _fetchDeliveryRoute();
+      } else if (_mapController != null) {
+        await _fitAllDeliveries();
+      }
+    } catch (error) {
+      if (!mounted || requestId != _requestId) return;
+      final message = _errorMessage(error);
+      if (preserveExisting) {
+        setState(() {
+          _isLoading = false;
+          _error = null;
+        });
+        _showMessage('Unable to refresh delivery points. $message');
+        return;
+      }
+      setState(() {
+        _deliveryOrders = <Map<String, dynamic>>[];
+        _deliveryPoints = <DeliveryMapPoint>[];
+        _route = null;
+        _routedPointSignature = null;
+        _showRoute = false;
+        _isLoadingRoute = false;
+        _isLoading = false;
+        _error = message;
+      });
+    }
+  }
+
+  String _pointSignature(List<DeliveryMapPoint> points) => points
+      .map(
+        (point) =>
+            '${point.markerId}:${point.position.latitude}:${point.position.longitude}',
+      )
+      .join('|');
+
+  String _errorMessage(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    return message.isEmpty ? 'Unable to load delivery orders.' : message;
+  }
+
+  Future<void> _initializeLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _locationEnabled = true);
+
       try {
         final position = await Geolocator.getCurrentPosition(
-          locationSettings: LocationSettings(
+          locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
             timeLimit: Duration(seconds: 10),
           ),
         );
+        if (!mounted) return;
         setState(() {
-          _currentPosition = position;
+          _currentPosition = LatLng(position.latitude, position.longitude);
         });
-        _updateRiderMarker();
-      } catch (e) {
-        print('Error getting initial position: $e');
+        if (_deliveryPoints.isNotEmpty) await _fetchDeliveryRoute();
+      } catch (_) {
+        // Delivery markers remain usable without a rider position.
       }
 
-      // Start listening to location updates
-      _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: LocationSettings(
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          distanceFilter: 10, // Update every 10 meters
+          distanceFilter: 10,
         ),
-      ).listen(
-        (Position position) {
-          setState(() {
-            _currentPosition = position;
-          });
-          _updateRiderMarker();
-        },
-        onError: (e) {
-          print('Error in location stream: $e');
-        },
-      );
-    } catch (e) {
-      print('Error initializing location tracking: $e');
+      ).listen((position) {
+        if (!mounted) return;
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+        });
+      }, onError: (_) {
+        // Keep the latest known position when stream updates fail.
+      });
+    } catch (_) {
+      // Location permission and service failures do not block the map.
     }
   }
 
-  void _updateRiderMarker() {
-    if (_currentPosition == null) return;
-
-    // Remove old rider marker and add updated one
-    _markers.removeWhere((m) => m.markerId.value == 'rider_location');
-
-    final riderMarker = Marker(
-      markerId: MarkerId('rider_location'),
-      position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-      infoWindow: InfoWindow(title: 'Your Location'),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-      zIndex: 2, // Show above other markers
+  Future<void> _openDeliveryDetail(Map<String, dynamic> order) async {
+    final completed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => SelectedOrderPickupDetailScreen(
+          order: order,
+          orderService: _orderService,
+        ),
+      ),
     );
+    if (!mounted) return;
 
-    setState(() {
-      _markers.add(riderMarker);
-    });
+    if (completed == true) {
+      _removeOrderLocally(order);
+      _showMessage(
+        'Delivery completed successfully.',
+        backgroundColor: AppColors.primaryGreen,
+      );
+    }
+    await _loadDeliveries(preserveExisting: true);
   }
 
-  Future<void> _loadOrders() async {
+  void _removeOrderLocally(Map<String, dynamic> order) {
+    final orderId = _positiveInt(order['order_id'] ?? order['id']);
+    if (orderId == null) return;
     setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final ordersProvider =
-          Provider.of<OrdersProvider>(context, listen: false);
-      await ordersProvider.fetchRiderOrders(useCache: false);
-
-      // Filter orders for in-transit status only
-      final allOrders = ordersProvider.orders;
-      final orderStatusProvider =
-          Provider.of<OrderStatusProvider>(context, listen: false);
-      await orderStatusProvider.initialize();
-
-      // Get status ID for in-transit
-      final inTransitStatusId =
-          orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
-              orderStatusProvider.getOrderStatusIdByDescription('in transit');
-
-      final filtered = allOrders.where((order) {
-        final orderStatusId = order['order_status'];
-        int? statusId;
-        if (orderStatusId is int) {
-          statusId = orderStatusId;
-        } else if (orderStatusId is String) {
-          statusId = int.tryParse(orderStatusId);
-        } else if (orderStatusId != null) {
-          statusId = int.tryParse(orderStatusId.toString());
-        }
-        return statusId != null &&
-            inTransitStatusId != null &&
-            statusId == inTransitStatusId;
+      _deliveryOrders = _deliveryOrders.where((candidate) {
+        return _positiveInt(candidate['order_id'] ?? candidate['id']) !=
+            orderId;
       }).toList();
-
-      final seenOrderIds = <String>{};
-      _deliveryOrders = filtered.where((order) {
-        final orderId = order['order_id']?.toString();
-        if (orderId == null || seenOrderIds.contains(orderId)) return false;
-        seenOrderIds.add(orderId);
-        return true;
-      }).toList();
-
-      _createMarkers();
-
-      setState(() {
-        _isLoading = false;
-        _error = ordersProvider.error;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-    }
-  }
-
-  /// Extract latitude from order data
-  double? _getLatitude(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final address = orderDetail?['address'] as Map<String, dynamic>?;
-      if (address != null && address['latitude'] != null) {
-        return double.tryParse(address['latitude'].toString());
-      }
-    } catch (e) {
-      print('Error getting latitude: $e');
-    }
-    return null;
-  }
-
-  /// Extract longitude from order data
-  double? _getLongitude(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final address = orderDetail?['address'] as Map<String, dynamic>?;
-      if (address != null && address['longitude'] != null) {
-        return double.tryParse(address['longitude'].toString());
-      }
-    } catch (e) {
-      print('Error getting longitude: $e');
-    }
-    return null;
-  }
-
-  /// Get shop name — prefers top-level 'shop', falls back to order_items
-  String _getShopName(Map<String, dynamic> order) {
-    try {
-      if (order['shop'] is Map<String, dynamic>) {
-        return (order['shop'] as Map<String, dynamic>)['shop_name']
-                ?.toString() ??
-            'Unknown Shop';
-      }
-      final orderItems = order['order_items'] as List<dynamic>?;
-      if (orderItems != null && orderItems.isNotEmpty) {
-        final firstItem = orderItems[0] as Map<String, dynamic>;
-        final item = firstItem['item'] as Map<String, dynamic>?;
-        final shop = item?['shop'] as Map<String, dynamic>?;
-        return shop?['shop_name']?.toString() ?? 'Unknown Shop';
-      }
-    } catch (e) {
-      print('Error getting shop name: $e');
-    }
-    return 'Unknown Shop';
-  }
-
-  /// Get order code from order detail
-  String _getOrderCode(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      return orderDetail?['order_code']?.toString() ?? 'N/A';
-    } catch (e) {
-      return 'N/A';
-    }
-  }
-
-  /// Get customer name from user data
-  String _getCustomerName(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final address = orderDetail?['address'] as Map<String, dynamic>?;
-      return address?['recipient_name']?.toString() ?? 'Unknown Customer';
-    } catch (e) {
-      return 'Unknown Customer';
-    }
-  }
-
-  /// Get shipping address
-  String _getShippingAddress(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      return orderDetail?['shipping_address']?.toString() ?? 'No address';
-    } catch (e) {
-      return 'No address';
-    }
-  }
-
-  /// Get contact number
-  String _getContactNumber(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final address = orderDetail?['address'] as Map<String, dynamic>?;
-      return address?['contact_number']?.toString() ?? '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  /// Get delivery method ID
-  int? _getDeliveryMethodId(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final deliveryMethodId = orderDetail?['delivery_method_id'];
-      if (deliveryMethodId != null) {
-        return int.tryParse(deliveryMethodId.toString());
-      }
-      // Fallback to check flattened field
-      final flattenedId = order['delivery_method_id'];
-      if (flattenedId != null) {
-        return int.tryParse(flattenedId.toString());
-      }
-    } catch (e) {
-      print('Error getting delivery method ID: $e');
-    }
-    return null;
-  }
-
-  /// Get payment method display name (resolves ID to name like checkout)
-  String _getPaymentMethod(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      final id = orderDetail?['payment_method']?.toString() ??
-          order['payment_method']?.toString() ??
-          '';
-      if (id.isEmpty) return '';
-      return _paymentMethodNames[id] ?? id;
-    } catch (e) {
-      print('Error getting payment method: $e');
-    }
-    return '';
-  }
-
-  /// Capitalize first letter of a string
-  String _capitalizeFirst(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1).toLowerCase();
-  }
-
-  /// Get total amount
-  double _getTotalAmount(Map<String, dynamic> order) {
-    try {
-      final orderDetail = order['order_detail'] as Map<String, dynamic>?;
-      return double.tryParse(orderDetail?['total_amount']?.toString() ?? '0') ??
-          0.0;
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Get items count
-  int _getItemsCount(Map<String, dynamic> order) {
-    try {
-      final orderItems = order['order_items'] as List<dynamic>?;
-      return orderItems?.length ?? 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  /// Get order status description using OrderStatusProvider
-  String _getOrderStatus(Map<String, dynamic> order) {
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final orderStatusId = order['order_status'];
-    int? statusId;
-    if (orderStatusId is int) {
-      statusId = orderStatusId;
-    } else if (orderStatusId is String) {
-      statusId = int.tryParse(orderStatusId);
-    } else if (orderStatusId != null) {
-      statusId = int.tryParse(orderStatusId.toString());
-    }
-
-    if (statusId != null) {
-      final statusDesc =
-          orderStatusProvider.getOrderStatusDescription(statusId);
-      if (statusDesc != null) {
-        return statusDesc;
-      }
-    }
-    return 'in-transit';
-  }
-
-  /// Fetch and display the delivery route
-  Future<void> _fetchDeliveryRoute() async {
-    if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.location_off, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text('Waiting for your location...'),
-            ],
-          ),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    // Filter only in-transit orders for routing
-    final orderStatusProvider =
-        Provider.of<OrderStatusProvider>(context, listen: false);
-    final inTransitStatusId =
-        orderStatusProvider.getOrderStatusIdByDescription('in-transit') ??
-            orderStatusProvider.getOrderStatusIdByDescription('in transit');
-
-    final inTransitOrders = _deliveryOrders.where((order) {
-      final orderStatusId = order['order_status'];
-      int? statusId;
-      if (orderStatusId is int) {
-        statusId = orderStatusId;
-      } else if (orderStatusId is String) {
-        statusId = int.tryParse(orderStatusId);
-      } else if (orderStatusId != null) {
-        statusId = int.tryParse(orderStatusId.toString());
-      }
-      return statusId != null &&
-          inTransitStatusId != null &&
-          statusId == inTransitStatusId;
-    }).toList();
-
-    if (inTransitOrders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No in-transit orders available for routing'),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoadingRoute = true;
-    });
-
-    try {
-      // Collect all drop-off locations with valid coordinates
-      List<LatLng> dropOffLocations = [];
-
-      for (var order in inTransitOrders) {
-        final lat = _getLatitude(order);
-        final lng = _getLongitude(order);
-
-        if (lat != null && lng != null) {
-          dropOffLocations.add(LatLng(lat, lng));
-        }
-      }
-
-      if (dropOffLocations.isEmpty) {
-        setState(() {
-          _isLoadingRoute = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No valid delivery locations found'),
-            backgroundColor: AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-
-      final riderLocation = LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
-
-      final route = await DirectionsService.getDeliveryRoute(
-        riderLocation: riderLocation,
-        dropOffLocations: dropOffLocations,
-        optimizeRoute: true,
-      );
-
-      if (route != null) {
-        setState(() {
-          _currentRoute = route;
-          _showRoute = true;
-          _polylines = {
-            Polyline(
-              polylineId: PolylineId('delivery_route'),
-              points: route.polylinePoints,
-              color: AppColors.statusInTransit,
-              width: 5,
-              patterns: [],
-            ),
-          };
-        });
-
-        // Fit the map to show the entire route
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngBounds(route.bounds, 80),
-        );
-
-        // Show route info
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.route, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Route: ${route.totalDistance} • ${route.totalDuration}'),
-              ],
-            ),
-            backgroundColor: AppColors.statusInTransit,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 4),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not calculate route. Check your API key.'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error fetching route: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error calculating route: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoadingRoute = false;
-      });
-    }
-  }
-
-  /// Clear the displayed route
-  void _clearRoute() {
-    setState(() {
+      _deliveryPoints = extractDeliveryMapPoints(_deliveryOrders);
+      _routeRequestId++;
+      _route = null;
+      _routedPointSignature = null;
       _showRoute = false;
-      _currentRoute = null;
-      _polylines = {};
+      _isLoadingRoute = false;
     });
   }
 
-  /// Toggle route display
+  Future<void> _fetchDeliveryRoute() async {
+    if (_isLoadingRoute) return;
+    final position = _currentPosition;
+    if (position == null) {
+      _showMessage('Your current location is unavailable.');
+      return;
+    }
+    if (_deliveryPoints.isEmpty) {
+      _showMessage('No delivery locations are available.');
+      return;
+    }
+
+    final signature = _pointSignature(_deliveryPoints);
+    if (_showRoute && _route != null && _routedPointSignature == signature) {
+      return;
+    }
+
+    final routeRequestId = ++_routeRequestId;
+    setState(() => _isLoadingRoute = true);
+    DirectionsRoute? route;
+    try {
+      route = await _routeLoader(
+        riderLocation: position,
+        dropOffLocations:
+            _deliveryPoints.map((point) => point.position).toList(),
+      );
+    } catch (_) {
+      route = null;
+    }
+    if (!mounted || routeRequestId != _routeRequestId) return;
+
+    setState(() {
+      _route = route;
+      _routedPointSignature = route == null ? null : signature;
+      _showRoute = route != null;
+      _isLoadingRoute = false;
+    });
+    if (route == null) {
+      _showMessage('Unable to load the delivery route.');
+      return;
+    }
+    await _animateToBounds(route.bounds);
+  }
+
   void _toggleRoute() {
     if (_showRoute) {
-      _clearRoute();
-    } else {
-      _fetchDeliveryRoute();
+      setState(() => _showRoute = false);
+      return;
     }
+    if (_route != null) {
+      setState(() => _showRoute = true);
+      unawaited(_animateToBounds(_route!.bounds));
+      return;
+    }
+    unawaited(_fetchDeliveryRoute());
   }
 
-  /// Get ordered at time
-  String _getOrderedAt(Map<String, dynamic> order) {
-    try {
-      final orderedAt = order['ordered_at']?.toString() ?? '';
-      if (orderedAt.isNotEmpty) {
-        final dateTime = DateTime.tryParse(orderedAt);
-        if (dateTime != null) {
-          final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-          final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-          final minute = dateTime.minute.toString().padLeft(2, '0');
-          return '$hour:$minute $period';
-        }
-      }
-    } catch (e) {
-      print('Error formatting time: $e');
-    }
-    return 'N/A';
-  }
-
-  void _createMarkers() {
-    Set<Marker> markers = {};
-
-    for (int i = 0; i < _deliveryOrders.length; i++) {
-      final order = _deliveryOrders[i];
-      final lat = _getLatitude(order);
-      final lng = _getLongitude(order);
-
-      // Skip orders without valid coordinates
-      if (lat == null || lng == null) continue;
-
-      final customerName = _getCustomerName(order);
-      final orderCode = _getOrderCode(order);
-
-      markers.add(
-        Marker(
-          markerId: MarkerId(order['id'].toString()),
-          position: LatLng(lat, lng),
-          infoWindow: InfoWindow(
-            title: customerName,
-            snippet: orderCode,
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          onTap: () {
-            setState(() {
-              _selectedOrderIndex = i;
-            });
-            _sheetController.animateTo(
-              0.5,
-              duration: Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          },
-        ),
+  Future<void> _fitAllDeliveries() async {
+    if (_deliveryPoints.isEmpty) return;
+    final points = _deliveryPoints.map((point) => point.position).toList();
+    if (points.length == 1) {
+      await _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(points.first, 15),
       );
-    }
-
-    setState(() {
-      _markers = markers;
-    });
-  }
-
-  void _focusOnOrder(int index) {
-    final order = _deliveryOrders[index];
-    final lat = _getLatitude(order);
-    final lng = _getLongitude(order);
-
-    if (lat != null && lng != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(lat, lng),
-          16,
-        ),
-      );
-    }
-    setState(() {
-      _selectedOrderIndex = index;
-    });
-  }
-
-  void _fitAllMarkers() {
-    if (_deliveryOrders.isEmpty) return;
-
-    double? minLat, maxLat, minLng, maxLng;
-
-    for (var order in _deliveryOrders) {
-      final lat = _getLatitude(order);
-      final lng = _getLongitude(order);
-
-      if (lat == null || lng == null) continue;
-
-      if (minLat == null || lat < minLat) minLat = lat;
-      if (maxLat == null || lat > maxLat) maxLat = lat;
-      if (minLng == null || lng < minLng) minLng = lng;
-      if (maxLng == null || lng > maxLng) maxLng = lng;
-    }
-
-    if (minLat == null || maxLat == null || minLng == null || maxLng == null) {
       return;
     }
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat - 0.01, minLng - 0.01),
-          northeast: LatLng(maxLat + 0.01, maxLng + 0.01),
-        ),
-        50,
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+    for (final point in points.skip(1)) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+    await _animateToBounds(
+      LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
       ),
     );
   }
 
-  String _formatPrice(double price) {
-    return '₱${price.toStringAsFixed(2)}';
-  }
-
-  Color _getStatusColor(String status) {
-    return OrderStatusColors.getColor(status);
-  }
-
-  String _formatStatus(String status) {
-    return OrderStatusColors.formatStatus(status);
-  }
-
-  Future<void> _markAsDelivered(Map<String, dynamic> order) async {
-    final orderId = order['id']?.toString();
-    if (orderId == null) return;
-
-    final ImagePicker picker = ImagePicker();
-    bool photoConfirmed = false;
-
-    // Loop until user confirms photo or cancels
-    while (!photoConfirmed && mounted) {
-      XFile? imageFile;
-
-      // Capture image from camera
-      try {
-        imageFile = await picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 85,
-        );
-
-        if (imageFile == null) {
-          // User cancelled camera
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Delivery photo is required'),
-              backgroundColor: AppColors.warning,
-            ),
-          );
-          return;
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error accessing camera: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
-      }
-
-      // Navigate to preview screen
-      if (!mounted) return;
-
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DeliveryPhotoPreviewScreen(
-            imageFile: imageFile!,
-            order: order,
-            orderId: orderId,
-          ),
-        ),
+  Future<void> _animateToBounds(LatLngBounds bounds) async {
+    try {
+      await _mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 52),
       );
-
-      // If photo was confirmed and saved successfully, exit loop and reload orders
-      if (result == true) {
-        photoConfirmed = true;
-        if (mounted) {
-          await _loadOrders();
-        }
-        break;
-      }
-      // If result is false, user wants to retake - loop will continue
-      // If result is null, user closed preview - exit
-      if (result == null) {
-        return;
-      }
+    } catch (_) {
+      // Bounds can be rejected while the platform map is laying out.
     }
+  }
+
+  void _showMessage(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -754,688 +460,386 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Delivery Map',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Colors.grey[900],
+            color: Color(0xFF222222),
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey[700]),
+        iconTheme: const IconThemeData(color: Color(0xFF666666)),
         actions: [
-          // _buildAppBarAction(Icons.upload, 'Upload', _toggleRoute),
-          _buildAppBarAction(Icons.refresh, 'Refresh', _loadOrders),
-          _buildAppBarAction(Icons.zoom_out_map, 'Fit All', _fitAllMarkers),
-          SizedBox(width: 8),
+          IconButton(
+            key: const ValueKey('delivery-map-refresh'),
+            onPressed: _isLoading ? null : _loadDeliveries,
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            key: const ValueKey('delivery-map-fit-all'),
+            onPressed: _deliveryPoints.isEmpty ? null : _fitAllDeliveries,
+            tooltip: 'Fit all',
+            icon: const Icon(Icons.zoom_out_map),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppColors.statusInTransit),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading delivery orders...',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            )
-          : Stack(
-              children: [
-                // Google Map
-                GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: _defaultCenter,
-                    zoom: 12,
-                  ),
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    // Fit all markers after map is created
-                    Future.delayed(Duration(milliseconds: 500), () {
-                      _fitAllMarkers();
-                    });
-                  },
-                  markers: _markers,
-                  polylines: _polylines,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
-                  compassEnabled: true,
-                ),
-
-                // Legend
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 6,
-                      children: [
-                        _buildLegendItem(
-                            AppColors.statusInTransit, 'In Transit'),
-                        if (_isLocationEnabled)
-                          _buildLegendItem(AppColors.accentAmber, 'You'),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Route info banner
-                if (_showRoute && _currentRoute != null)
-                  Positioned(
-                    top: 56,
-                    left: 16,
-                    right: 80,
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: AppColors.statusInTransit.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.route,
-                              color: AppColors.statusInTransit,
-                              size: 18,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Delivery Route',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  '${_currentRoute!.totalDistance} • ${_currentRoute!.totalDuration}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[500],
-                                  ),
-                                ),
-                                if (_currentRoute!.legs.isNotEmpty)
-                                  Text(
-                                    '${_currentRoute!.legs.length} stops',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.statusInTransit,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _clearRoute,
-                            child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(Icons.close,
-                                  size: 16, color: Colors.grey[400]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Error banner
-                if (_error != null)
-                  Positioned(
-                    top: 56,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      padding: EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentAmber.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded,
-                              color: AppColors.warning, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'Using cached data',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.warning,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Zoom controls
-                Positioned(
-                  right: 16,
-                  bottom: 320,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildRouteButton(),
-                        Divider(
-                            height: 1,
-                            indent: 8,
-                            endIndent: 8,
-                            color: Colors.grey[200]),
-                        _buildZoomButton(Icons.add, () {
-                          _mapController?.animateCamera(CameraUpdate.zoomIn());
-                        }),
-                        Divider(
-                            height: 1,
-                            indent: 8,
-                            endIndent: 8,
-                            color: Colors.grey[200]),
-                        _buildZoomButton(Icons.remove, () {
-                          _mapController?.animateCamera(CameraUpdate.zoomOut());
-                        }),
-                        Divider(
-                            height: 1,
-                            indent: 8,
-                            endIndent: 8,
-                            color: Colors.grey[200]),
-                        _buildZoomButton(Icons.my_location, () {
-                          if (_currentPosition != null) {
-                            _mapController?.animateCamera(
-                              CameraUpdate.newLatLngZoom(
-                                LatLng(_currentPosition!.latitude,
-                                    _currentPosition!.longitude),
-                                16,
-                              ),
-                            );
-                          } else {
-                            _mapController?.animateCamera(
-                              CameraUpdate.newLatLngZoom(_defaultCenter, 14),
-                            );
-                          }
-                        }),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Bottom sheet with delivery list
-                DraggableScrollableSheet(
-                  controller: _sheetController,
-                  initialChildSize: 0.35,
-                  minChildSize: 0.15,
-                  maxChildSize: 0.85,
-                  builder: (context, scrollController) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(20)),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            margin: EdgeInsets.only(top: 10, bottom: 8),
-                            width: 48,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 6),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'For Delivery',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.grey[900],
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.statusInTransit
-                                        .withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${_deliveryOrders.length} orders',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.statusInTransit,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Expanded(
-                            child: _deliveryOrders.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.local_shipping_outlined,
-                                          size: 40,
-                                          color: Colors.grey[300],
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'No delivery orders',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[500],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 4),
-                                    itemCount: _deliveryOrders.length,
-                                    itemBuilder: (context, index) {
-                                      final order = _deliveryOrders[index];
-                                      final isSelected =
-                                          _selectedOrderIndex == index;
-
-                                      return _buildDeliveryItem(
-                                          order, index, isSelected);
-                                    },
-                                  ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+      body: _buildBody(),
     );
   }
 
-  Widget _buildAppBarAction(
-      IconData icon, String tooltip, VoidCallback onPressed) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 2),
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: tooltip,
-        icon: Container(
-          padding: EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppColors.statusInTransit.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 18, color: AppColors.statusInTransit),
-        ),
-      ),
-    );
+  Widget _buildBody() {
+    if (_isLoading) return const _DeliveryMapLoading();
+    if (_error != null) {
+      return _DeliveryMapError(
+        message: _error!,
+        onRetry: _loadDeliveries,
+      );
+    }
+    return _buildMapBody();
   }
 
-  Widget _buildLegendItem(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildMapBody() {
+    final initialTarget = _deliveryPoints.isEmpty
+        ? _defaultCenter
+        : _deliveryPoints.first.position;
+    return Stack(
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
+        GoogleMap(
+          key: const ValueKey('all-deliveries-map'),
+          initialCameraPosition: CameraPosition(
+            target: initialTarget,
+            zoom: _deliveryPoints.isEmpty ? 12 : 13,
+          ),
+          onMapCreated: (controller) {
+            _mapController = controller;
+            Future<void>.delayed(
+              const Duration(milliseconds: 350),
+              () async {
+                if (!mounted) return;
+                if (_showRoute && _route != null) {
+                  await _animateToBounds(_route!.bounds);
+                } else {
+                  await _fitAllDeliveries();
+                }
+              },
+            );
+          },
+          markers: _markers,
+          polylines: _polylines,
+          myLocationEnabled: _locationEnabled,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          compassEnabled: true,
+        ),
+        Positioned(
+          top: 12,
+          left: 16,
+          child: _DeliveryLegend(showRider: _locationEnabled),
+        ),
+        Positioned(
+          top: 12,
+          right: 16,
+          child: ElevatedButton.icon(
+            key: const ValueKey('delivery-map-route'),
+            onPressed: _deliveryPoints.isEmpty ? null : _toggleRoute,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF555555),
+              elevation: 2,
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            icon: _isLoadingRoute
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _showRoute ? Icons.route_outlined : Icons.near_me,
+                    size: 16,
+                  ),
+            label: Text(
+              _showRoute ? 'Hide route' : 'Route',
+              style: const TextStyle(fontSize: 11),
+            ),
           ),
         ),
-        SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
+        DraggableScrollableSheet(
+          controller: _sheetController,
+          initialChildSize: 0.38,
+          minChildSize: 0.18,
+          maxChildSize: 0.86,
+          builder: (context, scrollController) =>
+              _buildDeliverySheet(scrollController),
         ),
       ],
     );
   }
 
-  Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: EdgeInsets.all(10),
-          child: Icon(icon, size: 20, color: Colors.grey[700]),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRouteButton() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _isLoadingRoute ? null : _toggleRoute,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _showRoute ? AppColors.statusInTransit : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+  Widget _buildDeliverySheet(ScrollController scrollController) {
+    return Container(
+      key: const ValueKey('delivery-map-sheet'),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x18000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
           ),
-          child: _isLoadingRoute
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.statusInTransit,
-                    ),
-                  ),
-                )
-              : Icon(
-                  Icons.route,
-                  size: 20,
-                  color: _showRoute ? Colors.white : AppColors.statusInTransit,
-                ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildDeliveryItem(
-      Map<String, dynamic> order, int index, bool isSelected) {
-    final status = _getOrderStatus(order);
-    final orderCode = _getOrderCode(order);
-    final customerName = _getCustomerName(order);
-    final customerContact = _getContactNumber(order);
-    final shippingAddress = _getShippingAddress(order);
-    final total = _getTotalAmount(order);
-    final itemsCount = _getItemsCount(order);
-    final deliveryMethodId = _getDeliveryMethodId(order);
-    final paymentMethod = _getPaymentMethod(order);
-    final statusColor = _getStatusColor(status);
-
-    return GestureDetector(
-      onTap: () => _focusOnOrder(index),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 8),
-        padding: EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.statusInTransit.withOpacity(0.06)
-              : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
+      child: CustomScrollView(
+        controller: scrollController,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                Container(
+                  width: 46,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 9, bottom: 13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD7D7D7),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
                     children: [
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          orderCode,
+                          'For Delivery',
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.grey[900],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: 8),
                       Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        key: const ValueKey('delivery-map-count'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFFEAF2FF),
+                          borderRadius: BorderRadius.circular(13),
+                          border: Border.all(color: const Color(0xFF8CB8F5)),
                         ),
                         child: Text(
-                          _formatStatus(status),
-                          style: TextStyle(
+                          '${_deliveryOrders.length} '
+                          '${_deliveryOrders.length == 1 ? 'delivery' : 'deliveries'}',
+                          style: const TextStyle(
+                            color: _deliveryBlue,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: statusColor,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline,
-                          size: 13, color: Colors.grey[500]),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          customerName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (customerContact.isNotEmpty && deliveryMethodId == 1) ...[
-                    SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.phone_outlined,
-                            size: 12, color: Colors.grey[400]),
-                        SizedBox(width: 4),
-                        Text(
-                          customerContact,
-                          style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500]),
-                        ),
-                      ],
-                    ),
-                  ],
-                  SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 13, color: Colors.grey[500]),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          shippingAddress,
-                          style:
-                              TextStyle(fontSize: 11, color: Colors.grey[600]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (paymentMethod.isNotEmpty) ...[
-                    SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(
-                          paymentMethod.toLowerCase().contains('cash')
-                              ? Icons.money
-                              : Icons.credit_card,
-                          size: 11,
-                          color: Colors.grey[400],
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          _capitalizeFirst(paymentMethod),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[500],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.schedule,
-                          size: 11, color: AppColors.statusInTransit),
-                      SizedBox(width: 4),
-                      Text(
-                        'Since ${_getOrderedAt(order)}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.statusInTransit,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _formatPrice(total),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryGreenDark,
-                  ),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  '$itemsCount ${itemsCount == 1 ? 'item' : 'items'}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                ),
-                SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed:
-                      _isUpdatingStatus ? null : () => _markAsDelivered(order),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.statusDelivered,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size(0, 28),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _isUpdatingStatus
-                          ? SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Icon(Icons.check_circle_outline, size: 13),
-                      SizedBox(width: 4),
-                      Text(
-                        _isUpdatingStatus ? '...' : 'Delivered',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(height: 12),
               ],
             ),
-          ],
-        ),
+          ),
+          if (_deliveryOrders.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: _DeliveryMapEmpty(),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              sliver: SliverList.separated(
+                itemCount: _deliveryOrders.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final order = _deliveryOrders[index];
+                  return GestureDetector(
+                    key: ValueKey(
+                      'delivery-map-order-${order['order_id'] ?? index}',
+                    ),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _openDeliveryDetail(order),
+                    child: ActiveDeliveryCard(
+                      order: order,
+                      fullWidth: true,
+                      statusLabel: 'In Transit',
+                      onContinue: () => _openDeliveryDetail(order),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
 
   @override
   void dispose() {
-    _positionStreamSubscription?.cancel();
+    _positionSubscription?.cancel();
     _mapController?.dispose();
     _sheetController.dispose();
     super.dispose();
+  }
+}
+
+class _DeliveryMapLoading extends StatelessWidget {
+  const _DeliveryMapLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: AppColors.primaryGreenLight),
+          SizedBox(height: 14),
+          Text('Loading delivery points...'),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryMapError extends StatelessWidget {
+  const _DeliveryMapError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_outlined, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load delivery points',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF777777)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              key: const ValueKey('delivery-map-retry'),
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreenLight,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveryMapEmpty extends StatelessWidget {
+  const _DeliveryMapEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.local_shipping_outlined,
+            size: 42,
+            color: Color(0xFFBDBDBD),
+          ),
+          SizedBox(height: 9),
+          Text(
+            'No deliveries available',
+            style: TextStyle(
+              color: Color(0xFF666666),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryLegend extends StatelessWidget {
+  const _DeliveryLegend({required this.showRider});
+
+  final bool showRider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Color(0x14000000), blurRadius: 6),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _DeliveryLegendDot(
+            color: _deliveryBlue,
+            label: 'Customer drop-off',
+          ),
+          if (showRider) ...[
+            const SizedBox(width: 10),
+            const _DeliveryLegendDot(
+              color: Color(0xFF4285F4),
+              label: 'You',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryLegendDot extends StatelessWidget {
+  const _DeliveryLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 10)),
+      ],
+    );
   }
 }
