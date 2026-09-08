@@ -1,0 +1,64 @@
+import 'package:agriconnect/constants/constants.dart';
+import 'package:agriconnect/widgets/notification_bell_icon.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  Future<void> pumpBell(
+    WidgetTester tester, {
+    String? badgeCount,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: NotificationBellIcon(
+              color: Colors.grey,
+              badgeCount: badgeCount,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('shows the customer bell dimensions without an empty badge',
+      (tester) async {
+    await pumpBell(tester);
+
+    expect(find.byType(SvgPicture), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('notification-bell'))),
+      const Size(24, 24),
+    );
+    expect(
+      find.byKey(const ValueKey('notification-count-badge')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('shows the amber rounded customer count badge', (tester) async {
+    await pumpBell(tester, badgeCount: '12');
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('notification-bell-with-badge')),
+      ),
+      const Size(32, 28),
+    );
+    expect(find.text('12'), findsOneWidget);
+
+    final badge = tester.widget<Container>(
+      find.byKey(const ValueKey('notification-count-badge')),
+    );
+    final decoration = badge.decoration! as BoxDecoration;
+    expect(decoration.color, AppColors.accentAmber);
+    expect(decoration.borderRadius, BorderRadius.circular(4));
+
+    final text = tester.widget<Text>(find.text('12'));
+    expect(text.style?.color, Colors.black);
+    expect(text.style?.fontSize, 10);
+    expect(text.style?.fontWeight, FontWeight.bold);
+  });
+}

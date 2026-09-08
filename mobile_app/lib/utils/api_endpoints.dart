@@ -22,7 +22,7 @@ class ApiEndpoints {
   static String get getProductDetails => '$baseUrl/api/products/{id}';
   static String get addToCart => '$baseUrl/api/carts/add';
   static String get getCart => '$baseUrl/api/carts/user/{id}';
-  static String get updateCart => '$baseUrl/api/carts/update';
+  static String get updateCart => '$baseUrl/api/carts/{id}';
   static String get deleteCart => '$baseUrl/api/carts/delete/{id}';
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';

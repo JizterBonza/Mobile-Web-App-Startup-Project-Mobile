@@ -5,6 +5,10 @@ import '../utils/api_endpoints.dart';
 import '../services/api_service.dart';
 
 class CartService extends ApiService {
+  CartService({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
+
   // Fetch items on carts from API
   Future<List<Map<String, dynamic>>> _fetchCartItemsFromAPI(
       String itemId) async {
@@ -153,17 +157,20 @@ class CartService extends ApiService {
         };
       }
 
-      final uri = Uri.parse(ApiEndpoints.updateCart);
+      final normalizedCartItemId = cartItemId is int
+          ? cartItemId
+          : int.tryParse(cartItemId.toString()) ?? cartItemId;
+      final uri = Uri.parse(
+        ApiEndpoints.updateCart.replaceAll(
+          '{id}',
+          Uri.encodeComponent(normalizedCartItemId.toString()),
+        ),
+      );
 
-      final body = {
-        'id': cartItemId is int
-            ? cartItemId
-            : int.tryParse(cartItemId.toString()) ?? cartItemId,
-        'quantity': quantity,
-      };
+      final body = {'quantity': quantity};
 
-      final response = await http
-          .post(
+      final request = _httpClient?.put ?? http.put;
+      final response = await request(
         uri,
         headers: {
           'Content-Type': 'application/json',
@@ -171,8 +178,7 @@ class CartService extends ApiService {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode(body),
-      )
-          .timeout(
+      ).timeout(
         Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException('Request timed out after 10 seconds');

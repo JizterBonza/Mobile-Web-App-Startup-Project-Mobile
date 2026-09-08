@@ -10,6 +10,7 @@ import '../../utils/rider_nav.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/rider_statistics_grid.dart';
 import '../../widgets/rider_quick_actions.dart';
+import '../../widgets/notification_bell_icon.dart';
 import '../../widgets/incoming_delivery_section.dart';
 import '../../widgets/delivery_acceptance_confirmation_dialog.dart';
 import '../../widgets/delivery_accepted_dialog.dart';
@@ -657,47 +658,9 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   _loadBadges();
                 });
               },
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Center(
-                      child: SvgPicture.asset(
-                        'assets/icons/notif.svg',
-                        width: 20,
-                        height: 20,
-                      ),
-                    ),
-                    if (badgeCount != null)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE53935),
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            badgeCount,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              child: NotificationBellIcon(
+                color: Colors.grey[600]!,
+                badgeCount: badgeCount,
               ),
             );
           },

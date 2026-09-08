@@ -32,6 +32,11 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const Set<String> _riderRestrictedModules = {
+    'My Orders',
+    'Shipping Address',
+  };
+
   int _selectedIndex = 3; // Profile tab
   String? _userType;
   String? _userName;
@@ -411,30 +416,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
+        onTap: () async {
+          final title = item['title'] as String;
+          final userType = _userType ??
+              (await ApiService.getUserType())?.trim().toLowerCase();
+
+          if (!mounted) return;
+
+          if (userType == 'rider' && _riderRestrictedModules.contains(title)) {
+            final messenger = ScaffoldMessenger.of(context);
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'This module is not available for rider accounts.',
+                ),
+                backgroundColor: AppColors.warning,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+
           // Handle menu item tap
-          if (item['title'] == 'My Orders') {
+          if (title == 'My Orders') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => MyOrderScreen(),
               ),
             );
-          } else if (item['title'] == 'Change Password') {
+          } else if (title == 'Change Password') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ChangePasswordScreen(),
               ),
             );
-          } else if (item['title'] == 'Shipping Address') {
+          } else if (title == 'Shipping Address') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ShippingAddressScreen(),
               ),
             );
-          } else if (item['title'] == 'Notifications') {
+          } else if (title == 'Notifications') {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -444,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${item['title']} functionality coming soon!'),
+                content: Text('$title functionality coming soon!'),
                 backgroundColor: AppColors.primaryGreen,
               ),
             );
