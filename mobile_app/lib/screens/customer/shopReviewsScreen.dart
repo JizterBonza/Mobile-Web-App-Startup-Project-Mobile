@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../utils/manila_time.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 
 class ShopReviewsScreen extends StatefulWidget {
@@ -447,7 +448,8 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
-                  color: isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
+                  color:
+                      isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
                 ),
               ),
             ),
@@ -629,9 +631,9 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
 
   String _formatReviewDate(String dateString) {
     try {
-      final dateTime = DateTime.tryParse(dateString);
+      final dateTime = ManilaTime.tryParseToManila(dateString);
       if (dateTime != null) {
-        final now = DateTime.now();
+        final now = ManilaTime.now();
         final difference = now.difference(dateTime);
 
         if (difference.inDays == 0) {

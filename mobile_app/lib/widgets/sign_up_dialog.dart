@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import '../services/api_service.dart';
 import '../services/google_auth_service.dart';
+import '../screens/common/legal_document_webview_screen.dart';
 import '../utils/auth_navigation.dart';
+import '../utils/api_endpoints.dart';
 import '../utils/snackbar_helper.dart';
 import 'form_widgets.dart';
 
@@ -41,6 +43,17 @@ class _SignUpDialogState extends State<SignUpDialog> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   bool _isGoogleSigningIn = false;
+
+  void _openLegalDocument(String title, String documentUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LegalDocumentWebViewScreen(
+          title: title,
+          documentUrl: documentUrl,
+        ),
+      ),
+    );
+  }
 
   PostLoginNavigation get _navigation => widget.onLoginSuccess != null
       ? PostLoginNavigation.refreshInPlace
@@ -171,7 +184,10 @@ class _SignUpDialogState extends State<SignUpDialog> {
     if (!_agreedToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please agree to Terms & Conditions'),
+          content: Text(
+            'Please agree to the Terms & Conditions, Privacy Policy, '
+            'and Refund Policy',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -546,7 +562,18 @@ class _SignUpDialogState extends State<SignUpDialog> {
                     _agreedToTerms = value ?? false;
                   });
                 },
-                onTermsPressed: () {},
+                onTermsPressed: () => _openLegalDocument(
+                  'Terms & Conditions',
+                  ApiEndpoints.termsAndConditions,
+                ),
+                onPrivacyPolicyPressed: () => _openLegalDocument(
+                  'Privacy Policy',
+                  ApiEndpoints.privacyPolicy,
+                ),
+                onRefundPolicyPressed: () => _openLegalDocument(
+                  'Refund Policy',
+                  ApiEndpoints.refundPolicy,
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(

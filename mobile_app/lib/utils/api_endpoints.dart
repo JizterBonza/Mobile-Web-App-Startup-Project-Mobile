@@ -5,6 +5,11 @@ class ApiEndpoints {
   // Base URL - loaded from .env file via Url class
   static String get baseUrl => Url.getUrl();
 
+  // Public web pages
+  static String get termsAndConditions => '$baseUrl/terms-and-conditions';
+  static String get privacyPolicy => '$baseUrl/privacy-policy';
+  static String get refundPolicy => '$baseUrl/refund-policy';
+
   // Authentication endpoints
   static String get register => '$baseUrl/api/register';
   static String get login => '$baseUrl/api/login';

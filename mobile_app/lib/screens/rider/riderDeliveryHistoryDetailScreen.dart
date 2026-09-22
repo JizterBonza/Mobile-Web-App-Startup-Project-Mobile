@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/constants.dart';
 import '../../services/order_service.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
 
 class RiderDeliveryHistoryDetailScreen extends StatefulWidget {
@@ -786,9 +787,8 @@ String formatDeliveryDetailDate(
   bool omitZeroMinutes = false,
 }) {
   final raw = value?.toString().trim() ?? '';
-  final parsed = DateTime.tryParse(raw);
-  if (parsed == null) return raw.isEmpty ? 'Not available' : raw;
-  final date = parsed.toLocal();
+  final date = ManilaTime.tryParseToManila(raw);
+  if (date == null) return raw.isEmpty ? 'Not available' : raw;
 
   const months = [
     'January',

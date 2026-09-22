@@ -13,6 +13,7 @@ import '../../models/messageModel.dart';
 import '../../provider/message_provider.dart';
 import '../../services/message_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import 'messageProductPickerScreen.dart';
 import 'productDetailScreen.dart';
@@ -317,8 +318,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       _attachMenuOpen = false;
       setState(() {});
 
-      final threadId =
-          provider.activeThread?.conversation.id ?? conversationId;
+      final threadId = provider.activeThread?.conversation.id ?? conversationId;
       if (threadId == null) {
         SnackbarHelper.showError(context, 'No conversation to send to');
         return;
@@ -575,12 +575,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   String _formatMessageTime(String raw) {
     if (raw.isEmpty) return '';
-    final parsed = DateTime.tryParse(raw);
-    if (parsed != null) {
-      final local = parsed.toLocal();
-      final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-      final minute = local.minute.toString().padLeft(2, '0');
-      final period = local.hour >= 12 ? 'PM' : 'AM';
+    final manila = ManilaTime.tryParseToManila(raw);
+    if (manila != null) {
+      final hour = manila.hour % 12 == 0 ? 12 : manila.hour % 12;
+      final minute = manila.minute.toString().padLeft(2, '0');
+      final period = manila.hour >= 12 ? 'PM' : 'AM';
       return '$hour.$minute $period';
     }
     return raw.replaceFirstMapped(
@@ -603,7 +602,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * (isProduct ? 0.82 : 0.78),
+          maxWidth:
+              MediaQuery.of(context).size.width * (isProduct ? 0.82 : 0.78),
         ),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 14),
@@ -651,9 +651,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment: mine
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
                     if (isProduct) _buildProductSnapshot(message.product!),
                     if (message.attachments.isNotEmpty) ...[
@@ -708,122 +707,122 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Widget _buildProductSnapshot(MessageProductSnapshot product) {
     return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 72,
-              height: 72,
-              child: product.imageUrl == null || product.imageUrl!.isEmpty
-                  ? Container(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 72,
+            height: 72,
+            child: product.imageUrl == null || product.imageUrl!.isEmpty
+                ? Container(
+                    color: const Color(0xFFF3F4F6),
+                    child: const Icon(
+                      Icons.shopping_bag_outlined,
+                      color: AppColors.primaryGreen,
+                    ),
+                  )
+                : Image.network(
+                    product.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
                       color: const Color(0xFFF3F4F6),
                       child: const Icon(
                         Icons.shopping_bag_outlined,
                         color: AppColors.primaryGreen,
                       ),
-                    )
-                  : Image.network(
-                      product.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFF3F4F6),
-                        child: const Icon(
-                          Icons.shopping_bag_outlined,
-                          color: AppColors.primaryGreen,
-                        ),
-                      ),
                     ),
-            ),
+                  ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
-                if (product.variationLabel != null &&
-                    product.variationLabel!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    product.variationLabel!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        children: [
-                          if (product.priceLabel != null &&
-                              product.priceLabel!.isNotEmpty)
-                            Text(
-                              product.priceLabel!,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black,
-                              ),
-                            ),
-                          if (product.hasDiscount)
-                            Text(
-                              product.originalPriceLabel!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[500],
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: product.id == null
-                          ? null
-                          : () {
-                              Navigator.push(
-                                context,
-                                customerFadeRoute(
-                                  ProductDetailScreen(productId: product.id),
-                                ),
-                              );
-                            },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primaryGreen,
-                        side: const BorderSide(color: AppColors.primaryGreen),
-                        minimumSize: const Size(56, 32),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Buy',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
+              ),
+              if (product.variationLabel != null &&
+                  product.variationLabel!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  product.variationLabel!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
               ],
-            ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      children: [
+                        if (product.priceLabel != null &&
+                            product.priceLabel!.isNotEmpty)
+                          Text(
+                            product.priceLabel!,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
+                        if (product.hasDiscount)
+                          Text(
+                            product.originalPriceLabel!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: product.id == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              customerFadeRoute(
+                                ProductDetailScreen(productId: product.id),
+                              ),
+                            );
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryGreen,
+                      side: const BorderSide(color: AppColors.primaryGreen),
+                      minimumSize: const Size(56, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Buy',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
+      ],
     );
   }
 
@@ -911,7 +910,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 IconButton(
                   onPressed: isSending ? null : _toggleAttachMenu,
                   icon: _attachMenuOpen
-                      ? const Icon(Icons.close, size: 22, color: Color(0xFF7E7E7E))
+                      ? const Icon(Icons.close,
+                          size: 22, color: Color(0xFF7E7E7E))
                       : SvgPicture.asset(
                           'assets/icons/Add.svg',
                           width: 16,

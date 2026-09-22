@@ -6,6 +6,7 @@ import '../../provider/notification_provider.dart';
 import '../../models/notificationModel.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/manila_time.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -77,8 +78,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final manilaTimestamp = ManilaTime.fromUtc(timestamp);
+    final now = ManilaTime.now();
+    final difference = now.difference(manilaTimestamp);
 
     if (difference.inMinutes < 1) {
       return 'Just now';
@@ -105,7 +107,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         'Nov',
         'Dec'
       ];
-      return '${months[timestamp.month - 1]} ${timestamp.day}';
+      return '${months[manilaTimestamp.month - 1]} ${manilaTimestamp.day}';
     }
   }
 
@@ -545,8 +547,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            color:
-                isRead ? Colors.white : AppColors.primaryGreen.withOpacity(0.05),
+            color: isRead
+                ? Colors.white
+                : AppColors.primaryGreen.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isRead

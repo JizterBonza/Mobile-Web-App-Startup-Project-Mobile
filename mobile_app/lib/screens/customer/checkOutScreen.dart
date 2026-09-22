@@ -405,7 +405,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             return;
           }
 
-          final paymentResult = await Navigator.push<PaymentResult>(
+          final paymentResult = await Navigator.push<PaymentWebViewResult>(
             context,
             MaterialPageRoute(
               builder: (context) => PaymentWebViewScreen(
@@ -417,25 +417,29 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
           if (!mounted) return;
 
-          switch (paymentResult) {
+          final paymentMessage =
+              paymentResult?.response?['message']?.toString();
+
+          switch (paymentResult?.result) {
             case PaymentResult.success:
               SnackbarHelper.showSuccess(
                 context,
-                'Payment completed successfully!',
+                paymentMessage ?? 'Payment completed successfully!',
                 duration: Duration(seconds: 3),
               );
               break;
             case PaymentResult.failed:
               SnackbarHelper.showError(
                 context,
-                'Payment failed. Please try again.',
+                paymentMessage ?? 'Payment failed. Please try again.',
               );
               setState(() => _isLoading = false);
               return;
             case PaymentResult.cancelled:
               SnackbarHelper.showWarning(
                 context,
-                'Payment was cancelled. Your order is pending payment.',
+                paymentMessage ??
+                    'Payment was cancelled. Your order is pending payment.',
               );
               break;
             case null:
@@ -786,7 +790,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               decoration: BoxDecoration(
                 color: AppColors.accentAmber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
+                border:
+                    Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
               ),
               child: Row(
                 children: [
@@ -1439,9 +1444,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     }
 
     // Validate against pre-voucher totals (fee total without discount).
-    final preVoucherTotal = _voucherDiscountIncludedInTotal && _voucherDiscount > 0
-        ? _total + _voucherDiscount
-        : _total;
+    final preVoucherTotal =
+        _voucherDiscountIncludedInTotal && _voucherDiscount > 0
+            ? _total + _voucherDiscount
+            : _total;
 
     setState(() {
       _isValidatingVoucher = true;
@@ -1461,16 +1467,14 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     if (result['success'] == true) {
       final discount =
           (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
-      final appliedCode =
-          (result['voucher_code']?.toString() ?? code).trim();
+      final appliedCode = (result['voucher_code']?.toString() ?? code).trim();
       final name = result['name']?.toString();
 
       setState(() {
         _appliedVoucherCode = appliedCode;
         _voucherDiscount = discount;
         // Prefer server total from validate until calculate-fee returns.
-        final validatedTotal =
-            (result['total_amount'] as num?)?.toDouble();
+        final validatedTotal = (result['total_amount'] as num?)?.toDouble();
         if (validatedTotal != null && validatedTotal > 0) {
           _total = validatedTotal;
           _voucherDiscountIncludedInTotal = true;
@@ -1479,8 +1483,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         }
         _voucherController.text = appliedCode;
         _voucherErrorMessage = null;
-        _voucherSuccessMessage =
-            name != null && name.isNotEmpty ? name : null;
+        _voucherSuccessMessage = name != null && name.isNotEmpty ? name : null;
         _isValidatingVoucher = false;
       });
       await _maybeRecalculateOrder();
@@ -1725,7 +1728,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               decoration: BoxDecoration(
                 color: AppColors.accentAmber.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
+                border:
+                    Border.all(color: AppColors.accentAmber.withOpacity(0.4)),
               ),
               child: Row(
                 children: [
@@ -1769,11 +1773,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.error.withOpacity(0.6), width: 1),
+                borderSide: BorderSide(
+                    color: AppColors.error.withOpacity(0.6), width: 1),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppColors.error.withOpacity(0.6), width: 2),
+                borderSide: BorderSide(
+                    color: AppColors.error.withOpacity(0.6), width: 2),
               ),
               filled: true,
               fillColor: AppColors.surfaceLight,
@@ -1899,7 +1905,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 ),
               ),
             )
-          else if (_selectedAddress == null || _selectedDeliveryMethodId == null)
+          else if (_selectedAddress == null ||
+              _selectedDeliveryMethodId == null)
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
@@ -1973,9 +1980,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     addFeeRow(
       'Multi-Store Fee',
       _multiStoreFee,
-      subtitle: _multiStoreFee > 0 && _storeCount > 1
-          ? '$_storeCount stores'
-          : null,
+      subtitle:
+          _multiStoreFee > 0 && _storeCount > 1 ? '$_storeCount stores' : null,
     );
     addFeeRow('Minimum Order Fee', _movPenaltyFee);
 

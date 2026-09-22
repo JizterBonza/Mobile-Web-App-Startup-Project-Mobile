@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/manila_time.dart';
 
 class IncomingDeliverySection extends StatelessWidget {
   final List<Map<String, dynamic>> orders;
@@ -150,26 +151,8 @@ class IncomingDeliveryCard extends StatelessWidget {
   String _formatDate(dynamic value) {
     final raw = value?.toString().trim() ?? '';
     if (raw.isEmpty) return 'Date unavailable';
-
-    final match = RegExp(
-      r'^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})',
-    ).firstMatch(raw);
-    if (match == null) return raw;
-
-    final year = int.tryParse(match.group(1)!);
-    final month = int.tryParse(match.group(2)!);
-    final day = int.tryParse(match.group(3)!);
-    final hour = int.tryParse(match.group(4)!);
-    final minute = int.tryParse(match.group(5)!);
-    if (year == null ||
-        month == null ||
-        month < 1 ||
-        month > 12 ||
-        day == null ||
-        hour == null ||
-        minute == null) {
-      return raw;
-    }
+    final date = ManilaTime.tryParseToManila(raw);
+    if (date == null) return raw;
 
     const months = [
       'January',
@@ -185,10 +168,10 @@ class IncomingDeliveryCard extends StatelessWidget {
       'November',
       'December',
     ];
-    final suffix = hour >= 12 ? 'pm' : 'am';
-    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
-    final displayMinute = minute.toString().padLeft(2, '0');
-    return '${months[month - 1]} $day, $year • '
+    final suffix = date.hour >= 12 ? 'pm' : 'am';
+    final displayHour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final displayMinute = date.minute.toString().padLeft(2, '0');
+    return '${months[date.month - 1]} ${date.day}, ${date.year} • '
         '$displayHour:$displayMinute$suffix';
   }
 

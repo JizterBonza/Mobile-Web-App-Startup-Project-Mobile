@@ -8,6 +8,7 @@ import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../services/shops_service.dart';
 import '../../utils/auth_guard.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -315,7 +316,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return '₱${price.toStringAsFixed(2)}';
   }
 
-  String _resolveCategoryName(BuildContext context, Map<String, dynamic>? product) {
+  String _resolveCategoryName(
+      BuildContext context, Map<String, dynamic>? product) {
     final raw = (product?['category'] ?? '').toString().trim();
     if (raw.isEmpty) return '';
 
@@ -403,7 +405,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildImageCarousel(images),
-                      if (images.length > 1) _buildCarouselIndicators(images.length),
+                      if (images.length > 1)
+                        _buildCarouselIndicators(images.length),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                         child: Column(
@@ -529,8 +532,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const Spacer(),
             Consumer<BadgeProvider>(
               builder: (context, badges, _) {
-                final count =
-                    BadgeProvider.formatBadgeCount(badges.cartCount);
+                final count = BadgeProvider.formatBadgeCount(badges.cartCount);
                 return _buildCircleIconButton(
                   onTap: () async {
                     await Navigator.push(
@@ -624,8 +626,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           width: 40,
           height: 40,
           child: Center(
-            child: child ??
-                Icon(icon, size: 20, color: Colors.grey[800]),
+            child: child ?? Icon(icon, size: 20, color: Colors.grey[800]),
           ),
         ),
       ),
@@ -645,9 +646,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             width: selected ? 18 : 7,
             height: 7,
             decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.primaryGreen
-                  : Colors.grey[300],
+              color: selected ? AppColors.primaryGreen : Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -675,9 +674,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.primaryGreenDark
-                      : Colors.white,
+                  color: selected ? AppColors.primaryGreenDark : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: selected
@@ -736,8 +733,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ? 'Zone ${_shopDetails!['zone_id']}'
                 : ''));
     final logoUrl = _shopDetails?['shop_logo']?.toString();
-    final displayName =
-        shopName.isNotEmpty ? shopName : 'Store';
+    final displayName = shopName.isNotEmpty ? shopName : 'Store';
 
     return Material(
       color: Colors.white,
@@ -949,9 +945,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildDescriptionSection(String description) {
-    final text = description.trim().isEmpty
-        ? 'No description available.'
-        : description;
+    final text =
+        description.trim().isEmpty ? 'No description available.' : description;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1072,7 +1067,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   padding: EdgeInsets.all(32),
                   child: Column(
                     children: [
-                      Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                      Icon(Icons.error_outline,
+                          color: AppColors.error, size: 48),
                       SizedBox(height: 8),
                       Text(
                         'Failed to load reviews',
@@ -1199,7 +1195,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: LinearProgressIndicator(
                 value: percentage,
                 backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentAmber!),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppColors.accentAmber!),
                 minHeight: 6,
               ),
             ),
@@ -1219,7 +1216,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String formattedDate = '';
     if (review['created_at'] != null) {
       try {
-        final dateTime = DateTime.parse(review['created_at']);
+        final dateTime =
+            ManilaTime.fromUtc(ManilaTime.parseUtc(review['created_at']));
         formattedDate =
             '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
       } catch (e) {
@@ -1549,9 +1547,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return;
       }
 
-      final product =
-          Provider.of<ItemsProvider>(context, listen: false)
-              .getItemById(widget.productId);
+      final product = Provider.of<ItemsProvider>(context, listen: false)
+          .getItemById(widget.productId);
 
       final checkoutItem = <String, dynamic>{
         'id': cartLine['id'] is int
@@ -1567,11 +1564,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 cartLine['shop_id'],
         'shop_name': cartLine['shop_name'],
         'quantity': _quantity,
-        'price_snapshot': cartLine['price_snapshot']?.toString() ??
-            price.toStringAsFixed(2),
+        'price_snapshot':
+            cartLine['price_snapshot']?.toString() ?? price.toStringAsFixed(2),
         'item_name': cartLine['item_name'] ?? product?['item_name'],
-        'item_price': cartLine['item_price']?.toString() ??
-            price.toStringAsFixed(2),
+        'item_price':
+            cartLine['item_price']?.toString() ?? price.toStringAsFixed(2),
         'item_quantity': cartLine['item_quantity']?.toString() ??
             product?['item_quantity']?.toString(),
         if (product?['item_images'] != null)

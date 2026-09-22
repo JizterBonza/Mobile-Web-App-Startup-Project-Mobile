@@ -31,13 +31,6 @@ class RiderStatisticsGrid extends StatelessWidget {
   static const _earningsLabel = Color(0xFF54C26F);
   static const _earningsIconBg = Color(0xFFD9F3DF);
 
-  String _earningsAmount(dynamic value) {
-    final n = value is num
-        ? value.toDouble()
-        : double.tryParse(value?.toString() ?? '') ?? 0;
-    return n.round().toString();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -139,9 +132,9 @@ class RiderStatisticsGrid extends StatelessWidget {
                           color: Color(0xFF6B6B6B),
                         ),
                       ),
-                      TextSpan(
-                        text: _earningsAmount(stats['earnings']),
-                        style: const TextStyle(
+                      const TextSpan(
+                        text: '****',
+                        style: TextStyle(
                           fontSize: 28,
                           height: 1,
                           fontWeight: FontWeight.w800,

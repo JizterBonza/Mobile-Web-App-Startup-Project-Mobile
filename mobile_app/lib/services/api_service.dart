@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../utils/api_endpoints.dart';
+import '../utils/manila_time.dart';
 import 'order_status_service.dart';
 
 typedef ProfileUpdateRequestSender = Future<http.StreamedResponse> Function(
@@ -198,12 +199,7 @@ class ApiService {
   }
 
   static DateTime? _parseExpiresAt(dynamic value) {
-    if (value == null) return null;
-    try {
-      return DateTime.parse(value.toString()).toUtc();
-    } catch (_) {
-      return null;
-    }
+    return ManilaTime.tryParseUtc(value);
   }
 
   static Future<bool> _hasRefreshToken() async {

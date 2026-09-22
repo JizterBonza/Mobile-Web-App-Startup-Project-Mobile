@@ -48,6 +48,8 @@ void main() {
     expect(find.text('2'), findsOneWidget);
     expect(find.text('7'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
+    expect(find.textContaining('****'), findsOneWidget);
+    expect(find.textContaining('160'), findsNothing);
     expect(find.byType(SvgPicture), findsNWidgets(4));
 
     for (final asset in const [

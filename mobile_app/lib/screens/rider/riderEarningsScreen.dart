@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/rider_nav.dart';
 import '../../widgets/empty_state_widget.dart';
 
@@ -99,10 +100,8 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
 
   String _formatOrderDate(dynamic value) {
     final raw = value?.toString().trim() ?? '';
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) return raw.isEmpty ? 'Date unavailable' : raw;
-
-    final date = parsed.toLocal();
+    final date = ManilaTime.tryParseToManila(raw);
+    if (date == null) return raw.isEmpty ? 'Date unavailable' : raw;
     const months = [
       'January',
       'February',

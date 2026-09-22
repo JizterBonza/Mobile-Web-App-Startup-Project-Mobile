@@ -1,8 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 
 /// Utility class for showing consistent snackbars throughout the app
 class SnackbarHelper {
+  static OverlayEntry? _dialogErrorEntry;
+  static Timer? _dialogErrorTimer;
+
+  static void _removeDialogError() {
+    _dialogErrorTimer?.cancel();
+    _dialogErrorTimer = null;
+    _dialogErrorEntry?.remove();
+    _dialogErrorEntry?.dispose();
+    _dialogErrorEntry = null;
+  }
+
   /// Show a success snackbar
   static void showSuccess(
     BuildContext context,
@@ -28,6 +41,39 @@ class SnackbarHelper {
     Duration duration = const Duration(seconds: 4),
   }) {
     if (!context.mounted) return;
+
+    final route = ModalRoute.of(context);
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (route is DialogRoute && overlay != null) {
+      _removeDialogError();
+
+      // The dialog route and its barrier sit above the page's Scaffold. Add
+      // this snackbar to the root overlay so it stays in front of both.
+      final entry = OverlayEntry(
+        builder: (overlayContext) => Positioned(
+          left: 0,
+          right: 0,
+          bottom: MediaQuery.viewInsetsOf(overlayContext).bottom +
+              MediaQuery.paddingOf(overlayContext).bottom,
+          child: IgnorePointer(
+            child: SnackBar(
+              content: Text(message),
+              backgroundColor: AppColors.error,
+              duration: duration,
+              behavior: SnackBarBehavior.floating,
+              animation: const AlwaysStoppedAnimation<double>(1),
+            ),
+          ),
+        ),
+      );
+      _dialogErrorEntry = entry;
+      overlay.insert(entry);
+      _dialogErrorTimer = Timer(duration, _removeDialogError);
+      route.popped.then((_) {
+        if (identical(_dialogErrorEntry, entry)) _removeDialogError();
+      });
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

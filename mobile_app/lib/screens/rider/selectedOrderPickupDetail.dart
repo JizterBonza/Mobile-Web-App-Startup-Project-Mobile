@@ -10,6 +10,7 @@ import '../../constants/constants.dart';
 import '../../provider/order_status_provider.dart';
 import '../../services/directions_service.dart';
 import '../../services/order_service.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
 import '../../utils/status_utils.dart';
 import 'riderConfirmDeliveryScreen.dart';
@@ -1798,7 +1799,7 @@ class _SelectedOrderPickupDetailScreenState
 
   String _formatOrderDate(dynamic value) {
     final raw = value?.toString().trim() ?? '';
-    final date = DateTime.tryParse(raw)?.toLocal();
+    final date = ManilaTime.tryParseToManila(raw);
     if (date == null) return raw.isEmpty ? 'Date unavailable' : raw;
     const months = [
       'January',

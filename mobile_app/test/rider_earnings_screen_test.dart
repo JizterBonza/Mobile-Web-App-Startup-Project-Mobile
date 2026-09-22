@@ -92,7 +92,7 @@ void main() {
     expect(find.text('ORD-PENDING'), findsNothing);
     expect(find.text('+₱80'), findsOneWidget);
     expect(find.text('+₱4,200'), findsOneWidget);
-    expect(find.text('July 10, 2026 • 3:51am'), findsOneWidget);
+    expect(find.text('July 10, 2026 • 11:51am'), findsOneWidget);
     expect(provider.fetchCount, 1);
     expect(provider.lastUseCache, isTrue);
   });

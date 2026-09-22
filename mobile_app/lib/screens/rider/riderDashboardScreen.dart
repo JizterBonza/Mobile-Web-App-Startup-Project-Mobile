@@ -6,6 +6,7 @@ import '../../services/order_service.dart';
 import '../../services/api_service.dart';
 import '../../provider/provider.dart';
 import '../../utils/connectivity_helper.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/rider_nav.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/rider_statistics_grid.dart';
@@ -67,7 +68,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = ManilaTime.now();
     _historyMonth = now.month;
     _historyYear = now.year;
     riderDashboardTab.reset();
@@ -931,7 +932,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         (order['delivered_at'] ?? order['updated_at'] ?? order['ordered_at'])
             ?.toString()
             .trim();
-    final date = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    final date = raw == null ? null : ManilaTime.tryParseToManila(raw);
     if (date == null) {
       return raw?.isNotEmpty == true ? raw! : 'Date unavailable';
     }
@@ -1005,7 +1006,7 @@ class _DeliveryHistoryControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latestYear = DateTime.now().year + 1;
+    final latestYear = ManilaTime.now().year + 1;
     final years = <int>{
       for (var value = 2020; value <= latestYear; value++) value,
       year,

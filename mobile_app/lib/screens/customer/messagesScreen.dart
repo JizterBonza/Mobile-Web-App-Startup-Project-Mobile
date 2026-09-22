@@ -9,6 +9,7 @@ import '../../provider/badge_provider.dart';
 import '../../provider/message_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/manila_time.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'conversationScreen.dart';
@@ -110,8 +111,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   String _formatTimestamp(DateTime? timestamp) {
     if (timestamp == null) return '';
-    final local = timestamp.toLocal();
-    final now = DateTime.now();
+    final local = ManilaTime.fromUtc(timestamp);
+    final now = ManilaTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final date = DateTime(local.year, local.month, local.day);
     final difference = today.difference(date).inDays;
@@ -369,9 +370,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
-                    color: unread
-                        ? AppColors.primaryGreen
-                        : Colors.grey[500],
+                    color: unread ? AppColors.primaryGreen : Colors.grey[500],
                   ),
                 ),
                 if (unread && badgeLabel != null) ...[
