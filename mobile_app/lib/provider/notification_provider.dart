@@ -138,7 +138,7 @@ class NotificationProvider with ChangeNotifier {
         if (index != -1) {
           _notifications[index] = _notifications[index].copyWith(
             read: true,
-            readAt: DateTime.now(),
+            readAt: DateTime.now().toUtc(),
           );
           _unreadCount = _notifications.where((n) => !n.read).length;
           notifyListeners();
@@ -160,7 +160,7 @@ class NotificationProvider with ChangeNotifier {
       if (result['success'] == true) {
         // Update local state
         _notifications = _notifications.map((n) {
-          return n.copyWith(read: true, readAt: DateTime.now());
+          return n.copyWith(read: true, readAt: DateTime.now().toUtc());
         }).toList();
         _unreadCount = 0;
         notifyListeners();
@@ -283,4 +283,3 @@ class NotificationProvider with ChangeNotifier {
     return _notifications.where((n) => n.category == category).toList();
   }
 }
-

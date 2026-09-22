@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 import '../../widgets/form_widgets.dart';
 import '../../services/api_service.dart';
+import '../../utils/api_endpoints.dart';
+import 'legal_document_webview_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -22,6 +24,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _agreedToTerms = false;
   bool _isLoading = false;
+
+  void _openLegalDocument(String title, String documentUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LegalDocumentWebViewScreen(
+          title: title,
+          documentUrl: documentUrl,
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -183,9 +196,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           _agreedToTerms = value ?? false;
                         });
                       },
-                      onTermsPressed: () {
-                        // Handle terms and conditions
-                      },
+                      onTermsPressed: () => _openLegalDocument(
+                        'Terms & Conditions',
+                        ApiEndpoints.termsAndConditions,
+                      ),
+                      onPrivacyPolicyPressed: () => _openLegalDocument(
+                        'Privacy Policy',
+                        ApiEndpoints.privacyPolicy,
+                      ),
+                      onRefundPolicyPressed: () => _openLegalDocument(
+                        'Refund Policy',
+                        ApiEndpoints.refundPolicy,
+                      ),
                     ),
                     SizedBox(height: 24),
                     // Sign up button
@@ -198,7 +220,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content:
-                                    Text('Please agree to Terms & Conditions'),
+                                    Text(
+                                      'Please agree to the Terms & Conditions, '
+                                      'Privacy Policy, and Refund Policy',
+                                    ),
                                 backgroundColor: AppColors.error,
                               ),
                             );

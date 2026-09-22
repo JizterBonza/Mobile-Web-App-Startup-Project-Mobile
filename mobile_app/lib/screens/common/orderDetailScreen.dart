@@ -56,7 +56,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (result['success'] == true &&
           result['checkout_url'] != null &&
           result['checkout_url'].toString().isNotEmpty) {
-        final paymentResult = await Navigator.push<PaymentResult>(
+        final paymentResult = await Navigator.push<PaymentWebViewResult>(
           context,
           MaterialPageRoute(
             builder: (context) => PaymentWebViewScreen(
@@ -68,7 +68,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
         if (!mounted) return;
 
-        switch (paymentResult) {
+        final paymentMessage = paymentResult?.response?['message']?.toString();
+
+        switch (paymentResult?.result) {
           case PaymentResult.success:
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -76,7 +78,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   children: [
                     Icon(Icons.check_circle, color: Colors.white, size: 20),
                     SizedBox(width: 8),
-                    Text('Payment completed successfully!'),
+                    Text(paymentMessage ?? 'Payment completed successfully!'),
                   ],
                 ),
                 backgroundColor: AppColors.primaryGreen,
@@ -94,7 +96,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   children: [
                     Icon(Icons.error_outline, color: Colors.white, size: 20),
                     SizedBox(width: 8),
-                    Text('Payment failed. Please try again.'),
+                    Text(paymentMessage ?? 'Payment failed. Please try again.'),
                   ],
                 ),
                 backgroundColor: AppColors.error,
@@ -111,7 +113,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   children: [
                     Icon(Icons.info_outline, color: Colors.white, size: 20),
                     SizedBox(width: 8),
-                    Text('Payment cancelled.'),
+                    Text(paymentMessage ?? 'Payment cancelled.'),
                   ],
                 ),
                 backgroundColor: AppColors.warning,
@@ -353,8 +355,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 SizedBox(height: 16),
                 PaymentSummaryWidget(
                   order: widget.order,
-                  paymentMethod:
-                      _getPaymentMethodDisplayName(paymentMethodRaw),
+                  paymentMethod: _getPaymentMethodDisplayName(paymentMethodRaw),
                   paymentStatus: paymentStatus,
                 ),
                 SizedBox(height: 24),

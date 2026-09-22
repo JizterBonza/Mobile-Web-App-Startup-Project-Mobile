@@ -297,7 +297,7 @@ class _DeliveryPhotoPreviewScreenState
       // Step 3: Save to Hive
       print('=== DELIVERY PHOTO DEBUG: Saving to Hive ===');
       try {
-        final now = DateTime.now();
+        final now = DateTime.now().toUtc();
         final deliveryPhoto = DeliveryPhotoModel(
           orderId: widget.orderId,
           imagePath: savedImagePath,

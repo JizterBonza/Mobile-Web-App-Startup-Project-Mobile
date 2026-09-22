@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import '../utils/manila_time.dart';
 
 part 'addressModel.g.dart';
 
@@ -124,10 +125,10 @@ class AddressModel {
       mapAddress: json['map_address']?.toString(),
       isDefault: json['is_default'] == true || json['is_default'] == 1,
       createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())
+          ? ManilaTime.tryParseUtc(json['created_at'])
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.tryParse(json['updated_at'].toString())
+          ? ManilaTime.tryParseUtc(json['updated_at'])
           : null,
       // street_address (API) or street (fallback)
       street: json['street_address']?.toString() ?? json['street']?.toString(),

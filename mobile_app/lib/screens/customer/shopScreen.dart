@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
+import '../../utils/manila_time.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'conversationScreen.dart';
@@ -714,9 +715,10 @@ class _ShopScreenState extends State<ShopScreen> {
                     operatingHours.isNotEmpty
                         ? _formatOperatingHours(operatingHours)
                         : operatingDays,
-                    subtitle: operatingHours.isNotEmpty && operatingDays.isNotEmpty
-                        ? operatingDays
-                        : null,
+                    subtitle:
+                        operatingHours.isNotEmpty && operatingDays.isNotEmpty
+                            ? operatingDays
+                            : null,
                   ),
                 SizedBox(height: 18),
 
@@ -1185,9 +1187,9 @@ class _ShopScreenState extends State<ShopScreen> {
 
   String _formatReviewDate(String dateString) {
     try {
-      final dateTime = DateTime.tryParse(dateString);
+      final dateTime = ManilaTime.tryParseToManila(dateString);
       if (dateTime != null) {
-        final now = DateTime.now();
+        final now = ManilaTime.now();
         final difference = now.difference(dateTime);
 
         if (difference.inDays == 0) {

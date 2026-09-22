@@ -27,20 +27,23 @@ void main() async {
   await Hive.openBox('delivery_photos');
   await Hive.openBox<OrderStatus>('order_statuses');
 
-  // Warm the SVG cache for the customer bottom-nav icons so they paint
+  // Warm the SVG cache for the bottom-nav icons so they paint
   // instantly on first render and never blank out during navigation.
-  await _precacheCustomerNavIcons();
+  await _precacheNavIcons();
 
   runApp(const MyApp());
 }
 
-Future<void> _precacheCustomerNavIcons() async {
+Future<void> _precacheNavIcons() async {
   const navIcons = [
     'assets/icons/home.svg',
     'assets/icons/favorite.svg',
     'assets/icons/klasrum.svg',
     'assets/icons/orders.svg',
     'assets/icons/notif.svg',
+    'assets/icons/delivery.svg',
+    'assets/icons/Pending.svg',
+    'assets/icons/wallet.svg',
   ];
   for (final asset in navIcons) {
     try {

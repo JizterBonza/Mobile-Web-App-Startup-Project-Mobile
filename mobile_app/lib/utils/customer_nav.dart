@@ -10,6 +10,7 @@ import '../screens/customer/customerDashboardScreen.dart';
 import '../screens/customer/favoriteScreen.dart';
 import '../screens/customer/klasrumScreen.dart';
 import '../widgets/login_dialog.dart';
+import '../widgets/notification_bell_icon.dart';
 
 /// Bottom navigation indices for the customer shell.
 abstract final class CustomerNavIndex {
@@ -36,48 +37,6 @@ Widget _customerNavSvgIcon({
   );
 }
 
-Widget _customerNavIconWithBadge({
-  required String asset,
-  required Color color,
-  String? badgeCount,
-}) {
-  final icon = _customerNavSvgIcon(asset: asset, color: color);
-  if (badgeCount == null) return icon;
-
-  return SizedBox(
-    width: 32,
-    height: 28,
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Center(child: icon),
-        Positioned(
-          right: 0,
-          top: -2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.accentAmber,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            child: Text(
-              badgeCount,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                height: 1.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 Widget _customerNotifsNavIcon({
   required Color color,
   required bool isGuest,
@@ -87,8 +46,7 @@ Widget _customerNotifsNavIcon({
       final count = isGuest
           ? null
           : BadgeProvider.formatBadgeCount(badges.unreadNotifications);
-      return _customerNavIconWithBadge(
-        asset: 'assets/icons/notif.svg',
+      return NotificationBellIcon(
         color: color,
         badgeCount: count,
       );

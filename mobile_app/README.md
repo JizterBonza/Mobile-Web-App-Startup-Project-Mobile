@@ -1,6 +1,12 @@
 # mobile_app
 
-A new Flutter project.
+AgrifyConnect (`agriconnect`) is a multi-role agriculture marketplace Flutter app.
+
+**Preparing a technical review?** Use the [Code review guide](docs/CODE_REVIEW_GUIDE.md) for a timed walkthrough, important code by module, review checks, and a findings template.
+
+**Working on authentication?** Read the [Login and signup codebase guide](docs/AUTH_LOGIN_SIGNUP_GUIDE.md) for the UI structure, API flow, session storage, role navigation, and important functions.
+
+**New to this codebase or to Flutter?** Start with [docs/CODEBASE_OVERVIEW.md](docs/CODEBASE_OVERVIEW.md) — a high-level tour of folders, how data flows, and where to read first.
 
 ## Getting Started
 

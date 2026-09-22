@@ -770,12 +770,6 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   onChanged: () => _toggleShop(zoneId, shop.id),
                 ),
                 const SizedBox(width: 12),
-                Icon(
-                  Icons.store,
-                  color: AppColors.accentAmber,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,154 +837,205 @@ class _CartScreenV2State extends State<CartScreenV2> {
         ),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item Checkbox
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _buildCheckbox(
-              value: isValid && item.isSelected,
-              isIndeterminate: false,
-              onChanged:
-                  isValid ? () => _toggleItem(zoneId, shopId, item.id) : null,
-              enabled: isValid,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Item Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Item Checkbox
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _buildCheckbox(
+                  value: isValid && item.isSelected,
+                  isIndeterminate: false,
+                  onChanged: isValid
+                      ? () => _toggleItem(zoneId, shopId, item.id)
+                      : null,
+                  enabled: isValid,
                 ),
-                const SizedBox(height: 6),
+              ),
+              const SizedBox(width: 12),
 
-                // Price display
-                CartItemPriceDisplay(pricing: item.pricing),
-
-                // Stock warning
-                if (item.isOutOfStock)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border:
-                            Border.all(color: AppColors.error.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        'Out of stock',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ),
-                  )
-                else if (!isValid)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Only ${item.stock} available',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.error,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
+              // Product image
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.primaryGreen.withOpacity(0.2),
                   ),
-
-                const SizedBox(height: 10),
-
-                // Quantity controls & line total
-                Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[300]!),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: item.imageUrl != null
+                    ? Image.network(
+                        item.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.shopping_bag,
+                          color: AppColors.primaryGreen,
+                          size: 24,
+                        ),
+                      )
+                    : Icon(
+                        Icons.shopping_bag,
+                        color: AppColors.primaryGreen,
+                        size: 24,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove, size: 18),
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            onPressed: item.quantity <= 1 || item.isOutOfStock
-                                ? null
-                                : () => _updateQuantity(
-                                    zoneId, shopId, item.id, item.quantity - 1),
-                            color: item.quantity <= 1
-                                ? Colors.grey[400]
-                                : Colors.grey[700],
+              ),
+              const SizedBox(width: 12),
+
+              // Item Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Price display
+                    CartItemPriceDisplay(pricing: item.pricing),
+
+                    // Stock warning
+                    if (item.isOutOfStock)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                                color: AppColors.error.withOpacity(0.3)),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              '${item.quantity}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey,
-                              ),
+                          child: Text(
+                            'Out of stock',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.add, size: 18),
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            onPressed: item.quantity >= item.stock ||
-                                    item.isOutOfStock
-                                ? null
-                                : () => _updateQuantity(
-                                    zoneId, shopId, item.id, item.quantity + 1),
-                            color: item.quantity >= item.stock
-                                ? Colors.grey[400]
-                                : AppColors.primaryGreen,
+                        ),
+                      )
+                    else if (!isValid)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Only ${item.stock} available',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.error,
+                            fontStyle: FontStyle.italic,
                           ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    if (isValid)
-                      Text(
-                        '₱${lineTotal.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: item.isSelected
-                              ? AppColors.primaryGreen
-                              : Colors.grey[700],
                         ),
                       ),
                   ],
                 ),
-              ],
-            ),
+              ),
+
+              // Delete button
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: AppColors.error),
+                onPressed: () => _removeItem(zoneId, shopId, item.id),
+                tooltip: 'Remove item',
+              ),
+            ],
           ),
 
-          // Delete button
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: AppColors.error),
-            onPressed: () => _removeItem(zoneId, shopId, item.id),
-            tooltip: 'Remove item',
+          const SizedBox(height: 10),
+
+          // Quantity controls & line total
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (isValid)
+                  Text(
+                    '₱${lineTotal.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: item.isSelected
+                          ? AppColors.primaryGreen
+                          : Colors.grey[700],
+                    ),
+                  ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: IconButton(
+                          icon: const Icon(Icons.remove, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: item.quantity <= 1 || item.isOutOfStock
+                              ? null
+                              : () => _updateQuantity(
+                                  zoneId, shopId, item.id, item.quantity - 1),
+                          color: item.quantity <= 1
+                              ? Colors.grey[400]
+                              : Colors.grey[700],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 32,
+                        child: Text(
+                          '${item.quantity}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: IconButton(
+                          icon: const Icon(Icons.add, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: item.quantity >= item.stock ||
+                                  item.isOutOfStock
+                              ? null
+                              : () => _updateQuantity(
+                                  zoneId, shopId, item.id, item.quantity + 1),
+                          color: item.quantity >= item.stock
+                              ? Colors.grey[400]
+                              : AppColors.primaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

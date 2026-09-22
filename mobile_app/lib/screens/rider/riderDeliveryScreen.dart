@@ -5,6 +5,7 @@ import '../../provider/provider.dart';
 import '../../services/order_service.dart';
 import '../../widgets/order_item_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 
 class RiderDeliveryScreen extends StatefulWidget {
@@ -235,7 +236,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
   String _formatOrderDate(String dateString) {
     if (dateString.isEmpty) return 'N/A';
     try {
-      final dateTime = DateTime.tryParse(dateString);
+      final dateTime = ManilaTime.tryParseToManila(dateString);
       if (dateTime != null) {
         final months = [
           'Jan',

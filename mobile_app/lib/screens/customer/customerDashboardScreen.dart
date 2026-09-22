@@ -11,6 +11,7 @@ import '../../utils/customer_nav.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/user_profile_avatar.dart';
 import 'messagesScreen.dart';
 import 'conversationScreen.dart';
 import 'cartScreenV2.dart';
@@ -42,6 +43,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
   bool _isLoadingBuyAgain = true;
   String? _buyAgainError;
   String? _userName;
+  String? _profileImageUrl;
   bool _isGuest = true;
 
   // Suggested Stores
@@ -219,10 +221,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
     try {
       final token = await ApiService.getToken();
       final name = await ApiService.getUserName();
+      final isGuest = token == null || token.isEmpty;
+      final profileImageUrl =
+          isGuest ? null : await ApiService.getProfileImageUrl();
       if (!mounted) return;
       setState(() {
         _userName = name;
-        _isGuest = token == null || token.isEmpty;
+        _isGuest = isGuest;
+        _profileImageUrl = profileImageUrl;
       });
     } catch (e) {
       print('Error loading user name: $e');
@@ -232,9 +238,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
         if (!mounted) return;
         setState(() {
           _isGuest = token == null || token.isEmpty;
+          if (_isGuest) _profileImageUrl = null;
         });
       } catch (_) {
-        if (mounted) setState(() => _isGuest = true);
+        if (mounted) {
+          setState(() {
+            _isGuest = true;
+            _profileImageUrl = null;
+          });
+        }
       }
     }
   }
@@ -638,17 +650,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
           context,
           _createFadeRoute(const ProfileScreen()),
         ).then((_) {
-          if (mounted) setState(() => _selectedIndex = 0);
+          if (!mounted) return;
+          setState(() => _selectedIndex = 0);
+          _loadUserName();
         });
       }),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(Icons.person, color: Colors.grey[600], size: 22),
+      child: UserProfileAvatar(
+        size: 40,
+        imageUrl: _isGuest ? null : _profileImageUrl,
+        backgroundColor: Colors.white,
+        iconColor: Colors.grey[600]!,
+        iconSize: 22,
       ),
     );
 

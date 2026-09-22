@@ -1,9 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../constants/constants.dart';
 import '../../services/payment_service.dart';
 
 enum PaymentResult { success, failed, cancelled }
+
+class PaymentWebViewResult {
+  final PaymentResult result;
+  final Map<String, dynamic>? response;
+
+  const PaymentWebViewResult({required this.result, this.response});
+}
 
 class PaymentWebViewScreen extends StatefulWidget {
   final String checkoutUrl;
@@ -30,6 +39,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   final PaymentService _paymentService = PaymentService();
   bool _isLoading = true;
   bool _isCheckingStatus = false;
+  bool _isHandlingResult = false;
   bool _hasError = false;
   String? _errorMessage;
   int _loadingProgress = 0;
@@ -81,18 +91,16 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
               setState(() => _loadingProgress = progress);
             }
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) async {
             if (mounted) {
               setState(() => _isLoading = false);
             }
+
+            await _handlePageFinished(url);
           },
-          onNavigationRequest: (request) {
-            final url = request.url.toLowerCase();
-            final result = _detectPaymentResult(url);
-            if (result != null) {
-              Navigator.of(context).pop(result);
-              return NavigationDecision.prevent;
-            }
+          onNavigationRequest: (_) {
+            // Allow the callback page to load so its JSON body can be read in
+            // onPageFinished. Some payment callbacks return JSON directly.
             return NavigationDecision.navigate;
           },
           onWebResourceError: (error) {
@@ -107,6 +115,112 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
         ),
       )
       ..loadRequest(Uri.parse(widget.checkoutUrl));
+  }
+
+  Future<void> _handlePageFinished(String url) async {
+    if (_isHandlingResult) return;
+
+    final response = await _readPaymentResponse();
+    if (!mounted || _isHandlingResult) return;
+
+    final responseResult = _resultFromResponse(response);
+    if (responseResult != null) {
+      _finishPayment(responseResult, response: response);
+      return;
+    }
+
+    final urlResult = _detectPaymentResult(url.toLowerCase());
+    if (urlResult != null) {
+      _finishPayment(urlResult);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _readPaymentResponse() async {
+    try {
+      final rawResult = await _controller.runJavaScriptReturningResult(
+        "document.body == null ? '' : document.body.innerText",
+      );
+      var body = rawResult.toString().trim();
+
+      // Depending on the platform, WebView may return the JavaScript string
+      // either directly or as a JSON-encoded string.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final decoded = jsonDecode(body);
+          if (decoded is Map) {
+            final response = Map<String, dynamic>.from(decoded);
+            if (_isPaymentResponse(response)) return response;
+            return null;
+          }
+          if (decoded is String) {
+            body = decoded.trim();
+            continue;
+          }
+        } on FormatException {
+          break;
+        }
+      }
+
+      // Android's JSON viewer can add text such as "Pretty-print" before the
+      // actual response, so extract the outer JSON object as a fallback.
+      final start = body.indexOf('{');
+      final end = body.lastIndexOf('}');
+      if (start == -1 || end <= start) return null;
+
+      final decoded = jsonDecode(body.substring(start, end + 1));
+      if (decoded is! Map) return null;
+
+      final response = Map<String, dynamic>.from(decoded);
+      return _isPaymentResponse(response) ? response : null;
+    } catch (_) {
+      // Normal checkout pages are HTML, not JSON payment responses.
+      return null;
+    }
+  }
+
+  bool _isPaymentResponse(Map<String, dynamic> response) {
+    if (!response.containsKey('success')) return false;
+    if (!response.containsKey('payment_status') &&
+        !response.containsKey('is_paid') &&
+        !response.containsKey('order_id')) {
+      return false;
+    }
+
+    final responseOrderId = response['order_id']?.toString();
+    return responseOrderId == null ||
+        responseOrderId.isEmpty ||
+        responseOrderId == widget.orderId;
+  }
+
+  PaymentResult? _resultFromResponse(Map<String, dynamic>? response) {
+    if (response == null) return null;
+
+    final status = response['payment_status']?.toString().toLowerCase();
+    final isPaid = response['is_paid'] == true ||
+        status == 'paid' ||
+        status == 'succeeded' ||
+        status == 'completed';
+
+    if (isPaid) return PaymentResult.success;
+    if (status == 'failed' || status == 'expired') {
+      return PaymentResult.failed;
+    }
+    if (status == 'pending' || status == 'cancelled' || status == 'canceled') {
+      return PaymentResult.cancelled;
+    }
+    if (response['success'] == false) return PaymentResult.failed;
+    return response['success'] == true ? PaymentResult.success : null;
+  }
+
+  void _finishPayment(
+    PaymentResult result, {
+    Map<String, dynamic>? response,
+  }) {
+    if (!mounted || _isHandlingResult) return;
+    _isHandlingResult = true;
+    Navigator.of(context).pop(
+      PaymentWebViewResult(result: result, response: response),
+    );
   }
 
   PaymentResult? _detectPaymentResult(String url) {
@@ -149,14 +263,14 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       if (statusResult['success'] == true &&
           (statusResult['is_paid'] == true ||
               statusResult['payment_status']?.toLowerCase() == 'paid')) {
-        Navigator.of(context).pop(PaymentResult.success);
+        _finishPayment(PaymentResult.success, response: statusResult);
         return;
       }
 
-      Navigator.of(context).pop(PaymentResult.cancelled);
+      _finishPayment(PaymentResult.cancelled, response: statusResult);
     } catch (_) {
       if (mounted) {
-        Navigator.of(context).pop(PaymentResult.cancelled);
+        _finishPayment(PaymentResult.cancelled);
       }
     }
   }
@@ -167,13 +281,16 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       return false;
     }
 
+    if (!mounted) return false;
+
     final shouldLeave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 28),
+            Icon(Icons.warning_amber_rounded,
+                color: AppColors.warning, size: 28),
             SizedBox(width: 12),
             Text('Cancel Payment?'),
           ],
@@ -208,7 +325,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     );
 
     if (shouldLeave == true && mounted) {
-      Navigator.of(context).pop(PaymentResult.cancelled);
+      _finishPayment(PaymentResult.cancelled);
     }
     return false;
   }
@@ -253,7 +370,8 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   child: LinearProgressIndicator(
                     value: _loadingProgress / 100,
                     backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                   ),
                 )
               : null,
@@ -309,7 +427,8 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             ),
             SizedBox(height: 8),
             Text(
-              _errorMessage ?? 'An unexpected error occurred. Please try again.',
+              _errorMessage ??
+                  'An unexpected error occurred. Please try again.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -322,7 +441,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(PaymentResult.failed),
+                  onPressed: () => _finishPayment(PaymentResult.failed),
                   icon: Icon(Icons.arrow_back, size: 18),
                   label: Text('Go Back'),
                   style: OutlinedButton.styleFrom(

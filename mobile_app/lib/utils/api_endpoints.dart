@@ -5,6 +5,11 @@ class ApiEndpoints {
   // Base URL - loaded from .env file via Url class
   static String get baseUrl => Url.getUrl();
 
+  // Public web pages
+  static String get termsAndConditions => '$baseUrl/terms-and-conditions';
+  static String get privacyPolicy => '$baseUrl/privacy-policy';
+  static String get refundPolicy => '$baseUrl/refund-policy';
+
   // Authentication endpoints
   static String get register => '$baseUrl/api/register';
   static String get login => '$baseUrl/api/login';
@@ -22,7 +27,7 @@ class ApiEndpoints {
   static String get getProductDetails => '$baseUrl/api/products/{id}';
   static String get addToCart => '$baseUrl/api/carts/add';
   static String get getCart => '$baseUrl/api/carts/user/{id}';
-  static String get updateCart => '$baseUrl/api/carts/update';
+  static String get updateCart => '$baseUrl/api/carts/{id}';
   static String get deleteCart => '$baseUrl/api/carts/delete/{id}';
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
@@ -39,6 +44,16 @@ class ApiEndpoints {
   static String get updateOrderStatus => '$baseUrl/api/orders/{id}/status';
   static String get cancelOrder => '$baseUrl/api/orders/{id}';
   static String get getOrderHistory => '$baseUrl/api/orders/history';
+  static String get readyForDelivery =>
+      '$baseUrl/api/orders/ready-for-delivery';
+  static String get acceptReadyForDeliveryOrder =>
+      '$baseUrl/api/orders/{orderId}/accept';
+  static String get activeDeliveries => '$baseUrl/api/rider/active-deliveries';
+  static String get riderDeliveries => '$baseUrl/api/rider/deliveries';
+  static String riderDeliveryByOrderId(int orderId) =>
+      '$baseUrl/api/rider/deliveries/$orderId';
+  static String activeDeliveryByOrderId(int orderId) =>
+      '$baseUrl/api/rider/active-deliveries/$orderId';
   static String get getOrdersByRiderId =>
       '$baseUrl/api/orders/rider/{rider_id}';
   static String get calculateOrder => '$baseUrl/api/orders/calculate-fee';
@@ -93,8 +108,7 @@ class ApiEndpoints {
       '$baseUrl/api/messages/unread-count';
   static String get startShopConversation =>
       '$baseUrl/api/shops/{shopId}/messages';
-  static String get getConversation =>
-      '$baseUrl/api/messages/{conversationId}';
+  static String get getConversation => '$baseUrl/api/messages/{conversationId}';
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
   static String get getShopMessageProducts =>
       '$baseUrl/api/shops/{shopId}/messages/products';

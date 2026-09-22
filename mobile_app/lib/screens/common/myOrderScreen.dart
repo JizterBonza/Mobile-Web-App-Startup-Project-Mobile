@@ -9,6 +9,7 @@ import '../../services/payment_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
 import '../../widgets/order/order_helpers.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -48,7 +49,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     },
     {
       'label': 'Preparing',
-      'status': 'processing',
+      'status': 'preparing',
       'icon': 'assets/icons/Preparing.svg',
     },
     {
@@ -134,6 +135,18 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
     final orderStatusProvider =
         Provider.of<OrderStatusProvider>(context, listen: false);
+    String normalizeStatus(String value) =>
+        value.trim().toLowerCase().replaceAll('-', ' ');
+    final normalizedFilterStatus = normalizeStatus(status);
+
+    bool matchesFilter(String value) {
+      final normalizedOrderStatus = normalizeStatus(value);
+      if (normalizedFilterStatus == 'in transit') {
+        return normalizedOrderStatus == 'in transit' ||
+            normalizedOrderStatus == 'ready for delivery';
+      }
+      return normalizedOrderStatus == normalizedFilterStatus;
+    }
 
     return orders.where((order) {
       // Parse order_status as ID (number)
@@ -156,19 +169,19 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
       // Compare with filter status
       if (orderStatusDesc != null) {
-        return orderStatusDesc == status.toLowerCase();
+        return matchesFilter(orderStatusDesc);
       }
 
       // Fallback: if provider lookup fails, try direct comparison
       final orderStatus = orderStatusId?.toString().toLowerCase() ?? '';
-      return orderStatus == status.toLowerCase();
+      return matchesFilter(orderStatus);
     }).toList();
   }
 
   String _formatOrderDate(String dateString) {
     if (dateString.isEmpty) return 'N/A';
     try {
-      final dateTime = DateTime.tryParse(dateString);
+      final dateTime = ManilaTime.tryParseToManila(dateString);
       if (dateTime != null) {
         final months = [
           'January',
@@ -242,7 +255,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       final entry = Map<String, dynamic>.from(raw);
       final shop = entry['shop'] as Map<String, dynamic>?;
       final id = entry['shop_id']?.toString() ?? shop?['id']?.toString();
-      final name = shop?['shop_name']?.toString() ?? entry['shop_name']?.toString();
+      final name =
+          shop?['shop_name']?.toString() ?? entry['shop_name']?.toString();
       if (id != null && name != null && name.trim().isNotEmpty) {
         shopNameById[id] = name.trim();
       }
@@ -467,6 +481,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
+          scrollable: true,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
@@ -737,8 +752,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           children: List.generate(_statusTabs.length, (index) {
             final tab = _statusTabs[index];
             final isSelected = _tabController.index == index;
-            final color =
-                isSelected ? _statusNavActive : _statusNavInactive;
+            final color = isSelected ? _statusNavActive : _statusNavInactive;
             final iconPath = tab['icon'] as String?;
 
             return Expanded(
@@ -772,9 +786,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w500,
                           color: color,
                         ),
                       ),
@@ -834,8 +847,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                         ? Icons.error_outline
                         : Icons.receipt_long_outlined,
                     size: 64,
-                    color:
-                        error != null ? AppColors.error : AppColors.primaryGreen,
+                    color: error != null
+                        ? AppColors.error
+                        : AppColors.primaryGreen,
                   ),
                 ),
                 SizedBox(height: 24),
@@ -1162,9 +1176,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   children: [
                     if (canCancel)
                       TextButton(
-                        onPressed: _isCancelling
-                            ? null
-                            : () => _cancelOrder(orderId),
+                        onPressed:
+                            _isCancelling ? null : () => _cancelOrder(orderId),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.error,
                           padding: const EdgeInsets.symmetric(

@@ -11,7 +11,13 @@ class OrderTimelineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statuses = ['Pending', 'Processing', 'In Transit', 'Delivered'];
+    final statuses = [
+      'Pending',
+      'Preparing',
+      'Ready for Delivery',
+      'In Transit',
+      'Delivered',
+    ];
     final currentIndex = statuses.indexWhere(
       (s) =>
           s.toLowerCase() == currentStatus.toLowerCase() ||

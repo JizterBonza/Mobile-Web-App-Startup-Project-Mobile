@@ -12,6 +12,7 @@ import '../../provider/shops_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/google_auth_service.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/user_profile_avatar.dart';
 import 'loginScreen.dart';
 import '../customer/customerDashboardScreen.dart';
 import '../rider/riderDashboardScreen.dart';
@@ -31,12 +32,18 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const Set<String> _riderRestrictedModules = {
+    'My Orders',
+    'Shipping Address',
+  };
+
   int _selectedIndex = 3; // Profile tab
   String? _userType;
   String? _userName;
   String? _userEmail;
   String? _userPhone;
   String? _userAddress;
+  String? _profileImageUrl;
   AddressModel? _defaultAddress;
   bool _isLoading = true;
 
@@ -53,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userEmail = await ApiService.getUserEmail();
       final userPhone = await ApiService.getUserMobileNumber();
       final userAddress = await ApiService.getUserAddress();
+      final profileImageUrl = await ApiService.getProfileImageUrl();
 
       // Fetch addresses from provider
       if (mounted) {
@@ -67,6 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userName = userName ?? 'User';
           _userEmail = userEmail ?? 'No email';
           _userPhone = userPhone ?? 'No phone number';
+          _profileImageUrl = profileImageUrl;
           // Use default address from provider if available
           if (_defaultAddress != null) {
             _userAddress = _defaultAddress!.fullAddress;
@@ -183,21 +192,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           // Profile avatar
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primaryGreen.withOpacity(0.3),
-                width: 3,
-              ),
-            ),
-            child: Icon(
-              Icons.person,
-              size: 50,
-              color: AppColors.primaryGreen,
+          UserProfileAvatar(
+            size: 100,
+            imageUrl: _profileImageUrl,
+            backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+            iconColor: AppColors.primaryGreen,
+            iconSize: 50,
+            border: Border.all(
+              color: AppColors.primaryGreen.withOpacity(0.3),
+              width: 3,
             ),
           ),
           SizedBox(height: 16),
@@ -413,30 +416,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
+        onTap: () async {
+          final title = item['title'] as String;
+          final userType = _userType ??
+              (await ApiService.getUserType())?.trim().toLowerCase();
+
+          if (!mounted) return;
+
+          if (userType == 'rider' && _riderRestrictedModules.contains(title)) {
+            final messenger = ScaffoldMessenger.of(context);
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'This module is not available for rider accounts.',
+                ),
+                backgroundColor: AppColors.warning,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+
           // Handle menu item tap
-          if (item['title'] == 'My Orders') {
+          if (title == 'My Orders') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => MyOrderScreen(),
               ),
             );
-          } else if (item['title'] == 'Change Password') {
+          } else if (title == 'Change Password') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ChangePasswordScreen(),
               ),
             );
-          } else if (item['title'] == 'Shipping Address') {
+          } else if (title == 'Shipping Address') {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ShippingAddressScreen(),
               ),
             );
-          } else if (item['title'] == 'Notifications') {
+          } else if (title == 'Notifications') {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -446,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${item['title']} functionality coming soon!'),
+                content: Text('$title functionality coming soon!'),
                 backgroundColor: AppColors.primaryGreen,
               ),
             );

@@ -183,7 +183,11 @@ class TermsCheckbox extends StatelessWidget {
   final ValueChanged<bool?> onChanged;
   final String termsText;
   final String linkText;
+  final String privacyPolicyText;
+  final String refundPolicyText;
   final VoidCallback? onTermsPressed;
+  final VoidCallback? onPrivacyPolicyPressed;
+  final VoidCallback? onRefundPolicyPressed;
 
   const TermsCheckbox({
     super.key,
@@ -191,11 +195,22 @@ class TermsCheckbox extends StatelessWidget {
     required this.onChanged,
     this.termsText = 'I agree to the ',
     this.linkText = 'Terms & Conditions',
+    this.privacyPolicyText = 'Privacy Policy',
+    this.refundPolicyText = 'Refund Policy',
     this.onTermsPressed,
+    this.onPrivacyPolicyPressed,
+    this.onRefundPolicyPressed,
   });
 
   @override
   Widget build(BuildContext context) {
+    final linkStyle = TextStyle(
+      fontSize: 13,
+      color: AppColors.primaryGreen,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+    );
+
     return Row(
       children: [
         SizedBox(
@@ -225,14 +240,23 @@ class TermsCheckbox extends StatelessWidget {
                 onTap: onTermsPressed,
                 child: Text(
                   linkText,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primaryGreen,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                  ),
+                  style: linkStyle,
                 ),
               ),
+              if (onPrivacyPolicyPressed != null) ...[
+                const Text(', '),
+                GestureDetector(
+                  onTap: onPrivacyPolicyPressed,
+                  child: Text(privacyPolicyText, style: linkStyle),
+                ),
+              ],
+              if (onRefundPolicyPressed != null) ...[
+                const Text(', and '),
+                GestureDetector(
+                  onTap: onRefundPolicyPressed,
+                  child: Text(refundPolicyText, style: linkStyle),
+                ),
+              ],
             ],
           ),
         ),

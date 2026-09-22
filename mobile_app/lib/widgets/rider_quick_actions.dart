@@ -41,7 +41,8 @@ class RiderQuickActions extends StatelessWidget {
                   onTap: onPickupMap!,
                 ),
               ),
-            SizedBox(width: 10),
+            if (onPickupMap != null && onDeliveryMap != null)
+              SizedBox(width: 10),
             if (onDeliveryMap != null)
               Expanded(
                 child: QuickActionButton(
@@ -53,30 +54,33 @@ class RiderQuickActions extends StatelessWidget {
               ),
           ],
         ),
-        SizedBox(height: 10),
-        Row(
-          children: [
-            if (onAllDeliveries != null)
-              Expanded(
-                child: QuickActionButton(
-                  label: 'All Deliveries',
-                  icon: Icons.list_alt_outlined,
-                  color: AppColors.textSecondary,
-                  onTap: onAllDeliveries!,
+        if (onAllDeliveries != null || onEarnings != null) ...[
+          SizedBox(height: 10),
+          Row(
+            children: [
+              if (onAllDeliveries != null)
+                Expanded(
+                  child: QuickActionButton(
+                    label: 'All Deliveries',
+                    icon: Icons.list_alt_outlined,
+                    color: AppColors.textSecondary,
+                    onTap: onAllDeliveries!,
+                  ),
                 ),
-              ),
-            SizedBox(width: 10),
-            if (onEarnings != null)
-              Expanded(
-                child: QuickActionButton(
-                  label: 'Earnings',
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: AppColors.primaryGreen,
-                  onTap: onEarnings!,
+              if (onAllDeliveries != null && onEarnings != null)
+                SizedBox(width: 10),
+              if (onEarnings != null)
+                Expanded(
+                  child: QuickActionButton(
+                    label: 'Earnings',
+                    icon: Icons.account_balance_wallet_outlined,
+                    color: AppColors.primaryGreen,
+                    onTap: onEarnings!,
+                  ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ],
     );
   }

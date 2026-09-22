@@ -417,8 +417,8 @@ class MessageProvider with ChangeNotifier {
             : (existing?.shopName ?? ''),
         lastMessage: lastMessage,
         lastMessageAt: bumpTimestamp
-            ? DateTime.now()
-            : (existing?.lastMessageAt ?? DateTime.now()),
+            ? DateTime.now().toUtc()
+            : (existing?.lastMessageAt ?? DateTime.now().toUtc()),
         unread: false,
         unreadCount: 0,
         lastMessageSide: lastMessageSide,

@@ -1,3 +1,5 @@
+import '../utils/manila_time.dart';
+
 /// Notification model for API responses
 class NotificationModel {
   final int id;
@@ -47,11 +49,11 @@ class NotificationModel {
       data: json['data'] as Map<String, dynamic>?,
       read: json['read'] == true || json['read'] == 1,
       readAt: json['read_at'] != null
-          ? DateTime.tryParse(json['read_at'].toString())
+          ? ManilaTime.tryParseUtc(json['read_at'])
           : null,
       actionUrl: json['action_url'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: ManilaTime.parseUtc(json['created_at']),
+      updatedAt: ManilaTime.parseUtc(json['updated_at']),
       reference: json['reference'] as Map<String, dynamic>?,
     );
   }
@@ -164,4 +166,3 @@ class NotificationPaginatedResponse {
   bool get hasMorePages => currentPage < lastPage;
   bool get isEmpty => notifications.isEmpty;
 }
-

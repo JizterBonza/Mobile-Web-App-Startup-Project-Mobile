@@ -6,6 +6,21 @@ import '../constants/constants.dart';
 /// shared by customer, rider, and vendor surfaces.
 Color getStatusColor(String status) => OrderStatusColors.getColor(status);
 
+/// Normalizes API status descriptions for reliable comparisons.
+String normalizeOrderStatus(String status) {
+  return status
+      .trim()
+      .toLowerCase()
+      .replaceAll('-', ' ')
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+/// Whether an API status represents the rider's actionable pickup state.
+bool isReadyForDeliveryStatus(String status) {
+  return normalizeOrderStatus(status) == 'ready for delivery';
+}
+
 /// Returns the appropriate icon for a given order status.
 /// Centralized for consistent status icons across all user types.
 IconData getStatusIcon(String status) {

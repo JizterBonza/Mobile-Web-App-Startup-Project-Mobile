@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../constants/constants.dart';
 import '../provider/category_provider.dart';
 import '../screens/customer/productDetailScreen.dart';
+import '../utils/manila_time.dart';
 import '../utils/media_url.dart';
 
 /// Reusable marketplace product card.
@@ -62,12 +63,14 @@ class ProductCard extends StatelessWidget {
   DateTime? _parseDiscountExpiresAt() {
     final raw = product['discount_expires_at'];
     if (raw == null || raw.toString().trim().isEmpty) return null;
-    return DateTime.tryParse(raw.toString());
+    return ManilaTime.tryParseUtc(raw);
   }
 
   bool _hasActiveDiscount(double discountPercent, DateTime? expiresAt) {
     if (discountPercent <= 0) return false;
-    if (expiresAt != null && !expiresAt.isAfter(DateTime.now())) return false;
+    if (expiresAt != null && !expiresAt.isAfter(DateTime.now().toUtc())) {
+      return false;
+    }
     return true;
   }
 
@@ -90,11 +93,10 @@ class ProductCard extends StatelessWidget {
         ? discountRaw.toDouble()
         : double.tryParse(discountRaw?.toString() ?? '0') ?? 0;
     final discountExpiresAt = _parseDiscountExpiresAt();
-    final hasDiscount =
-        _hasActiveDiscount(discountPercent, discountExpiresAt);
+    final hasDiscount = _hasActiveDiscount(discountPercent, discountExpiresAt);
     final showCountdown = hasDiscount &&
         discountExpiresAt != null &&
-        discountExpiresAt.isAfter(DateTime.now());
+        discountExpiresAt.isAfter(DateTime.now().toUtc());
 
     final name = (product['item_name'] ?? product['name'] ?? 'Unknown Product')
         .toString();
@@ -323,11 +325,12 @@ class _DiscountCountdownState extends State<_DiscountCountdown> {
   void initState() {
     super.initState();
     _updateRemaining();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+    _timer =
+        Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
   }
 
   void _updateRemaining() {
-    final remaining = widget.expiresAt.difference(DateTime.now());
+    final remaining = widget.expiresAt.difference(DateTime.now().toUtc());
     if (!mounted) return;
 
     if (remaining <= Duration.zero) {

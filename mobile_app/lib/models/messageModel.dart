@@ -1,4 +1,5 @@
 import '../utils/url.dart';
+import '../utils/manila_time.dart';
 
 String _readString(Map json, List<String> keys, [String fallback = '']) {
   for (final key in keys) {
@@ -12,8 +13,7 @@ String _readString(Map json, List<String> keys, [String fallback = '']) {
 }
 
 DateTime? _parseDate(dynamic value) {
-  if (value == null) return null;
-  return DateTime.tryParse(value.toString());
+  return ManilaTime.tryParseUtc(value);
 }
 
 int? _parseInt(dynamic value) {
@@ -486,7 +486,8 @@ class MessageModel {
       }
     }
 
-    final rawAttachments = json['attachments'] ?? json['files'] ?? json['media'];
+    final rawAttachments =
+        json['attachments'] ?? json['files'] ?? json['media'];
     if (rawAttachments is List) {
       for (final item in rawAttachments) {
         if (item is Map) {
@@ -571,9 +572,8 @@ class ConversationThread {
       shop = MessageShopInfo.fromJson(_asMap(data['shop']));
     }
 
-    final rawMessages = data['messages'] is List
-        ? data['messages'] as List
-        : const <dynamic>[];
+    final rawMessages =
+        data['messages'] is List ? data['messages'] as List : const <dynamic>[];
     final messages = rawMessages
         .whereType<Map>()
         .map((item) => MessageModel.fromJson(Map<String, dynamic>.from(item)))
@@ -620,6 +620,7 @@ List<ConversationModel> parseConversationList(dynamic json) {
 
   return raw
       .whereType<Map>()
-      .map((item) => ConversationModel.fromJson(Map<String, dynamic>.from(item)))
+      .map(
+          (item) => ConversationModel.fromJson(Map<String, dynamic>.from(item)))
       .toList();
 }

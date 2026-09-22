@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/manila_time.dart';
 import '../../utils/status_utils.dart' as status_utils;
 
 /// Helper functions for order-related formatting and styling
@@ -8,7 +9,7 @@ class OrderHelpers {
   static String formatOrderDate(String dateString) {
     if (dateString.isEmpty) return 'N/A';
     try {
-      final dateTime = DateTime.tryParse(dateString);
+      final dateTime = ManilaTime.tryParseToManila(dateString);
       if (dateTime != null) {
         final months = [
           'Jan',
