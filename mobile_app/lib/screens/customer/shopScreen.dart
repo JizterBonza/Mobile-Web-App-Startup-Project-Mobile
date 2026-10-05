@@ -187,7 +187,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   children: [
                     RefreshIndicator(
                       onRefresh: _loadShopData,
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       child: SingleChildScrollView(
                         physics: AlwaysScrollableScrollPhysics(),
                         child: Column(
@@ -346,7 +346,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       icon: const Icon(
                         Icons.refresh,
                         size: 20,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                       ),
                       onPressed: () =>
                           categoryProvider.fetchCategories(useCache: false),
@@ -391,12 +391,12 @@ class _ShopScreenState extends State<ShopScreen> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primaryGreen.withOpacity(0.08)
+                        ? AppColors.brandPrimary.withOpacity(0.08)
                         : Colors.grey[100],
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.primaryGreen.withOpacity(0.4)
+                          ? AppColors.brandPrimary.withOpacity(0.4)
                           : Colors.grey[300]!,
                     ),
                   ),
@@ -407,7 +407,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected
-                          ? AppColors.primaryGreen
+                          ? AppColors.brandPrimary
                           : Colors.grey[700],
                     ),
                   ),
@@ -491,7 +491,7 @@ class _ShopScreenState extends State<ShopScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.brandPrimary,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -561,7 +561,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 SnackBar(
                   content: Text('Share shop'),
                   duration: Duration(seconds: 1),
-                  backgroundColor: AppColors.primaryGreen,
+                  backgroundColor: AppColors.brandPrimary,
                 ),
               );
             },
@@ -597,8 +597,8 @@ class _ShopScreenState extends State<ShopScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.primaryGreen,
-                AppColors.primaryGreen.withOpacity(0.7),
+                AppColors.brandPrimary,
+                AppColors.brandPrimary.withOpacity(0.7),
               ],
             ),
           ),
@@ -689,7 +689,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
                               color: isOpen
-                                  ? AppColors.primaryGreenLight
+                                  ? AppColors.brandPrimaryLight
                                   : AppColors.error,
                             ),
                           ),
@@ -844,10 +844,10 @@ class _ShopScreenState extends State<ShopScreen> {
   }) {
     final textStyle = TextStyle(
       fontSize: 14,
-      color: onTap != null ? AppColors.primaryGreen : Colors.grey[700],
+      color: onTap != null ? AppColors.brandPrimary : Colors.grey[700],
       height: 1.3,
       decoration: onTap != null ? TextDecoration.underline : null,
-      decorationColor: AppColors.primaryGreen,
+      decorationColor: AppColors.brandPrimary,
     );
 
     final content = Column(
@@ -871,7 +871,7 @@ class _ShopScreenState extends State<ShopScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.primaryGreen),
+          Icon(icon, size: 18, color: AppColors.brandPrimary),
           SizedBox(width: 10),
           Expanded(
             child: onTap != null
@@ -894,7 +894,7 @@ class _ShopScreenState extends State<ShopScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: filled ? AppColors.primaryGreen : Colors.grey[100],
+      color: filled ? AppColors.brandPrimary : Colors.grey[100],
       borderRadius: BorderRadius.circular(28),
       child: InkWell(
         borderRadius: BorderRadius.circular(28),
@@ -991,7 +991,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       child: Text(
                         'See All',
                         style: TextStyle(
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1009,7 +1009,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   ),
                   child: Center(
                     child: CircularProgressIndicator(
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       strokeWidth: 2,
                     ),
                   ),
@@ -1094,14 +1094,14 @@ class _ShopScreenState extends State<ShopScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.brandPrimary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),

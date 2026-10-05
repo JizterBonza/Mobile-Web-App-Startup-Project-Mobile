@@ -485,7 +485,7 @@ class _DeliveryList extends StatelessWidget {
     if (error != null) {
       return RefreshIndicator(
         onRefresh: onRefresh,
-        color: AppColors.primaryGreen,
+        color: AppColors.brandPrimary,
         child: ListView(
           key: ValueKey('$_prefix-delivery-screen-error'),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -513,7 +513,7 @@ class _DeliveryList extends StatelessWidget {
     if (orders.isEmpty) {
       return RefreshIndicator(
         onRefresh: onRefresh,
-        color: AppColors.primaryGreen,
+        color: AppColors.brandPrimary,
         child: ListView(
           key: ValueKey('$_prefix-delivery-screen-empty'),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -535,7 +535,7 @@ class _DeliveryList extends StatelessWidget {
     }
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       child: ListView.separated(
         key: ValueKey('$_prefix-delivery-screen-list'),
         physics: const AlwaysScrollableScrollPhysics(),

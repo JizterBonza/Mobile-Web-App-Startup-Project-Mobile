@@ -108,7 +108,7 @@ class _RiderBottomNavigationBar extends StatelessWidget {
         currentIndex: currentIndex,
         onTap: onTap,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGreen,
+        selectedItemColor: AppColors.brandPrimary,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [
@@ -134,7 +134,7 @@ class _RiderBottomNavigationBar extends StatelessWidget {
         width: 20,
         height: 20,
         colorFilter: const ColorFilter.mode(
-          AppColors.primaryGreen,
+          AppColors.brandPrimary,
           BlendMode.srcIn,
         ),
       ),

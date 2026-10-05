@@ -195,11 +195,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           UserProfileAvatar(
             size: 100,
             imageUrl: _profileImageUrl,
-            backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
-            iconColor: AppColors.primaryGreen,
+            backgroundColor: AppColors.brandPrimary.withOpacity(0.1),
+            iconColor: AppColors.brandPrimary,
             iconSize: 50,
             border: Border.all(
-              color: AppColors.primaryGreen.withOpacity(0.3),
+              color: AppColors.brandPrimary.withOpacity(0.3),
               width: 3,
             ),
           ),
@@ -253,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icon(Icons.edit, size: 18),
             label: Text('Edit Profile'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -327,12 +327,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               size: 20,
             ),
           ),
@@ -471,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('$title functionality coming soon!'),
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.brandPrimary,
               ),
             );
           }
@@ -483,12 +483,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.brandPrimary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   item['icon'],
-                  color: AppColors.primaryGreen,
+                  color: AppColors.brandPrimary,
                   size: 20,
                 ),
               ),
@@ -745,7 +745,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGreen,
+        selectedItemColor: AppColors.brandPrimary,
         unselectedItemColor: Colors.grey[600],
         backgroundColor: Colors.white,
         items: [

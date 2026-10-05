@@ -832,7 +832,7 @@ class _SelectedOrderPickupDetailScreenState
                         onPressed: () => Navigator.of(dialogContext).pop(true),
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
-                          backgroundColor: AppColors.primaryGreenLight,
+                          backgroundColor: AppColors.brandPrimaryLight,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -850,9 +850,9 @@ class _SelectedOrderPickupDetailScreenState
                         key: const ValueKey('confirm-pickup-no'),
                         onPressed: () => Navigator.of(dialogContext).pop(false),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primaryGreenLight,
+                          foregroundColor: AppColors.brandPrimaryLight,
                           side: const BorderSide(
-                            color: AppColors.primaryGreenLight,
+                            color: AppColors.brandPrimaryLight,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -1000,7 +1000,7 @@ class _SelectedOrderPickupDetailScreenState
       refreshed
           ? 'Order picked up successfully!'
           : 'Pickup confirmed, but the latest order details could not be loaded.',
-      backgroundColor: refreshed ? AppColors.primaryGreen : AppColors.warning,
+      backgroundColor: refreshed ? AppColors.success : AppColors.warning,
     );
   }
 
@@ -1018,7 +1018,7 @@ class _SelectedOrderPickupDetailScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: AppColors.primaryGreen),
+                  CircularProgressIndicator(color: AppColors.brandPrimary),
                   SizedBox(height: 16),
                   Text('Confirming pickup...'),
                 ],
@@ -1354,7 +1354,7 @@ class _SelectedOrderPickupDetailScreenState
                                 Icon(
                                   Icons.check_circle_outline,
                                   size: 19,
-                                  color: AppColors.primaryGreenLight,
+                                  color: AppColors.success,
                                 ),
                                 SizedBox(width: 7),
                                 Expanded(
@@ -1364,7 +1364,7 @@ class _SelectedOrderPickupDetailScreenState
                                       'selected-delivery-ready-label',
                                     ),
                                     style: TextStyle(
-                                      color: AppColors.primaryGreenLight,
+                                      color: AppColors.success,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1447,7 +1447,7 @@ class _SelectedOrderPickupDetailScreenState
                           },
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
-                            backgroundColor: AppColors.primaryGreenLight,
+                            backgroundColor: AppColors.brandPrimaryLight,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(5),
@@ -1522,7 +1522,7 @@ class _SelectedOrderPickupDetailScreenState
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
-          color: isSelected ? AppColors.primaryGreen : const Color(0xFFE3E3E3),
+          color: isSelected ? AppColors.brandPrimary : const Color(0xFFE3E3E3),
         ),
       ),
       child: Column(
@@ -1625,7 +1625,7 @@ class _SelectedOrderPickupDetailScreenState
                       style: ElevatedButton.styleFrom(
                         elevation: 0,
                         padding: EdgeInsets.zero,
-                        backgroundColor: AppColors.primaryGreenLight,
+                        backgroundColor: AppColors.brandPrimaryLight,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(5),
@@ -1760,7 +1760,7 @@ class _SelectedOrderPickupDetailScreenState
       case 'picked up':
       case 'in transit':
       case 'delivered':
-        return AppColors.primaryGreenLight;
+        return AppColors.success;
       default:
         return const Color(0xFFF0A000);
     }

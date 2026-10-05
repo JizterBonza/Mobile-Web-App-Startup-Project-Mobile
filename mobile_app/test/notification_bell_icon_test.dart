@@ -1,8 +1,11 @@
 import 'package:agriconnect/constants/constants.dart';
+import 'package:agriconnect/provider/badge_provider.dart';
+import 'package:agriconnect/utils/customer_nav.dart';
 import 'package:agriconnect/widgets/notification_bell_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   Future<void> pumpBell(
@@ -60,5 +63,32 @@ void main() {
     expect(text.style?.color, Colors.black);
     expect(text.style?.fontSize, 10);
     expect(text.style?.fontWeight, FontWeight.bold);
+  });
+
+  testWidgets('uses navy for the active customer navigation item',
+      (tester) async {
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => BadgeProvider(),
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              bottomNavigationBar: buildCustomerBottomNavigationBar(
+                context: context,
+                currentIndex: CustomerNavIndex.home,
+                isGuest: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final navigation = tester.widget<BottomNavigationBar>(
+      find.byType(BottomNavigationBar),
+    );
+    expect(navigation.selectedItemColor, AppColors.brandPrimary);
+    expect(navigation.currentIndex, CustomerNavIndex.home);
   });
 }

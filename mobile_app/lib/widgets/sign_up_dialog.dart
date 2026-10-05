@@ -97,7 +97,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide:
-            const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+            const BorderSide(color: AppColors.brandPrimary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -137,7 +137,20 @@ class _SignUpDialogState extends State<SignUpDialog> {
     );
   }
 
+  bool _hasLegalConsent() {
+    if (_agreedToTerms) return true;
+
+    SnackbarHelper.showError(
+      context,
+      'Please agree to the Terms & Conditions, Privacy Policy, '
+      'and Refund Policy',
+    );
+    return false;
+  }
+
   Future<void> _handleGoogleSignUp() async {
+    if (!_hasLegalConsent()) return;
+
     setState(() => _isGoogleSigningIn = true);
 
     try {
@@ -181,18 +194,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
   Future<void> _handleSignUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!_agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please agree to the Terms & Conditions, Privacy Policy, '
-            'and Refund Policy',
-          ),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
+    if (!_hasLegalConsent()) return;
 
     setState(() => _isLoading = true);
 
@@ -284,7 +286,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryGreenDark,
+                        color: AppColors.brandPrimaryDark,
                       ),
                     ),
                   ),
@@ -579,9 +581,9 @@ class _SignUpDialogState extends State<SignUpDialog> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleSignUp,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreenDark,
+                  backgroundColor: AppColors.brandPrimaryDark,
                   disabledBackgroundColor:
-                      AppColors.primaryGreenDark.withOpacity(0.5),
+                      AppColors.brandPrimaryDark.withOpacity(0.5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -621,7 +623,7 @@ class _SignUpDialogState extends State<SignUpDialog> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryGreenDark,
+                        color: AppColors.brandPrimaryDark,
                       ),
                     ),
                   ),

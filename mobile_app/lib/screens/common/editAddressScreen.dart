@@ -52,9 +52,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     {
       'label': 'Home',
       'icon': Icons.home_outlined,
-      'color': AppColors.primaryGreen
+      'color': AppColors.brandPrimary
     },
-    {'label': 'Office', 'icon': Icons.business_outlined, 'color': AppColors.primaryGreenLight},
+    {'label': 'Office', 'icon': Icons.business_outlined, 'color': AppColors.brandPrimaryLight},
     {
       'label': 'Parents House',
       'icon': Icons.family_restroom_outlined,
@@ -353,17 +353,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primaryGreen.withOpacity(0.3),
+                color: AppColors.brandPrimary.withOpacity(0.3),
                 width: 2,
               ),
             ),
             child: Icon(
               _isEditMode ? Icons.edit_location_alt : Icons.add_location_alt,
               size: 40,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
             ),
           ),
           SizedBox(height: 16),
@@ -405,7 +405,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             children: [
               Icon(
                 Icons.label_outline,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -512,7 +512,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             children: [
               Icon(
                 Icons.person_outline,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -569,7 +569,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _hasLocation
-              ? AppColors.primaryGreen.withOpacity(0.5)
+              ? AppColors.brandPrimary.withOpacity(0.5)
               : Colors.grey[300]!,
           width: _hasLocation ? 2 : 1,
         ),
@@ -581,7 +581,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             children: [
               Icon(
                 Icons.map_outlined,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -598,7 +598,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    color: AppColors.brandPrimary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -607,7 +607,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                       Icon(
                         Icons.check_circle,
                         size: 14,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                       ),
                       SizedBox(width: 4),
                       Text(
@@ -615,7 +615,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                         ),
                       ),
                     ],
@@ -655,8 +655,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  AppColors.primaryGreen.withOpacity(0.1),
-                                  AppColors.primaryGreen.withOpacity(0.05),
+                                  AppColors.brandPrimary.withOpacity(0.1),
+                                  AppColors.brandPrimary.withOpacity(0.05),
                                 ],
                               ),
                             ),
@@ -667,7 +667,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                                   Icon(
                                     Icons.location_on,
                                     size: 40,
-                                    color: AppColors.primaryGreen,
+                                    color: AppColors.brandPrimary,
                                   ),
                                   SizedBox(height: 8),
                                   Container(
@@ -719,14 +719,14 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.edit,
-                                      size: 14, color: AppColors.primaryGreen),
+                                      size: 14, color: AppColors.brandPrimary),
                                   SizedBox(width: 4),
                                   Text(
                                     'Change',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.primaryGreen,
+                                      color: AppColors.brandPrimary,
                                     ),
                                   ),
                                 ],
@@ -742,13 +742,13 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                         Container(
                           padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.1),
+                            color: AppColors.brandPrimary.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             Icons.add_location_alt_outlined,
                             size: 32,
-                            color: AppColors.primaryGreen,
+                            color: AppColors.brandPrimary,
                           ),
                         ),
                         SizedBox(height: 12),
@@ -757,7 +757,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primaryGreen,
+                            color: AppColors.brandPrimary,
                           ),
                         ),
                         SizedBox(height: 4),
@@ -779,10 +779,10 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.05),
+                color: AppColors.brandPrimary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.primaryGreen.withOpacity(0.2),
+                  color: AppColors.brandPrimary.withOpacity(0.2),
                 ),
               ),
               child: Row(
@@ -791,7 +791,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                   Icon(
                     Icons.location_on,
                     size: 18,
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -828,7 +828,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             children: [
               Icon(
                 Icons.home_outlined,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -902,13 +902,13 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: _isDefault
-                  ? AppColors.primaryGreen.withOpacity(0.1)
+                  ? AppColors.brandPrimary.withOpacity(0.1)
                   : Colors.grey[100],
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _isDefault ? Icons.star : Icons.star_border,
-              color: _isDefault ? AppColors.primaryGreen : Colors.grey[600],
+              color: _isDefault ? AppColors.brandPrimary : Colors.grey[600],
               size: 24,
             ),
           ),
@@ -943,7 +943,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 _isDefault = value;
               });
             },
-            activeColor: AppColors.primaryGreen,
+            activeColor: AppColors.brandPrimary,
           ),
         ],
       ),

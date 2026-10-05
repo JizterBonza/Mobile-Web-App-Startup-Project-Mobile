@@ -567,7 +567,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
 
         return RefreshIndicator(
           onRefresh: _onRefresh,
-          color: AppColors.primaryGreen,
+          color: AppColors.brandPrimary,
           child: SingleChildScrollView(
             physics: AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -808,7 +808,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(
                       key: ValueKey('delivery-history-loading'),
-                      color: AppColors.primaryGreenLight,
+                      color: AppColors.brandPrimaryLight,
                     ),
                   )
                 : _historyError != null
@@ -820,7 +820,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           key: const ValueKey('delivery-history-retry'),
                           onPressed: _loadDeliveryHistory,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryGreenLight,
+                            backgroundColor: AppColors.brandPrimaryLight,
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('Retry'),
@@ -835,7 +835,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           )
                         : RefreshIndicator(
                             onRefresh: _loadDeliveryHistory,
-                            color: AppColors.primaryGreenLight,
+                            color: AppColors.brandPrimaryLight,
                             child: ListView.separated(
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
@@ -1201,7 +1201,7 @@ class _HistoryFilter extends StatelessWidget {
           height: 31,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? AppColors.primaryGreenLight : Colors.transparent,
+            color: selected ? AppColors.brandPrimaryLight : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border:
                 selected ? null : Border.all(color: const Color(0xFFD8D8D8)),

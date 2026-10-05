@@ -101,7 +101,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
 
                   return RefreshIndicator(
                     onRefresh: _refreshReviews,
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     child: CustomScrollView(
                       physics: AlwaysScrollableScrollPhysics(),
                       slivers: [
@@ -227,7 +227,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.brandPrimary,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -379,7 +379,7 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                             value: percentage,
                             backgroundColor: Colors.grey[200],
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primaryGreen,
+                              AppColors.brandPrimary,
                             ),
                             minHeight: 8,
                           ),
@@ -439,17 +439,17 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 });
               },
               backgroundColor: Colors.white,
-              selectedColor: AppColors.primaryGreen.withOpacity(0.15),
-              checkmarkColor: AppColors.primaryGreen,
+              selectedColor: AppColors.brandPrimary.withOpacity(0.15),
+              checkmarkColor: AppColors.brandPrimary,
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.primaryGreen : Colors.grey[700],
+                color: isSelected ? AppColors.brandPrimary : Colors.grey[700],
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
                 side: BorderSide(
                   color:
-                      isSelected ? AppColors.primaryGreen : Colors.grey[300]!,
+                      isSelected ? AppColors.brandPrimary : Colors.grey[300]!,
                 ),
               ),
             ),
@@ -489,14 +489,14 @@ class _ShopReviewsScreenState extends State<ShopReviewsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.brandPrimary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Center(
                   child: Text(
                     username.isNotEmpty ? username[0].toUpperCase() : 'A',
                     style: TextStyle(
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),

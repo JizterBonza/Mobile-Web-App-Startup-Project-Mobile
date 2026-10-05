@@ -198,7 +198,7 @@ class _MessageProductPickerScreenState
         controller: _searchController,
         onChanged: _onSearchChanged,
         style: const TextStyle(fontSize: 14, color: Colors.black87),
-        cursorColor: AppColors.primaryGreen,
+        cursorColor: AppColors.brandPrimary,
         decoration: InputDecoration(
           hintText: 'Search Product',
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -222,7 +222,7 @@ class _MessageProductPickerScreenState
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: AppColors.primaryGreen),
+            borderSide: const BorderSide(color: AppColors.brandPrimary),
           ),
         ),
       ),
@@ -283,7 +283,7 @@ class _MessageProductPickerScreenState
 
     return RefreshIndicator(
       onRefresh: () => _fetchProducts(search: _searchQuery),
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         itemCount: _products.length,
@@ -321,7 +321,7 @@ class _MessageProductPickerScreenState
                       color: Colors.white,
                       child: const Icon(
                         Icons.shopping_bag_outlined,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                       ),
                     )
                   : Image.network(
@@ -331,7 +331,7 @@ class _MessageProductPickerScreenState
                         color: Colors.white,
                         child: const Icon(
                           Icons.shopping_bag_outlined,
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                         ),
                       ),
                     ),
@@ -389,8 +389,8 @@ class _MessageProductPickerScreenState
                     OutlinedButton(
                       onPressed: busy ? null : () => _sendProduct(product),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primaryGreen,
-                        side: const BorderSide(color: AppColors.primaryGreen),
+                        foregroundColor: AppColors.brandPrimary,
+                        side: const BorderSide(color: AppColors.brandPrimary),
                         minimumSize: const Size(64, 32),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         visualDensity: VisualDensity.compact,

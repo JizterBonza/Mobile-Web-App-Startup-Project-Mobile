@@ -326,7 +326,7 @@ class _RiderDeliveryMapScreenState extends State<RiderDeliveryMapScreen> {
       _removeOrderLocally(order);
       _showMessage(
         'Delivery completed successfully.',
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: AppColors.success,
       );
     }
     await _loadDeliveries(preserveExisting: true);
@@ -705,7 +705,7 @@ class _DeliveryMapLoading extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppColors.primaryGreenLight),
+          CircularProgressIndicator(color: AppColors.brandPrimaryLight),
           SizedBox(height: 14),
           Text('Loading delivery points...'),
         ],
@@ -745,7 +745,7 @@ class _DeliveryMapError extends StatelessWidget {
               key: const ValueKey('delivery-map-retry'),
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreenLight,
+                backgroundColor: AppColors.brandPrimaryLight,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Retry'),

@@ -1139,6 +1139,89 @@ class OrderService extends ApiService {
     };
   }
 
+  /// Check whether every shop can deliver to the supplied coordinates.
+  Future<Map<String, dynamic>> checkZoneCoverage({
+    required double latitude,
+    required double longitude,
+    required List<int> shopIds,
+  }) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Authentication required. Please login.',
+          'all_inside_zone': false,
+        };
+      }
+
+      final uniqueShopIds = shopIds.toSet().toList(growable: false);
+      if (uniqueShopIds.isEmpty) {
+        return {
+          'success': false,
+          'message': 'No valid shops were provided for the coverage check.',
+          'all_inside_zone': false,
+        };
+      }
+
+      final request = _httpClient?.post ?? http.post;
+      final response = await request(
+        Uri.parse(ApiEndpoints.checkZoneCoverage),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+          'shop_ids': uniqueShopIds,
+        }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 10 seconds');
+        },
+      );
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return {
+          'success': false,
+          'message': 'Invalid zone coverage response.',
+          'all_inside_zone': false,
+        };
+      }
+
+      final allInsideZone = decoded['all_inside_zone'];
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          decoded['success'] == true &&
+          allInsideZone is bool) {
+        return {
+          'success': true,
+          'message': decoded['message']?.toString(),
+          'all_inside_zone': allInsideZone,
+          'coordinates': decoded['coordinates'],
+          'shops': decoded['shops'] is List ? decoded['shops'] : const [],
+        };
+      }
+
+      return {
+        'success': false,
+        'message': decoded['message']?.toString() ??
+            'Failed to verify delivery zone coverage.',
+        'all_inside_zone': false,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+        'all_inside_zone': false,
+      };
+    }
+  }
+
   /// Fetch delivery methods
   Future<Map<String, dynamic>> fetchDeliveryMethods() async {
     try {
@@ -1153,7 +1236,8 @@ class OrderService extends ApiService {
 
       final uri = Uri.parse(ApiEndpoints.getDeliveryMethods);
 
-      final response = await http.get(
+      final request = _httpClient?.get ?? http.get;
+      final response = await request(
         uri,
         headers: {
           'Content-Type': 'application/json',

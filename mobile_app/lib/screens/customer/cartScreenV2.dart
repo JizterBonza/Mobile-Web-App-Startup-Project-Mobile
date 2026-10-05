@@ -492,7 +492,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       onRefresh: _loadCartItems,
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       child: ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: _zones.length,
@@ -527,7 +527,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           ElevatedButton(
             onPressed: _loadCartItems,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -555,13 +555,13 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
             ),
           ),
           const SizedBox(height: 24),
@@ -589,7 +589,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -626,7 +626,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -642,7 +642,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 const SizedBox(width: 12),
                 Icon(
                   Icons.location_on,
-                  color: AppColors.primaryGreen,
+                  color: AppColors.brandPrimary,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -674,7 +674,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                   ),
                 ),
               ],
@@ -707,7 +707,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 onPressed:
                     selectedCount > 0 ? () => _handleZoneCheckout(zone) : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreen,
+                  backgroundColor: AppColors.brandPrimary,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey[400],
                   disabledForegroundColor: Colors.white,
@@ -831,7 +831,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
           color: !isValid
               ? AppColors.error.withOpacity(0.4)
               : item.isSelected
-                  ? AppColors.primaryGreen
+                  ? AppColors.brandPrimary
                   : Colors.grey[300]!,
           width: !isValid || item.isSelected ? 2 : 1,
         ),
@@ -862,10 +862,10 @@ class _CartScreenV2State extends State<CartScreenV2> {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.brandPrimary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.primaryGreen.withOpacity(0.2),
+                    color: AppColors.brandPrimary.withOpacity(0.2),
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -875,13 +875,13 @@ class _CartScreenV2State extends State<CartScreenV2> {
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Icon(
                           Icons.shopping_bag,
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                           size: 24,
                         ),
                       )
                     : Icon(
                         Icons.shopping_bag,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                         size: 24,
                       ),
               ),
@@ -973,7 +973,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: item.isSelected
-                          ? AppColors.primaryGreen
+                          ? AppColors.brandPrimary
                           : Colors.grey[700],
                     ),
                   ),
@@ -1028,7 +1028,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                                   zoneId, shopId, item.id, item.quantity + 1),
                           color: item.quantity >= item.stock
                               ? Colors.grey[400]
-                              : AppColors.primaryGreen,
+                              : AppColors.brandPrimary,
                         ),
                       ),
                     ],
@@ -1057,15 +1057,15 @@ class _CartScreenV2State extends State<CartScreenV2> {
           color: !enabled
               ? Colors.grey[200]
               : value
-                  ? AppColors.primaryGreen
+                  ? AppColors.brandPrimary
                   : isIndeterminate
-                      ? AppColors.primaryGreen.withOpacity(0.5)
+                      ? AppColors.brandPrimary.withOpacity(0.5)
                       : Colors.white,
           border: Border.all(
             color: !enabled
                 ? Colors.grey[400]!
                 : value || isIndeterminate
-                    ? AppColors.primaryGreen
+                    ? AppColors.brandPrimary
                     : Colors.grey[400]!,
             width: 2,
           ),

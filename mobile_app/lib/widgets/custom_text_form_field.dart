@@ -40,7 +40,7 @@ class CustomTextFormField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
-        prefixIcon: Icon(prefixIcon, color: AppColors.primaryGreen),
+        prefixIcon: Icon(prefixIcon, color: AppColors.brandPrimary),
         suffixIcon: suffixIcon != null
             ? IconButton(
                 icon: Icon(
@@ -60,7 +60,7 @@ class CustomTextFormField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryGreen, width: 2),
+          borderSide: BorderSide(color: AppColors.brandPrimary, width: 2),
         ),
         filled: true,
         fillColor: AppColors.surfaceMuted,

@@ -38,13 +38,13 @@ class ProductInventoryItem extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+              border: Border.all(color: AppColors.brandPrimary.withOpacity(0.2)),
             ),
             child: Icon(
               Icons.inventory_2_outlined,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               size: 28,
             ),
           ),
@@ -123,7 +123,7 @@ class ProductInventoryItem extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                       ),
                     ),
                   ],

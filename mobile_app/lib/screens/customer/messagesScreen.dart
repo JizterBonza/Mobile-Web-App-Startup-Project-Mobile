@@ -183,7 +183,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
             if (provider.conversations.isEmpty) {
               return RefreshIndicator(
                 onRefresh: _fetchConversations,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
@@ -210,7 +210,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
             return RefreshIndicator(
               onRefresh: _fetchConversations,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               child: ListView.separated(
                 itemCount: conversations.length,
                 separatorBuilder: (_, __) => Divider(
@@ -278,7 +278,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
         style: const TextStyle(fontSize: 14, color: Colors.black87),
-        cursorColor: AppColors.primaryGreen,
+        cursorColor: AppColors.brandPrimary,
         decoration: InputDecoration(
           hintText: 'Search Conversation',
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -302,7 +302,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(color: AppColors.primaryGreen),
+            borderSide: const BorderSide(color: AppColors.brandPrimary),
           ),
         ),
       ),
@@ -370,7 +370,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
-                    color: unread ? AppColors.primaryGreen : Colors.grey[500],
+                    color: unread ? AppColors.brandPrimary : Colors.grey[500],
                   ),
                 ),
                 if (unread && badgeLabel != null) ...[
@@ -397,7 +397,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: AppColors.primaryGreen,
+        color: AppColors.brandPrimary,
         borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,

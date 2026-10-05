@@ -81,7 +81,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text(paymentMessage ?? 'Payment completed successfully!'),
                   ],
                 ),
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.success,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
@@ -226,7 +226,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.primaryGreen,
+            backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -441,10 +441,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
+                        backgroundColor: AppColors.brandPrimary,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            AppColors.primaryGreen.withOpacity(0.6),
+                            AppColors.brandPrimary.withOpacity(0.6),
                         disabledForegroundColor: Colors.white70,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -458,7 +458,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Contact support coming soon!'),
-                            backgroundColor: AppColors.primaryGreen,
+                            backgroundColor: AppColors.brandPrimary,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -467,7 +467,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
+                        backgroundColor: AppColors.brandPrimary,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

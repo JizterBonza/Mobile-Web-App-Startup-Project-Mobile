@@ -96,7 +96,7 @@ class _RiderDeliveryHistoryDetailScreenState
       return const Center(
         child: CircularProgressIndicator(
           key: ValueKey('delivery-history-detail-loading'),
-          color: AppColors.primaryGreenLight,
+          color: AppColors.brandPrimaryLight,
         ),
       );
     }
@@ -139,7 +139,7 @@ class _RiderDeliveryHistoryDetailScreenState
                 key: const ValueKey('delivery-history-detail-retry'),
                 onPressed: _loadDelivery,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreenLight,
+                  backgroundColor: AppColors.brandPrimaryLight,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Retry'),
@@ -159,7 +159,7 @@ class _RiderDeliveryHistoryDetailScreenState
 
     return RefreshIndicator(
       onRefresh: _loadDelivery,
-      color: AppColors.primaryGreenLight,
+      color: AppColors.brandPrimaryLight,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 22),
@@ -453,9 +453,7 @@ class _TimelineRow extends StatelessWidget {
           height: 16,
           margin: const EdgeInsets.only(top: 1),
           decoration: BoxDecoration(
-            color: completed
-                ? AppColors.primaryGreenLight
-                : const Color(0xFFD5D5D5),
+            color: completed ? AppColors.success : const Color(0xFFD5D5D5),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.check, size: 11, color: Colors.white),
@@ -589,7 +587,7 @@ class _ProofImageRow extends StatelessWidget {
                     style: TextStyle(
                       color: imageUrl == null
                           ? const Color(0xFF222222)
-                          : AppColors.primaryGreenLight,
+                          : AppColors.brandPrimaryLight,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       decoration:

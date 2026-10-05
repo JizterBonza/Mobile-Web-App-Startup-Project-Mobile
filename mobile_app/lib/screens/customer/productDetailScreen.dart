@@ -465,7 +465,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryGreen,
+                                  color: AppColors.brandPrimary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -646,7 +646,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             width: selected ? 18 : 7,
             height: 7,
             decoration: BoxDecoration(
-              color: selected ? AppColors.primaryGreen : Colors.grey[300],
+              color: selected ? AppColors.brandPrimary : Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -674,11 +674,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.primaryGreenDark : Colors.white,
+                  color: selected ? AppColors.brandPrimaryDark : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: selected
-                        ? AppColors.primaryGreenDark
+                        ? AppColors.brandPrimaryDark
                         : Colors.grey[300]!,
                   ),
                 ),
@@ -896,12 +896,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         itemBuilder: (context, index) {
           if (!hasImages) {
             return Container(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               child: Center(
                 child: Icon(
                   Icons.image,
                   size: 100,
-                  color: AppColors.primaryGreen.withOpacity(0.5),
+                  color: AppColors.brandPrimary.withOpacity(0.5),
                 ),
               ),
             );
@@ -914,10 +914,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return Container(
-                color: AppColors.primaryGreen.withOpacity(0.08),
+                color: AppColors.brandPrimary.withOpacity(0.08),
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
                             loadingProgress.expectedTotalBytes!
@@ -928,12 +928,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
             errorBuilder: (context, error, stackTrace) {
               return Container(
-                color: AppColors.primaryGreen.withOpacity(0.1),
+                color: AppColors.brandPrimary.withOpacity(0.1),
                 child: Center(
                   child: Icon(
                     Icons.broken_image_outlined,
                     size: 80,
-                    color: AppColors.primaryGreen.withOpacity(0.5),
+                    color: AppColors.brandPrimary.withOpacity(0.5),
                   ),
                 ),
               );
@@ -976,7 +976,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.primaryGreen),
+          Icon(icon, size: 18, color: AppColors.brandPrimary),
           SizedBox(width: 12),
           Text(
             text,
@@ -1048,7 +1048,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Text(
                       _showAllReviews ? 'Show Less' : 'View All',
                       style: TextStyle(
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1245,11 +1245,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.primaryGreen.withOpacity(0.2),
+                backgroundColor: AppColors.brandPrimary.withOpacity(0.2),
                 child: Text(
                   username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1274,7 +1274,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           Icon(
                             Icons.verified,
                             size: 14,
-                            color: AppColors.primaryGreen,
+                            color: AppColors.success,
                           ),
                         ],
                       ],
@@ -1357,7 +1357,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Container(
                       height: 120,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
+                        color: AppColors.brandPrimary.withOpacity(0.1),
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(12),
                         ),
@@ -1365,7 +1365,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       child: Center(
                         child: Icon(
                           Icons.shopping_bag,
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                           size: 40,
                         ),
                       ),
@@ -1391,7 +1391,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreenDark,
+                              color: AppColors.brandPrimaryDark,
                             ),
                           ),
                         ],
@@ -1727,8 +1727,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Expanded(
                   child: Material(
                     color: canAct
-                        ? AppColors.primaryGreen
-                        : AppColors.primaryGreen.withOpacity(0.5),
+                        ? AppColors.brandPrimary
+                        : AppColors.brandPrimary.withOpacity(0.5),
                     child: InkWell(
                       onTap: canAct
                           ? () async {
@@ -1765,8 +1765,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Expanded(
                   child: Material(
                     color: canAct
-                        ? AppColors.primaryGreenDark
-                        : AppColors.primaryGreenDark.withOpacity(0.5),
+                        ? AppColors.brandPrimaryDark
+                        : AppColors.brandPrimaryDark.withOpacity(0.5),
                     child: InkWell(
                       onTap: canAct
                           ? () async {

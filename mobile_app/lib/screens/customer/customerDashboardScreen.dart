@@ -464,7 +464,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
           children: [
             RefreshIndicator(
               onRefresh: _onRefresh,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               child: CustomScrollView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -863,7 +863,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      AppColors.primaryGreen.withOpacity(0.6),
+                      AppColors.brandPrimary.withOpacity(0.6),
                       Colors.transparent,
                     ],
                   ),
@@ -888,7 +888,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
   //       decoration: InputDecoration(
   //         hintText: 'Search for products...',
   //         border: InputBorder.none,
-  //         prefixIcon: Icon(Icons.search, color: AppColors.primaryGreen),
+  //         prefixIcon: Icon(Icons.search, color: AppColors.brandPrimary),
   //         suffixIcon: Icon(Icons.filter_list, color: Colors.grey[600]),
   //       ),
   //     ),
@@ -948,7 +948,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppColors.primaryGreen,
+                              color: AppColors.brandPrimary,
                             ),
                           ),
                         )
@@ -1086,7 +1086,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                           subtitle: Text(
                             _formatPrice(product['item_price']),
                             style: const TextStyle(
-                              color: AppColors.primaryGreenDark,
+                              color: AppColors.brandPrimaryDark,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1126,7 +1126,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
               if (_categoryError != null)
                 IconButton(
                   icon: const Icon(Icons.refresh,
-                      size: 20, color: AppColors.primaryGreen),
+                      size: 20, color: AppColors.brandPrimary),
                   onPressed: _loadCategories,
                   tooltip: 'Retry',
                   padding: EdgeInsets.zero,
@@ -1182,12 +1182,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.primaryGreen.withOpacity(0.12)
+                        ? AppColors.brandPrimary.withOpacity(0.12)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.primaryGreen
+                          ? AppColors.brandPrimary
                           : Colors.grey[200]!,
                     ),
                     boxShadow: [
@@ -1205,7 +1205,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: isSelected
-                            ? AppColors.primaryGreen
+                            ? AppColors.brandPrimary
                             : Colors.grey[700],
                       ),
                     ),
@@ -1229,10 +1229,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
         final displayTitle = (title != null && title.isNotEmpty)
             ? title
             : 'Your First Gamefowl: A Complete Beginner\'s Guide';
-        final displayDescription =
-            (description != null && description.isNotEmpty)
-                ? description
-                : 'Everything you need before raising your first rooster — housing, feeding, and health checks.';
+        final displayDescription = (description != null &&
+                description.isNotEmpty)
+            ? description
+            : 'Everything you need before raising your first rooster — housing, feeding, and health checks.';
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1430,7 +1430,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                 if (itemsProvider.onSaleError != null)
                   IconButton(
                     icon: Icon(Icons.refresh,
-                        size: 20, color: AppColors.primaryGreen),
+                        size: 20, color: AppColors.brandPrimary),
                     onPressed: _loadOnSaleProducts,
                     tooltip: 'Retry',
                   ),
@@ -1489,7 +1489,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
             //   child: Text(
             //     'View All',
             //     style: TextStyle(
-            //       color: AppColors.primaryGreen,
+            //       color: AppColors.brandPrimary,
             //       fontWeight: FontWeight.w600,
             //     ),
             //   ),
@@ -1744,7 +1744,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
             if (_storeError != null)
               IconButton(
                 icon: Icon(Icons.refresh,
-                    size: 20, color: AppColors.primaryGreen),
+                    size: 20, color: AppColors.brandPrimary),
                 onPressed: () => _loadSuggestedStores(useCache: false),
                 tooltip: 'Retry',
               )
@@ -1821,8 +1821,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                     height: 7,
                     decoration: BoxDecoration(
                       color: isActive
-                          ? AppColors.primaryGreen
-                          : AppColors.primaryGreen.withOpacity(0.25),
+                          ? AppColors.brandPrimary
+                          : AppColors.brandPrimary.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );
@@ -1842,10 +1842,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
         return Container(
-          color: AppColors.primaryGreen.withOpacity(0.1),
+          color: AppColors.brandPrimary.withOpacity(0.1),
           child: Icon(
             Icons.store,
-            color: AppColors.primaryGreen,
+            color: AppColors.brandPrimary,
             size: 48,
           ),
         );
@@ -2006,7 +2006,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                   child: Container(
                     padding: EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                       shape: BoxShape.circle,
                     ),
                     child: SvgPicture.asset(
@@ -2058,7 +2058,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
             if (_buyAgainError != null)
               IconButton(
                 icon: Icon(Icons.refresh,
-                    size: 20, color: AppColors.primaryGreen),
+                    size: 20, color: AppColors.brandPrimary),
                 onPressed: _loadBuyAgainProducts,
                 tooltip: 'Retry',
               )
@@ -2073,7 +2073,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen>
                 child: Text(
                   'View All',
                   style: TextStyle(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -2298,7 +2298,7 @@ class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
           right: 0,
           height: headerHeight,
           child: ColoredBox(
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
             child: header,
           ),
         ),
