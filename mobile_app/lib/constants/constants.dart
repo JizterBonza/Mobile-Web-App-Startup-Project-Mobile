@@ -63,39 +63,39 @@ class AppConfig {
 class AppColors {
   AppColors._();
 
-  // Primary green brand palette (from dashboard UI)
-  static const Color primaryGreen      = Color(0xFF0F6B42);
-  static const Color primaryGreenDark  = Color(0xFF064D2B);
-  static const Color primaryGreenLight = Color(0xFF1E9B6A);
+  // Primary navy brand palette
+  static const Color brandPrimary = Color(0xFF1A2A5C);
+  static const Color brandPrimaryDark = Color(0xFF0F1B40);
+  static const Color brandPrimaryLight = Color(0xFF2C3E80);
 
   // Accent yellow (notification badges)
-  static const Color accentAmber      = Color(0xFFFFB800);
-  static const Color accentAmberDark  = Color(0xFFE6A600);
+  static const Color accentAmber = Color(0xFFFFB800);
+  static const Color accentAmberDark = Color(0xFFE6A600);
 
   // Surface / background
-  static const Color surfaceLight     = Color(0xFFF2F2F2);
-  static const Color surfaceMuted     = Color(0xFFFAFAFA);
-  static const Color borderDefault    = Color(0xFFE0E0E0);
+  static const Color surfaceLight = Color(0xFFF2F2F2);
+  static const Color surfaceMuted = Color(0xFFFAFAFA);
+  static const Color borderDefault = Color(0xFFE0E0E0);
 
   // Text
-  static const Color textPrimary      = Color(0xFF1F2937);
-  static const Color textSecondary    = Color(0xFF757575);
-  static const Color textOnPrimary    = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color textOnPrimary = Color(0xFFFFFFFF);
 
   // Semantic feedback
-  static const Color success          = Color(0xFF0F6B42);
-  static const Color warning          = Color(0xFFF57C00);
-  static const Color error            = Color(0xFFD32F2F);
+  static const Color success = Color(0xFF2E7D32);
+  static const Color warning = Color(0xFFF57C00);
+  static const Color error = Color(0xFFD32F2F);
 
   // Order status semantic aliases
-  static const Color statusPending        = warning;
-  static const Color statusProcessing     = primaryGreenLight;
+  static const Color statusPending = warning;
+  static const Color statusProcessing = brandPrimaryLight;
   static const Color statusReadyForDelivery = success;
   static const Color statusReadyForPickup = success;
-  static const Color statusInTransit      = primaryGreenLight;
-  static const Color statusDelivered      = success;
-  static const Color statusCancelled      = error;
-  static const Color statusDefault        = textSecondary;
+  static const Color statusInTransit = brandPrimaryLight;
+  static const Color statusDelivered = success;
+  static const Color statusCancelled = error;
+  static const Color statusDefault = textSecondary;
 }
 
 /// Helper class for consistent order status colors across the app

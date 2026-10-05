@@ -386,7 +386,7 @@ class _RiderPickupMapScreenState extends State<RiderPickupMapScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('All pickup points completed.'),
-        backgroundColor: AppColors.primaryGreenLight,
+        backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -790,7 +790,7 @@ class _PickupMapLoading extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppColors.primaryGreenLight),
+          CircularProgressIndicator(color: AppColors.brandPrimaryLight),
           SizedBox(height: 14),
           Text('Loading pickup points...'),
         ],
@@ -830,7 +830,7 @@ class _PickupMapError extends StatelessWidget {
               key: const ValueKey('pickup-map-retry'),
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreenLight,
+                backgroundColor: AppColors.brandPrimaryLight,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Retry'),

@@ -80,7 +80,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.brandPrimary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -131,7 +131,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryGreenDark,
+                  color: AppColors.brandPrimaryDark,
                 ),
               ),
               style: TextButton.styleFrom(
@@ -210,7 +210,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
                   onChanged: widget.enabled
                       ? (value) => widget.onRememberMeChanged(value ?? false)
                       : null,
-                  activeColor: AppColors.primaryGreenDark,
+                  activeColor: AppColors.brandPrimaryDark,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -242,7 +242,7 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreenDark,
+                    color: AppColors.brandPrimaryDark,
                   ),
                 ),
               ),
@@ -252,9 +252,9 @@ class _PhoneLoginSectionState extends State<PhoneLoginSection> {
           ElevatedButton(
             onPressed: widget.enabled && !widget.isLoading ? _submit : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreenDark,
+              backgroundColor: AppColors.brandPrimaryDark,
               disabledBackgroundColor:
-                  AppColors.primaryGreenDark.withOpacity(0.5),
+                  AppColors.brandPrimaryDark.withOpacity(0.5),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

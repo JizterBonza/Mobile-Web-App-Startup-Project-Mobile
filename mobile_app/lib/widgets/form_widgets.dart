@@ -92,7 +92,7 @@ class FormSectionHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
           textAlign: TextAlign.center,
         ),
@@ -145,7 +145,7 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         labelText: widget.labelText,
         hintText: widget.hintText,
-        prefixIcon: Icon(Icons.lock_outline, color: AppColors.primaryGreen),
+        prefixIcon: Icon(Icons.lock_outline, color: AppColors.brandPrimary),
         suffixIcon: IconButton(
           icon: Icon(
             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
@@ -167,7 +167,7 @@ class _PasswordFieldState extends State<PasswordField> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryGreen, width: 2),
+          borderSide: BorderSide(color: AppColors.brandPrimary, width: 2),
         ),
         filled: true,
         fillColor: AppColors.surfaceMuted,
@@ -206,7 +206,7 @@ class TermsCheckbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final linkStyle = TextStyle(
       fontSize: 13,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       fontWeight: FontWeight.w600,
       decoration: TextDecoration.underline,
     );
@@ -219,7 +219,7 @@ class TermsCheckbox extends StatelessWidget {
           child: Checkbox(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primaryGreen,
+            activeColor: AppColors.brandPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
@@ -283,7 +283,7 @@ class ForgotPasswordLink extends StatelessWidget {
         child: Text(
           'Forgot Password?',
           style: TextStyle(
-            color: AppColors.primaryGreen,
+            color: AppColors.brandPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),

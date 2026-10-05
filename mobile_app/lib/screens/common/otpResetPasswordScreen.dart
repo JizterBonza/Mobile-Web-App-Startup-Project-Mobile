@@ -106,7 +106,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.brandPrimary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -136,8 +136,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
 
     if (digits.length > 1) {
       for (var i = 0; i < _otpLength; i++) {
-        _otpControllers[i].text =
-            i < digits.length ? digits[i] : '';
+        _otpControllers[i].text = i < digits.length ? digits[i] : '';
       }
       final focusIndex =
           digits.length >= _otpLength ? _otpLength - 1 : digits.length;
@@ -274,7 +273,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: AppColors.primaryGreenDark,
+                color: AppColors.brandPrimaryDark,
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -296,7 +295,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     width: 1.5,
                   ),
                 ),
@@ -323,7 +322,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
         title: const Text(
           'Reset Password',
           style: TextStyle(
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -343,7 +342,7 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreenDark,
+                    color: AppColors.brandPrimaryDark,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -377,14 +376,14 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppColors.primaryGreenDark,
+                                    color: AppColors.brandPrimaryDark,
                                   ),
                                 )
                               : const Text(
                                   'Resend OTP',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryGreenDark,
+                                    color: AppColors.brandPrimaryDark,
                                   ),
                                 ),
                         ),
@@ -458,9 +457,9 @@ class _OtpResetPasswordScreenState extends State<OtpResetPasswordScreen> {
                 ElevatedButton(
                   onPressed: _isSubmitting ? null : _handleResetPassword,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreenDark,
+                    backgroundColor: AppColors.brandPrimaryDark,
                     disabledBackgroundColor:
-                        AppColors.primaryGreenDark.withOpacity(0.5),
+                        AppColors.brandPrimaryDark.withOpacity(0.5),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

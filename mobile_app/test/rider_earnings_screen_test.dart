@@ -1,3 +1,4 @@
+import 'package:agriconnect/constants/constants.dart';
 import 'package:agriconnect/provider/orders_provider.dart';
 import 'package:agriconnect/screens/rider/riderEarningsScreen.dart';
 import 'package:flutter/material.dart';
@@ -133,6 +134,17 @@ void main() {
     final navigation = tester.widget<BottomNavigationBar>(
       find.byType(BottomNavigationBar),
     );
+    final earningsTab = tester.widget<Container>(
+      find.byKey(const ValueKey('wallet-earnings-tab')),
+    );
+    final positiveAmount = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('wallet-earning-row-0')),
+            matching: find.byType(Text),
+          ),
+        )
+        .singleWhere((text) => text.style?.color == AppColors.success);
 
     expect(title.style?.fontSize, 24);
     expect(balanceSize.width, 358);
@@ -141,6 +153,12 @@ void main() {
     expect(withdrawButton.onPressed, isNull);
     expect(withdrawalsTab.onPressed, isNull);
     expect(navigation.currentIndex, 3);
+    expect(navigation.selectedItemColor, AppColors.brandPrimary);
+    expect(
+      (earningsTab.decoration as BoxDecoration).color,
+      AppColors.brandPrimaryLight,
+    );
+    expect(positiveAmount.style?.color, AppColors.success);
     expect(tester.takeException(), isNull);
   });
 

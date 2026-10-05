@@ -348,7 +348,7 @@ class _RiderConfirmDeliveryScreenState
                             _orderCode,
                             key: const ValueKey('confirm-delivery-order-code'),
                             style: const TextStyle(
-                              color: AppColors.primaryGreenLight,
+                              color: AppColors.brandPrimaryLight,
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                             ),
@@ -440,7 +440,7 @@ class _RiderConfirmDeliveryScreenState
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: const BorderSide(
-                            color: AppColors.primaryGreenLight,
+                            color: AppColors.brandPrimaryLight,
                           ),
                         ),
                       ),
@@ -454,7 +454,7 @@ class _RiderConfirmDeliveryScreenState
                         onPressed: _isSubmitting ? null : _completeDelivery,
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
-                          backgroundColor: AppColors.primaryGreenLight,
+                          backgroundColor: AppColors.brandPrimaryLight,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(5),
@@ -653,14 +653,14 @@ class _RiderConfirmDeliveryScreenState
                     children: [
                       Icon(
                         Icons.add,
-                        color: AppColors.primaryGreenLight,
+                        color: AppColors.brandPrimaryLight,
                         size: 25,
                       ),
                       SizedBox(height: 2),
                       Text(
                         'Add Photo',
                         style: TextStyle(
-                          color: AppColors.primaryGreenLight,
+                          color: AppColors.brandPrimaryLight,
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
                         ),

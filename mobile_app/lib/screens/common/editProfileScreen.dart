@@ -283,10 +283,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Container(
         padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.primaryGreen.withOpacity(0.05),
+          color: AppColors.brandPrimary.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primaryGreen.withOpacity(0.3),
+            color: AppColors.brandPrimary.withOpacity(0.3),
             width: 1.5,
             style: BorderStyle.solid,
           ),
@@ -297,12 +297,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Container(
               padding: EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
+                color: AppColors.brandPrimary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.add_location_alt_outlined,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 size: 24,
               ),
             ),
@@ -315,7 +315,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                   ),
                 ),
                 SizedBox(height: 2),
@@ -331,7 +331,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Spacer(),
             Icon(
               Icons.arrow_forward_ios,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               size: 16,
             ),
           ],
@@ -345,10 +345,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryGreen.withOpacity(0.05),
+        color: AppColors.brandPrimary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.primaryGreen.withOpacity(0.3),
+          color: AppColors.brandPrimary.withOpacity(0.3),
           width: 1.5,
         ),
       ),
@@ -361,12 +361,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.brandPrimary.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   _getLabelIcon(address.label),
-                  color: AppColors.primaryGreen,
+                  color: AppColors.brandPrimary,
                   size: 20,
                 ),
               ),
@@ -390,7 +390,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           padding:
                               EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryGreen,
+                            color: AppColors.brandPrimary,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -433,7 +433,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Icon(
                     Icons.edit_outlined,
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                     size: 18,
                   ),
                 ),
@@ -587,11 +587,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     imageUrl: _profileImageUrl,
                                     imageBytes: _selectedProfileImageBytes,
                                     backgroundColor:
-                                        AppColors.primaryGreen.withOpacity(0.1),
-                                    iconColor: AppColors.primaryGreen,
+                                        AppColors.brandPrimary.withOpacity(0.1),
+                                    iconColor: AppColors.brandPrimary,
                                     iconSize: 40,
                                     border: Border.all(
-                                      color: AppColors.primaryGreen
+                                      color: AppColors.brandPrimary
                                           .withOpacity(0.3),
                                       width: 2,
                                     ),
@@ -603,7 +603,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       width: 28,
                                       height: 28,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primaryGreen,
+                                        color: AppColors.brandPrimary,
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: Colors.white,

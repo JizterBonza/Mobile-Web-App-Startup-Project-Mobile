@@ -26,7 +26,7 @@ class MyOrderScreen extends StatefulWidget {
 
 class _MyOrderScreenState extends State<MyOrderScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _statusNavActive = Color(0xFF1D7546);
+  static const Color _statusNavActive = AppColors.brandPrimary;
   static const Color _statusNavInactive = Color(0xFF6B7280);
 
   late TabController _tabController;
@@ -417,7 +417,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Text('Order cancelled successfully'),
               ],
             ),
-            backgroundColor: AppColors.primaryGreen,
+            backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -562,7 +562,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide:
-                        BorderSide(color: AppColors.primaryGreen, width: 2),
+                        BorderSide(color: AppColors.brandPrimary, width: 2),
                   ),
                 ),
               ),
@@ -632,7 +632,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                                 Text('Thank you for your rating!'),
                               ],
                             ),
-                            backgroundColor: AppColors.primaryGreen,
+                            backgroundColor: AppColors.success,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
@@ -813,7 +813,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
@@ -827,7 +827,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   Widget _buildEmptyState(String? error) {
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Container(
@@ -839,7 +839,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 Container(
                   padding: EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    color: AppColors.brandPrimary.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -849,7 +849,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     size: 64,
                     color: error != null
                         ? AppColors.error
-                        : AppColors.primaryGreen,
+                        : AppColors.brandPrimary,
                   ),
                 ),
                 SizedBox(height: 24),
@@ -882,7 +882,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     icon: Icon(Icons.refresh, size: 20),
                     label: Text('Retry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
+                      backgroundColor: AppColors.brandPrimary,
                       foregroundColor: Colors.white,
                       padding:
                           EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -1068,7 +1068,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1D7546),
+                                color: AppColors.brandPrimary,
                               ),
                             ),
                           ),
@@ -1231,7 +1231,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                     ElevatedButton(
                       onPressed: () => _openOrderDetails(order),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
+                        backgroundColor: AppColors.brandPrimary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,

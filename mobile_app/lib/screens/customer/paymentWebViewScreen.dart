@@ -305,7 +305,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             child: Text(
               'Stay',
               style: TextStyle(
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -371,7 +371,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                     value: _loadingProgress / 100,
                     backgroundColor: Colors.grey[200],
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                        AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
                   ),
                 )
               : null,
@@ -387,7 +387,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                 color: Colors.black26,
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.brandPrimary,
                   ),
                 ),
               ),
@@ -465,7 +465,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   icon: Icon(Icons.refresh, size: 18),
                   label: Text('Retry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
+                    backgroundColor: AppColors.brandPrimary,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(

@@ -119,7 +119,7 @@ class PaymentSummaryWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryGreenDark,
+                  color: AppColors.brandPrimaryDark,
                 ),
               ),
             ],

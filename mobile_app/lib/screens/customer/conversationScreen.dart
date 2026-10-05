@@ -433,7 +433,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   child: isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: AppColors.primaryGreen,
+                            color: AppColors.brandPrimary,
                           ),
                         )
                       : RefreshIndicator(
@@ -445,7 +445,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                               await _loadThread();
                             }
                           },
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                           child: _buildMessageList(thread),
                         ),
                 ),
@@ -631,7 +631,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           Icons.done_all,
                           size: 14,
                           color: _isReadStatus(message.status)
-                              ? AppColors.primaryGreen
+                              ? AppColors.brandPrimary
                               : Colors.grey[400],
                         ),
                       ],
@@ -719,7 +719,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     color: const Color(0xFFF3F4F6),
                     child: const Icon(
                       Icons.shopping_bag_outlined,
-                      color: AppColors.primaryGreen,
+                      color: AppColors.brandPrimary,
                     ),
                   )
                 : Image.network(
@@ -729,7 +729,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       color: const Color(0xFFF3F4F6),
                       child: const Icon(
                         Icons.shopping_bag_outlined,
-                        color: AppColors.primaryGreen,
+                        color: AppColors.brandPrimary,
                       ),
                     ),
                   ),
@@ -803,8 +803,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             );
                           },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryGreen,
-                      side: const BorderSide(color: AppColors.primaryGreen),
+                      foregroundColor: AppColors.brandPrimary,
+                      side: const BorderSide(color: AppColors.brandPrimary),
                       minimumSize: const Size(56, 32),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       visualDensity: VisualDensity.compact,
@@ -841,7 +841,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
             Icon(
               Icons.insert_drive_file_outlined,
               size: 18,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
             ),
             const SizedBox(width: 8),
             Flexible(
@@ -953,6 +953,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             'assets/icons/Send.svg',
                             width: 20,
                             height: 19,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.brandPrimary,
+                              BlendMode.srcIn,
+                            ),
                           ),
                         ),
                 ),

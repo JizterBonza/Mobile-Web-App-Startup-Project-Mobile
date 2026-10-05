@@ -83,26 +83,26 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primaryGreen,
-            primary: AppColors.primaryGreen,
+            seedColor: AppColors.brandPrimary,
+            primary: AppColors.brandPrimary,
             secondary: AppColors.accentAmber,
             surface: Colors.white,
             error: AppColors.error,
           ),
           scaffoldBackgroundColor: AppColors.surfaceLight,
           appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.primaryGreen,
+            backgroundColor: AppColors.brandPrimary,
             foregroundColor: Colors.white,
             elevation: 0,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               foregroundColor: Colors.white,
             ),
           ),
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-            selectedItemColor: AppColors.primaryGreen,
+            selectedItemColor: AppColors.brandPrimary,
             unselectedItemColor: AppColors.textSecondary,
             backgroundColor: Colors.white,
           ),

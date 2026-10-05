@@ -354,13 +354,13 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_cart_outlined,
               size: 64,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
             ),
           ),
           SizedBox(height: 24),
@@ -393,7 +393,7 @@ class _CartScreenState extends State<CartScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -496,7 +496,7 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -506,7 +506,7 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Icon(
                   Icons.store,
-                  color: AppColors.primaryGreen,
+                  color: AppColors.brandPrimary,
                   size: 20,
                 ),
                 SizedBox(width: 8),
@@ -634,7 +634,7 @@ class _CartScreenState extends State<CartScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreenDark,
+                              color: AppColors.brandPrimaryDark,
                             ),
                           ),
                         ],
@@ -669,7 +669,7 @@ class _CartScreenState extends State<CartScreen> {
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: shopSelectedCount > 0
-                        ? AppColors.primaryGreen
+                        ? AppColors.brandPrimary
                         : Colors.grey[400],
                     padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -737,7 +737,7 @@ class _CartScreenState extends State<CartScreen> {
                       _toggleItemSelection(itemId);
                     }
                   : null,
-              activeColor: AppColors.primaryGreen,
+              activeColor: AppColors.brandPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -750,15 +750,15 @@ class _CartScreenState extends State<CartScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
+              color: AppColors.brandPrimary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.primaryGreen.withOpacity(0.2),
+                color: AppColors.brandPrimary.withOpacity(0.2),
               ),
             ),
             child: Icon(
               Icons.shopping_bag,
-              color: AppColors.primaryGreen,
+              color: AppColors.brandPrimary,
               size: 32,
             ),
           ),
@@ -848,7 +848,7 @@ class _CartScreenState extends State<CartScreen> {
                                   },
                             color: _shouldDisableAdd(item)
                                 ? Colors.grey[400]
-                                : AppColors.primaryGreen,
+                                : AppColors.brandPrimary,
                           ),
                         ],
                       ),
@@ -906,7 +906,7 @@ class _CartScreenState extends State<CartScreen> {
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? AppColors.primaryGreenDark : Colors.grey[900],
+            color: isTotal ? AppColors.brandPrimaryDark : Colors.grey[900],
           ),
         ),
       ],
@@ -919,7 +919,7 @@ class _CartScreenState extends State<CartScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
           ),
           SizedBox(height: 16),
           Text(
@@ -959,7 +959,7 @@ class _CartScreenState extends State<CartScreen> {
               _loadCartItems();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
+              backgroundColor: AppColors.brandPrimary,
               padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

@@ -212,7 +212,7 @@ class _LegalDocumentWebViewScreenState
               alignment: Alignment.topCenter,
               child: LinearProgressIndicator(
                 value: _loadingProgress == 0 ? null : _loadingProgress / 100,
-                color: AppColors.primaryGreen,
+                color: AppColors.brandPrimary,
               ),
             ),
         ],

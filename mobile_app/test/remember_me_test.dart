@@ -1,3 +1,4 @@
+import 'package:agriconnect/constants/constants.dart';
 import 'package:agriconnect/services/api_service.dart';
 import 'package:agriconnect/widgets/login_form_content.dart';
 import 'package:flutter/material.dart';
@@ -168,6 +169,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('USERNAME OR EMAIL'), findsOneWidget);
       expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+    });
+
+    testWidgets('uses the navy brand color for login controls', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await pumpLoginForm(tester);
+
+      final title = tester.widget<Text>(find.text('Welcome Back'));
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      final usernameDecorator =
+          tester.widgetList<InputDecorator>(find.byType(InputDecorator)).first;
+      final loginButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Login'),
+      );
+
+      expect(title.style?.color, AppColors.brandPrimaryDark);
+      expect(checkbox.activeColor, AppColors.brandPrimaryDark);
+      expect(
+        (usernameDecorator.decoration.focusedBorder as OutlineInputBorder)
+            .borderSide
+            .color,
+        AppColors.brandPrimary,
+      );
+      expect(
+        loginButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        AppColors.brandPrimaryDark,
+      );
     });
   });
 }

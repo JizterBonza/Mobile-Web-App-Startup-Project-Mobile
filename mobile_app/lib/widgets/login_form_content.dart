@@ -112,7 +112,7 @@ class LoginFormContentState extends State<LoginFormContent> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+        borderSide: const BorderSide(color: AppColors.brandPrimary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -168,7 +168,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreenDark,
+                    color: AppColors.brandPrimaryDark,
                   ),
                 ),
               ),
@@ -276,14 +276,14 @@ class LoginFormContentState extends State<LoginFormContent> {
                 icon: const Icon(
                   Icons.phone_outlined,
                   size: 18,
-                  color: AppColors.primaryGreenDark,
+                  color: AppColors.brandPrimaryDark,
                 ),
                 label: const Text(
                   'Login with mobile phone',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreenDark,
+                    color: AppColors.brandPrimaryDark,
                   ),
                 ),
               ),
@@ -351,7 +351,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                         : (value) {
                             setState(() => _rememberMe = value ?? false);
                           },
-                    activeColor: AppColors.primaryGreenDark,
+                    activeColor: AppColors.brandPrimaryDark,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -383,7 +383,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryGreenDark,
+                      color: AppColors.brandPrimaryDark,
                     ),
                   ),
                 ),
@@ -393,9 +393,9 @@ class LoginFormContentState extends State<LoginFormContent> {
             ElevatedButton(
               onPressed: widget.isLoading ? null : submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreenDark,
+                backgroundColor: AppColors.brandPrimaryDark,
                 disabledBackgroundColor:
-                    AppColors.primaryGreenDark.withOpacity(0.5),
+                    AppColors.brandPrimaryDark.withOpacity(0.5),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -436,7 +436,7 @@ class LoginFormContentState extends State<LoginFormContent> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreenDark,
+                    color: AppColors.brandPrimaryDark,
                   ),
                 ),
               ),

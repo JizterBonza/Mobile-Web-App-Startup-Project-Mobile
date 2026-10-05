@@ -149,7 +149,7 @@ class ProductCard extends StatelessWidget {
                                     Center(
                                   child: Icon(
                                     Icons.shopping_bag,
-                                    color: AppColors.primaryGreen,
+                                    color: AppColors.brandPrimary,
                                     size: 32,
                                   ),
                                 ),
@@ -157,7 +157,7 @@ class ProductCard extends StatelessWidget {
                             : Center(
                                 child: Icon(
                                   Icons.shopping_bag,
-                                  color: AppColors.primaryGreen,
+                                  color: AppColors.brandPrimary,
                                   size: 32,
                                 ),
                               ),
@@ -202,7 +202,7 @@ class ProductCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -270,7 +270,7 @@ class ProductCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
+                              color: AppColors.brandPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

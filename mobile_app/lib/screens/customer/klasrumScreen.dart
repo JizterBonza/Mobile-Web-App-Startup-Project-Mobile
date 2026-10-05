@@ -255,7 +255,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
         builder: (context, provider, child) {
           return RefreshIndicator(
             onRefresh: _onRefresh,
-            color: AppColors.primaryGreen,
+            color: AppColors.brandPrimary,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -300,7 +300,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
   Widget _buildGreenHeader(double topInset) {
     return Container(
       width: double.infinity,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 16),
       child: Row(
         children: [
@@ -519,7 +519,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            AppColors.primaryGreen.withOpacity(0.55),
+                            AppColors.brandPrimary.withOpacity(0.55),
                             Colors.transparent,
                           ],
                         ),
@@ -558,7 +558,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                               const SizedBox(width: 8),
                               _buildHeroBadge(
                                 label: categoryName.toUpperCase(),
-                                background: AppColors.primaryGreen,
+                                background: AppColors.brandPrimary,
                                 foreground: Colors.white,
                               ),
                             ],
@@ -795,7 +795,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: selected ? AppColors.primaryGreen : Colors.white,
+        color: selected ? AppColors.brandPrimary : Colors.white,
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           onTap: onTap,
@@ -805,7 +805,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: selected ? AppColors.primaryGreen : Colors.grey[300]!,
+                color: selected ? AppColors.brandPrimary : Colors.grey[300]!,
               ),
             ),
             child: Text(
@@ -914,7 +914,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryGreen.withOpacity(0.12),
+                          color: AppColors.brandPrimary.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -923,7 +923,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.4,
-                            color: AppColors.primaryGreen,
+                            color: AppColors.brandPrimary,
                           ),
                         ),
                       ),
@@ -985,10 +985,10 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
       'assets/images/manok.png',
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Container(
-        color: AppColors.primaryGreen.withOpacity(0.12),
+        color: AppColors.brandPrimary.withOpacity(0.12),
         child: const Icon(
           Icons.menu_book_outlined,
-          color: AppColors.primaryGreen,
+          color: AppColors.brandPrimary,
           size: 40,
         ),
       ),
@@ -1084,7 +1084,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: AppColors.brandPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -1137,7 +1137,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.12),
+                            color: AppColors.brandPrimary.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -1146,7 +1146,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.4,
-                              color: AppColors.primaryGreen,
+                              color: AppColors.brandPrimary,
                             ),
                           ),
                         ),
@@ -1226,7 +1226,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
                                 mediaType == 'video'
                                     ? Icons.play_circle_outline
                                     : Icons.attach_file,
-                                color: AppColors.primaryGreen,
+                                color: AppColors.brandPrimary,
                                 size: 28,
                               ),
                               const SizedBox(width: 12),

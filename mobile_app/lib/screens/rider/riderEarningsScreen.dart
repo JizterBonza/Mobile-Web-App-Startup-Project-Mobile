@@ -186,7 +186,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
       return const Center(
         child: CircularProgressIndicator(
           key: ValueKey('wallet-loading'),
-          color: AppColors.primaryGreenLight,
+          color: AppColors.brandPrimaryLight,
         ),
       );
     }
@@ -200,7 +200,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
           key: const ValueKey('wallet-retry'),
           onPressed: () => _loadOrders(useCache: false),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryGreenLight,
+            backgroundColor: AppColors.brandPrimaryLight,
             foregroundColor: Colors.white,
           ),
           child: const Text('Retry'),
@@ -211,7 +211,7 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
     final deliveries = _completedDeliveries;
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      color: AppColors.primaryGreenLight,
+      color: AppColors.brandPrimaryLight,
       child: ListView(
         key: const ValueKey('wallet-scroll-view'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -397,7 +397,7 @@ class _WalletTabs extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primaryGreenLight,
+              color: AppColors.brandPrimaryLight,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
@@ -418,8 +418,8 @@ class _WalletTabs extends StatelessWidget {
               key: const ValueKey('wallet-withdrawals-tab'),
               onPressed: null,
               style: OutlinedButton.styleFrom(
-                disabledForegroundColor: AppColors.primaryGreen,
-                side: const BorderSide(color: AppColors.primaryGreenLight),
+                disabledForegroundColor: AppColors.brandPrimary,
+                side: const BorderSide(color: AppColors.brandPrimaryLight),
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
@@ -466,7 +466,7 @@ class _WalletEarningRow extends StatelessWidget {
             ),
             child: const Icon(
               Icons.south_west,
-              color: AppColors.primaryGreenLight,
+              color: AppColors.success,
               size: 15,
             ),
           ),
@@ -505,7 +505,7 @@ class _WalletEarningRow extends StatelessWidget {
           Text(
             amount,
             style: const TextStyle(
-              color: AppColors.primaryGreenLight,
+              color: AppColors.success,
               fontSize: 14,
               height: 1.1,
               fontWeight: FontWeight.w800,

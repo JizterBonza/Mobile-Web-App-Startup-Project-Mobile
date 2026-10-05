@@ -81,6 +81,8 @@ class ApiEndpoints {
   static String get getShopById => '$baseUrl/api/shops/{id}';
   static String get getShopItems => '$baseUrl/api/shops/{id}/items';
   static String get getShopReviews => '$baseUrl/api/shops/{id}/reviews';
+  static String get checkZoneCoverage =>
+      '$baseUrl/api/shops/check-zone-coverage';
 
   // Review endpoints
   static String get submitReview => '$baseUrl/api/shops/{id}/reviews';

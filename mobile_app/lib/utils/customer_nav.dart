@@ -130,7 +130,7 @@ Widget _buildCustomerBottomNavigationBarContent({
         onLoginSuccess: onLoginSuccess,
       ),
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primaryGreen,
+      selectedItemColor: AppColors.brandPrimary,
       unselectedItemColor: Colors.grey[600],
       backgroundColor: Colors.white,
       selectedFontSize: 11,
@@ -143,7 +143,7 @@ Widget _buildCustomerBottomNavigationBarContent({
           ),
           activeIcon: _customerNavSvgIcon(
             asset: 'assets/icons/home.svg',
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
           label: 'Home',
         ),
@@ -154,7 +154,7 @@ Widget _buildCustomerBottomNavigationBarContent({
           ),
           activeIcon: _customerNavSvgIcon(
             asset: 'assets/icons/favorite.svg',
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
           label: 'Favorite',
         ),
@@ -165,7 +165,7 @@ Widget _buildCustomerBottomNavigationBarContent({
           ),
           activeIcon: _customerNavSvgIcon(
             asset: 'assets/icons/klasrum.svg',
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
           label: 'Klasrum',
         ),
@@ -176,7 +176,7 @@ Widget _buildCustomerBottomNavigationBarContent({
           ),
           activeIcon: _customerNavSvgIcon(
             asset: 'assets/icons/orders.svg',
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
           label: 'Orders',
         ),
@@ -186,7 +186,7 @@ Widget _buildCustomerBottomNavigationBarContent({
             isGuest: isGuest,
           ),
           activeIcon: _customerNotifsNavIcon(
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
             isGuest: isGuest,
           ),
           label: 'Notifs',

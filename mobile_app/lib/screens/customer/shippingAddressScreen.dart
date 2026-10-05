@@ -236,7 +236,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.brandPrimary,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -257,13 +257,13 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
+                color: AppColors.brandPrimary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.location_off_outlined,
                 size: 60,
-                color: AppColors.primaryGreen.withOpacity(0.6),
+                color: AppColors.brandPrimary.withOpacity(0.6),
               ),
             ),
             SizedBox(height: 24),
@@ -291,7 +291,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
               icon: Icon(Icons.add_location_alt_outlined),
               label: Text('Add New Address'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
+                backgroundColor: AppColors.brandPrimary,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -311,7 +311,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadAddresses,
-      color: AppColors.primaryGreen,
+      color: AppColors.brandPrimary,
       child: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: addresses.length,
@@ -348,9 +348,9 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected
-              ? AppColors.primaryGreen
+              ? AppColors.brandPrimary
               : (isDefault
-                  ? AppColors.primaryGreen.withOpacity(0.3)
+                  ? AppColors.brandPrimary.withOpacity(0.3)
                   : Colors.grey[300]!),
           width: isSelected ? 2 : 1,
         ),
@@ -411,7 +411,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                         padding:
                             EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryGreen,
+                          color: AppColors.brandPrimary,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -433,12 +433,12 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.primaryGreen
+                                ? AppColors.brandPrimary
                                 : Colors.grey[400]!,
                             width: 2,
                           ),
                           color: isSelected
-                              ? AppColors.primaryGreen
+                              ? AppColors.brandPrimary
                               : Colors.transparent,
                         ),
                         child: isSelected
@@ -605,9 +605,9 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
   Color _getLabelColor(String? label) {
     switch (label?.toLowerCase()) {
       case 'home':
-        return AppColors.primaryGreen;
+        return AppColors.brandPrimary;
       case 'office':
-        return AppColors.primaryGreenLight;
+        return AppColors.brandPrimaryLight;
       case 'parents house':
         return AppColors.accentAmberDark;
       default:
@@ -645,7 +645,7 @@ class _ShippingAddressScreenState extends State<ShippingAddressScreen> {
         child: ElevatedButton(
           onPressed: _selectedAddressId != null ? _confirmSelection : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryGreen,
+            backgroundColor: AppColors.brandPrimary,
             disabledBackgroundColor: Colors.grey[400],
             padding: EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(

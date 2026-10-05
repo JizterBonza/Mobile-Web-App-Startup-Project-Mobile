@@ -141,7 +141,7 @@ class CartItemPriceDisplay extends StatelessWidget {
         style: TextStyle(
           fontSize: primaryFontSize,
           fontWeight: FontWeight.bold,
-          color: AppColors.primaryGreenDark,
+          color: AppColors.brandPrimaryDark,
         ),
       );
     }
@@ -173,7 +173,7 @@ class CartItemPriceDisplay extends StatelessWidget {
           style: TextStyle(
             fontSize: primaryFontSize,
             fontWeight: FontWeight.bold,
-            color: AppColors.primaryGreenDark,
+            color: AppColors.brandPrimaryDark,
           ),
         ),
         if (pricing.showSnapshotNote) ...[
