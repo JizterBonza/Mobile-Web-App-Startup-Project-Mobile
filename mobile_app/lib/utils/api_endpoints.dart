@@ -141,4 +141,10 @@ class ApiEndpoints {
   static String get paymentCheckoutUrl =>
       '$baseUrl/api/payment/checkout-url/{orderId}';
   static String get paymentStatus => '$baseUrl/api/payment/status/{orderId}';
+
+  // App Release endpoints
+  static String get getLatestAppRelease =>
+      '$baseUrl/api/app-releases/latest';
+  static String get downloadAppRelease =>
+      '$baseUrl/api/app-releases/{release}/download';
 }

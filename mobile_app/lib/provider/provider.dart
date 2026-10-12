@@ -1,4 +1,5 @@
 export 'address_provider.dart';
+export 'app_update_provider.dart';
 export 'badge_provider.dart';
 export 'cart_provider.dart';
 export 'category_provider.dart';

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
+import '../../provider/app_update_provider.dart';
 import '../../provider/category_provider.dart';
 import '../../provider/items_provider.dart';
 import '../../provider/notification_provider.dart';
@@ -167,6 +168,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Menu items
             _buildMenuSection(),
             SizedBox(height: 24),
+
+            // App update
+            if (!context.watch<AppUpdateProvider>().isForced) ...[
+              _buildAppUpdateSection(),
+              SizedBox(height: 24),
+            ],
 
             // Logout button
             _buildLogoutButton(),
@@ -524,6 +531,180 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAppUpdateSection() {
+    final updater = context.watch<AppUpdateProvider>();
+    final release = updater.hasOptionalUpdate ? updater.latest : null;
+    final hasUpdate = release != null;
+    final currentVersion = updater.currentVersionName;
+
+    final String title;
+    final String subtitle;
+    if (release != null) {
+      title = 'Update available - v${release.versionName}';
+      subtitle = [
+        if (currentVersion != null) 'Current version v$currentVersion',
+        if (release.formattedFileSize.isNotEmpty) release.formattedFileSize,
+      ].join(' • ');
+    } else {
+      title = 'App Version';
+      subtitle = currentVersion != null
+          ? "v$currentVersion • You're on the latest version"
+          : "You're on the latest version";
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'App Update',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[900],
+          ),
+        ),
+        SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: hasUpdate
+                  ? AppColors.brandPrimary.withOpacity(0.4)
+                  : Colors.grey[300]!,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandPrimary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      hasUpdate ? Icons.system_update : Icons.verified_outlined,
+                      color: AppColors.brandPrimary,
+                      size: 20,
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[900],
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (release?.releaseNotes?.isNotEmpty == true) ...[
+                SizedBox(height: 12),
+                Text(
+                  release!.releaseNotes!,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ],
+              if (updater.isDownloading) ...[
+                SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: updater.progress > 0 ? updater.progress : null,
+                  color: AppColors.brandPrimary,
+                  backgroundColor: AppColors.brandPrimary.withOpacity(0.1),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Downloading... ${(updater.progress * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+              if (updater.error != null && !updater.isDownloading) ...[
+                SizedBox(height: 12),
+                Text(
+                  updater.error!,
+                  style: TextStyle(fontSize: 12, color: AppColors.error),
+                ),
+              ],
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: hasUpdate
+                    ? ElevatedButton.icon(
+                        onPressed:
+                            updater.isDownloading ? null : updater.startUpdate,
+                        icon: Icon(Icons.download, size: 18),
+                        label: Text(
+                          updater.isDownloading
+                              ? 'Downloading...'
+                              : updater.error != null
+                                  ? 'Retry'
+                                  : 'Update Now',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.brandPrimary,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: updater.isChecking
+                            ? null
+                            : () => updater.checkForUpdate(force: true),
+                        icon: updater.isChecking
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Icon(Icons.refresh, size: 18),
+                        label: Text(updater.isChecking
+                            ? 'Checking...'
+                            : 'Check for updates'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.brandPrimary,
+                          side: BorderSide(
+                            color: AppColors.brandPrimary.withOpacity(0.4),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
