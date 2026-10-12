@@ -12,6 +12,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'provider/provider.dart';
 import 'models/order_status.dart';
+import 'widgets/app_update_gate.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +69,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AddressProvider()),
+        ChangeNotifierProvider(create: (_) => AppUpdateProvider()),
         ChangeNotifierProvider(create: (_) => BadgeProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => ItemsProvider()),
@@ -78,6 +82,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ShopsProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
+        builder: (context, child) => AppUpdateGate(
+          navigatorKey: navigatorKey,
+          child: child ?? const SizedBox.shrink(),
+        ),
         debugShowCheckedModeBanner: false,
         title: 'AgrifyConnect App',
         theme: ThemeData(
