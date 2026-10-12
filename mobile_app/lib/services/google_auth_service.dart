@@ -11,17 +11,20 @@ class GoogleAuthService {
 
   static GoogleSignIn get instance {
     _googleSignIn ??= GoogleSignIn(
-      scopes: const ['email', 'profile'],
+      scopes: const [
+        'email',
+        'profile',
+      ],
       serverClientId: AppConfig.googleWebClientId,
-      clientId: AppConfig.googleIosClientId,
     );
+
     return _googleSignIn!;
   }
 
-  /// Returns ApiService-shaped result: success, message, data, optional cancelled.
   static Future<Map<String, dynamic>> signInWithGoogle() async {
     try {
       final account = await instance.signIn();
+
       if (account == null) {
         return {
           'success': false,
@@ -33,6 +36,7 @@ class GoogleAuthService {
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
+
       if (idToken == null || idToken.isEmpty) {
         return {
           'success': false,
@@ -42,7 +46,7 @@ class GoogleAuthService {
         };
       }
 
-      return ApiService.signInWithGoogleIdToken(idToken);
+      return await ApiService.signInWithGoogleIdToken(idToken);
     } catch (e) {
       return {
         'success': false,
