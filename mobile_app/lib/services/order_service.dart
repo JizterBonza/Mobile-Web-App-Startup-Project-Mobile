@@ -458,6 +458,8 @@ class OrderService extends ApiService {
           'user_id': order['user_id'],
           'order_detail_id': order['order_detail_id'],
           'order_status': order['order_status']?.toString() ?? 'Pending',
+          'delivery_method_id':
+              order['delivery_method_id'] ?? orderDetail?['delivery_method_id'],
           'ordered_at': order['ordered_at']?.toString() ?? '',
           'updated_at': order['updated_at']?.toString(),
           'order_code': orderDetail?['order_code']?.toString() ?? '',

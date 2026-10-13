@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/orders_provider.dart';
@@ -12,6 +11,7 @@ import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
 import '../../widgets/order/order_helpers.dart';
+import '../../widgets/order/order_status_navigation.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'orderDetailScreen.dart';
 
@@ -26,9 +26,6 @@ class MyOrderScreen extends StatefulWidget {
 
 class _MyOrderScreenState extends State<MyOrderScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _statusNavActive = AppColors.brandPrimary;
-  static const Color _statusNavInactive = Color(0xFF6B7280);
-
   late TabController _tabController;
   final OrderService _orderService = OrderService();
   final ShopsService _shopsService = ShopsService();
@@ -51,6 +48,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       'label': 'Preparing',
       'status': 'preparing',
       'icon': 'assets/icons/Preparing.svg',
+    },
+    {
+      'label': 'To Pickup',
+      'status': 'to-pickup',
+      'icon': 'assets/icons/box.svg',
     },
     {
       'label': 'To Deliver',
@@ -129,9 +131,21 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     await _loadOrders(useCache: false);
   }
 
+  bool _isReadyForPickup(Map<String, dynamic> order) {
+    bool isPickupId(dynamic value) => value is num
+        ? value == 3
+        : int.tryParse(value?.toString().trim() ?? '') == 3;
+
+    return isPickupId(order['order_status']) &&
+        isPickupId(order['delivery_method_id']);
+  }
+
   List<Map<String, dynamic>> _filterOrdersByStatus(
       List<Map<String, dynamic>> orders, String? status) {
     if (status == null) return orders;
+    if (status == 'to-pickup') {
+      return orders.where(_isReadyForPickup).toList();
+    }
 
     final orderStatusProvider =
         Provider.of<OrderStatusProvider>(context, listen: false);
@@ -149,6 +163,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     }
 
     return orders.where((order) {
+      if (normalizedFilterStatus == 'in transit' && _isReadyForPickup(order)) {
+        return false;
+      }
       // Parse order_status as ID (number)
       final orderStatusId = order['order_status'];
       int? statusId;
@@ -687,6 +704,12 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
   @override
   Widget build(BuildContext context) {
+    final navigationItems = _statusTabs
+        .map((tab) => OrderStatusNavigationItem(
+              label: tab['label'] as String,
+              iconPath: tab['icon'] as String,
+            ))
+        .toList();
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       appBar: AppBar(
@@ -702,24 +725,33 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.grey[700]),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(88),
-          child: _buildStatusNav(),
+          preferredSize: Size.fromHeight(
+            OrderStatusNavigation.heightFor(context, navigationItems),
+          ),
+          child: OrderStatusNavigation(
+            items: navigationItems,
+            selectedIndex: _tabController.index,
+            onSelected: (index) => _tabController.animateTo(index),
+          ),
         ),
       ),
       body: Consumer<OrdersProvider>(
         builder: (context, ordersProvider, child) {
-          if (ordersProvider.isLoading && ordersProvider.orders.isEmpty) {
-            return _buildLoadingState();
-          }
-
           return TabBarView(
             controller: _tabController,
             children: _statusTabs.map((tab) {
+              if (ordersProvider.isLoading && ordersProvider.orders.isEmpty) {
+                return _buildLoadingState();
+              }
               final filteredOrders = _filterOrdersByStatus(
                 ordersProvider.orders,
                 tab['status'] as String?,
               );
-              return _buildOrdersList(filteredOrders, ordersProvider.error);
+              return _buildOrdersList(
+                filteredOrders,
+                ordersProvider.error,
+                isPickup: tab['status'] == 'to-pickup',
+              );
             }).toList(),
           );
         },
@@ -738,77 +770,14 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
   }
 
-  Widget _buildStatusNav() {
-    return Container(
-      color: AppColors.surfaceLight,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: List.generate(_statusTabs.length, (index) {
-            final tab = _statusTabs[index];
-            final isSelected = _tabController.index == index;
-            final color = isSelected ? _statusNavActive : _statusNavInactive;
-            final iconPath = tab['icon'] as String?;
-
-            return Expanded(
-              child: InkWell(
-                onTap: () => _tabController.animateTo(index),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 24,
-                        child: iconPath == null
-                            ? const SizedBox.shrink()
-                            : SvgPicture.asset(
-                                iconPath,
-                                height: 22,
-                                fit: BoxFit.contain,
-                                colorFilter: ColorFilter.mode(
-                                  color,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tab['label'] as String,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w500,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
   Widget _buildLoadingState() {
     return const OrderListSkeleton();
   }
 
-  Widget _buildOrdersList(List<Map<String, dynamic>> orders, String? error) {
+  Widget _buildOrdersList(List<Map<String, dynamic>> orders, String? error,
+      {bool isPickup = false}) {
     if (orders.isEmpty) {
-      return _buildEmptyState(error);
+      return _buildEmptyState(error, isPickup: isPickup);
     }
 
     return RefreshIndicator(
@@ -824,7 +793,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
   }
 
-  Widget _buildEmptyState(String? error) {
+  Widget _buildEmptyState(String? error, {bool isPickup = false}) {
     return RefreshIndicator(
       onRefresh: _onRefresh,
       color: AppColors.brandPrimary,
@@ -854,7 +823,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 ),
                 SizedBox(height: 24),
                 Text(
-                  error != null ? 'Failed to load orders' : 'No orders found',
+                  error != null
+                      ? 'Failed to load orders'
+                      : isPickup
+                          ? 'No pickup orders'
+                          : 'No orders found',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -867,7 +840,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   child: Text(
                     error != null
                         ? 'Please check your connection and try again'
-                        : 'Your orders will appear here once you make a purchase',
+                        : isPickup
+                            ? 'Your orders will appear here when ready for pickup'
+                            : 'Your orders will appear here once you make a purchase',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],

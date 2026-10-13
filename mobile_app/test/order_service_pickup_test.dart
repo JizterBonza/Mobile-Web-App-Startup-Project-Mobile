@@ -9,7 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUp(() {
-    dotenv.testLoad(fileInput: 'TEST_URL=https://example.test');
+    dotenv.testLoad(
+        fileInput:
+            'TEST_URL=https://example.test\nSTAGING_URL=https://example.test');
     SharedPreferences.setMockInitialValues({'auth_token': 'test-token'});
   });
 
