@@ -38,6 +38,9 @@ migrate_working_dir/
 !/test/order_status_navigation_test.dart
 !/test/my_order_navigation_test.dart
 !/test/order_service_customer_orders_test.dart
+!/test/klasrum_content_test.dart
+!/test/klasrum_media_carousel_test.dart
+!/test/klasrum_rich_body_test.dart
 
 # Symbolication related
 app.*.symbols

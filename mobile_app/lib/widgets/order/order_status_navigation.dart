@@ -66,11 +66,11 @@ class OrderStatusNavigation extends StatefulWidget {
     List<OrderStatusNavigationItem> items,
   ) {
     return 8 +
-        20 +
-        math.max(48, 28 + 8 + _labelSize(context, items).height) +
-        16 +
-        6 +
-        12 +
+        28 +
+        math.max(48, 24 + 8 + _labelSize(context, items).height) +
+        10 +
+        4 +
+        11 +
         12;
   }
 
@@ -144,102 +144,106 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
   @override
   Widget build(BuildContext context) {
     final labelSize = OrderStatusNavigation._labelSize(context, widget.items);
-    final itemHeight = math.max(48.0, 28 + 8 + labelSize.height);
+    final itemHeight = math.max(48.0, 24 + 8 + labelSize.height);
     return Container(
       color: AppColors.surfaceLight,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 20, 8, 12),
+          padding: const EdgeInsets.fromLTRB(0, 28, 0, 11),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final itemWidth = math.max(
-                    constraints.maxWidth / 5,
-                    math.max(64.0, labelSize.width + 8),
-                  );
-                  if (_viewportWidth != constraints.maxWidth ||
-                      _itemWidth != itemWidth) {
-                    _viewportWidth = constraints.maxWidth;
-                    _itemWidth = itemWidth;
-                    _scheduleLayoutUpdate(revealSelected: true);
-                  }
-                  return NotificationListener<ScrollMetricsNotification>(
-                    onNotification: (_) {
-                      _scheduleLayoutUpdate();
-                      return false;
-                    },
-                    child: SingleChildScrollView(
-                      key: const ValueKey('order-status-scroll'),
-                      controller: _scrollController,
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: List.generate(widget.items.length, (index) {
-                          final item = widget.items[index];
-                          final selected = index == widget.selectedIndex;
-                          final color =
-                              selected ? AppColors.brandPrimary : _inactive;
-                          return Semantics(
-                            key: ValueKey('order-status-item-$index'),
-                            label: item.label,
-                            button: true,
-                            selected: selected,
-                            onTap: () => widget.onSelected(index),
-                            child: SizedBox(
-                              width: itemWidth,
-                              height: itemHeight,
-                              child: InkWell(
-                                onTap: () => widget.onSelected(index),
-                                borderRadius: BorderRadius.circular(12),
-                                excludeFromSemantics: true,
-                                child: ExcludeSemantics(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      SvgPicture.asset(
-                                        item.iconPath,
-                                        width: 28,
-                                        height: 28,
-                                        fit: BoxFit.contain,
-                                        colorFilter: ColorFilter.mode(
-                                          color,
-                                          BlendMode.srcIn,
+              Padding(
+                padding: const EdgeInsets.only(left: 20, right: 8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = math.max(
+                      constraints.maxWidth / 5,
+                      math.max(64.0, labelSize.width + 8),
+                    );
+                    if (_viewportWidth != constraints.maxWidth ||
+                        _itemWidth != itemWidth) {
+                      _viewportWidth = constraints.maxWidth;
+                      _itemWidth = itemWidth;
+                      _scheduleLayoutUpdate(revealSelected: true);
+                    }
+                    return NotificationListener<ScrollMetricsNotification>(
+                      onNotification: (_) {
+                        _scheduleLayoutUpdate();
+                        return false;
+                      },
+                      child: SingleChildScrollView(
+                        key: const ValueKey('order-status-scroll'),
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: List.generate(widget.items.length, (index) {
+                            final item = widget.items[index];
+                            final selected = index == widget.selectedIndex;
+                            final color =
+                                selected ? AppColors.brandPrimary : _inactive;
+                            return Semantics(
+                              key: ValueKey('order-status-item-$index'),
+                              label: item.label,
+                              button: true,
+                              selected: selected,
+                              onTap: () => widget.onSelected(index),
+                              child: SizedBox(
+                                width: itemWidth,
+                                height: itemHeight,
+                                child: InkWell(
+                                  onTap: () => widget.onSelected(index),
+                                  borderRadius: BorderRadius.circular(12),
+                                  excludeFromSemantics: true,
+                                  child: ExcludeSemantics(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        SvgPicture.asset(
+                                          item.iconPath,
+                                          width: 24,
+                                          height: 24,
+                                          fit: BoxFit.contain,
+                                          colorFilter: ColorFilter.mode(
+                                            color,
+                                            BlendMode.srcIn,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        item.label,
-                                        maxLines: 1,
-                                        textAlign: TextAlign.center,
-                                        style: OrderStatusNavigation
-                                                ._labelStyleFor(context)
-                                            .copyWith(
-                                          color: color,
-                                          fontWeight: selected
-                                              ? FontWeight.w600
-                                              : FontWeight.w500,
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          item.label,
+                                          maxLines: 1,
+                                          textAlign: TextAlign.center,
+                                          style: OrderStatusNavigation
+                                                  ._labelStyleFor(context)
+                                              .copyWith(
+                                            color: color,
+                                            fontWeight: selected
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        }),
+                            );
+                          }),
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               SizedBox(
-                height: 6,
+                height: 4,
                 child: _hasOverflow
                     ? AnimatedBuilder(
                         animation: _scrollController,
@@ -251,8 +255,8 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
                               : 0.0;
                           return Container(
                             key: const ValueKey('order-status-indicator'),
-                            width: 64,
-                            height: 6,
+                            width: 44,
+                            height: 4,
                             decoration: BoxDecoration(
                               color: const Color(0xFFD9D9D9),
                               borderRadius: BorderRadius.circular(3),
@@ -264,8 +268,8 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
                               ),
                               child: Container(
                                 key: const ValueKey('order-status-thumb'),
-                                width: 20,
-                                height: 3,
+                                width: 14,
+                                height: 2,
                                 decoration: BoxDecoration(
                                   color: _inactive,
                                   borderRadius: BorderRadius.circular(1.5),

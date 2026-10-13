@@ -145,8 +145,8 @@ void main() {
     final thumb = find.byKey(const ValueKey('order-status-thumb'));
     final trackRect = tester.getRect(track);
     expect(tester.getRect(thumb).left, closeTo(trackRect.left, 0.01));
-    expect(tester.getSize(track), const Size(64, 6));
-    expect(tester.getSize(thumb), const Size(20, 3));
+    expect(tester.getSize(track), const Size(44, 4));
+    expect(tester.getSize(thumb), const Size(14, 2));
 
     await tester.drag(
       find.byKey(const ValueKey('order-status-scroll')),
