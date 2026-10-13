@@ -32,6 +32,13 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Include these regression tests despite the repository-level test exclusion.
+!/test/
+/test/*
+!/test/order_status_navigation_test.dart
+!/test/my_order_navigation_test.dart
+!/test/order_service_customer_orders_test.dart
+
 # Symbolication related
 app.*.symbols
 
