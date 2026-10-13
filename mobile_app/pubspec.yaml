@@ -46,13 +46,17 @@ dependencies:
   rxdart: ^0.28.0
   dio: ^5.9.0
   image_picker: ^1.0.7
-  file_picker: ^10.3.3
+  file_picker: 8.3.7
   path_provider: ^2.1.1
   url_launcher: ^6.2.5
   webview_flutter: ^4.10.0
+  html: 0.15.6
+  video_player: 2.9.5
+  # Keep the iOS implementation compatible with the app's iOS 12 target.
+  video_player_avfoundation: 2.6.6
   google_sign_in: ^6.2.2
   flutter_svg: ^2.0.17
-  skeletonizer: ^2.1.3
+  skeletonizer: 1.4.3
   dart_pusher_channels: ^1.2.3
   package_info_plus: ^8.1.0
   crypto: ^3.0.3
@@ -61,6 +65,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  video_player_platform_interface: 6.3.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

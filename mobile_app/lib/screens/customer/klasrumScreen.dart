@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
+import '../../models/klasrum_content.dart';
 import '../../provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/klasrum_service.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/customer_nav.dart';
 import '../../widgets/empty_state_widget.dart';
+import '../../widgets/klasrum_media_carousel.dart';
+import '../../widgets/klasrum_rich_body.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import '../../widgets/user_profile_avatar.dart';
@@ -221,11 +224,8 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
       article['description']?.toString() ?? '',
       article['title']?.toString() ?? '',
     ].join(' ');
-    final words = text
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .length;
+    final words =
+        text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
     final minutes = words < 1 ? 1 : (words / 200).ceil().clamp(1, 60);
     return '$minutes min read';
   }
@@ -775,8 +775,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                   final id = category['id'];
                   return _buildCategoryChip(
                     label: category['name']?.toString() ?? '',
-                    selected:
-                        _selectedCategoryId?.toString() == id?.toString(),
+                    selected: _selectedCategoryId?.toString() == id?.toString(),
                     onTap: () {
                       setState(() => _selectedCategoryId = id);
                     },
@@ -1008,7 +1007,7 @@ class KlasrumArticleScreen extends StatefulWidget {
 class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
   bool _isGuest = true;
   late Map<String, dynamic> _article;
-  bool _isLoadingBody = false;
+  bool _isLoadingDetail = false;
 
   @override
   void initState() {
@@ -1016,7 +1015,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
     _article = Map<String, dynamic>.from(widget.article);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadGuestState();
-      _ensureFullArticle();
+      _fetchArticleDetail();
     });
   }
 
@@ -1032,34 +1031,22 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
     }
   }
 
-  /// If opened from featured list without body, try to hydrate from contents API.
-  Future<void> _ensureFullArticle() async {
-    final body = _article['body']?.toString();
-    if (body != null && body.isNotEmpty && body != 'null') return;
-
+  Future<void> _fetchArticleDetail() async {
     final id = _article['id'];
     if (id == null) return;
 
-    setState(() => _isLoadingBody = true);
+    setState(() => _isLoadingDetail = true);
     try {
-      final service = KlasrumService();
-      final items = await service.fetchContents();
-      Map<String, dynamic>? match;
-      for (final item in items) {
-        if (item['id']?.toString() == id.toString()) {
-          match = item;
-          break;
-        }
-      }
-      if (match != null && mounted) {
+      final detail = await KlasrumService().fetchArticle(id);
+      if (mounted) {
         setState(() {
-          _article = {..._article, ...match!};
+          _article = {..._article, ...detail};
         });
       }
     } catch (_) {
-      // Keep summary fields if detail hydrate fails.
+      // Keep the tapped article visible if its detail request fails.
     } finally {
-      if (mounted) setState(() => _isLoadingBody = false);
+      if (mounted) setState(() => _isLoadingDetail = false);
     }
   }
 
@@ -1070,16 +1057,9 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
     final title = _article['title']?.toString() ?? 'Article';
     final description = _article['description']?.toString() ?? '';
     final caption = _article['caption']?.toString() ?? '';
-    final bodyPlain =
-        _KlasrumScreenState.stripHtml(_article['body']?.toString() ?? '');
-    final mediaUrl = _article['media_url']?.toString();
-    final mediaType = _article['media_type']?.toString().toLowerCase() ?? '';
+    final bodyHtml = _article['body']?.toString() ?? '';
+    final mediaItems = klasrumMediaItems(_article);
     final readTime = _KlasrumScreenState.estimateReadTime(_article);
-    final bodyParagraphs = bodyPlain
-        .split(RegExp(r'\n\s*\n'))
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1189,7 +1169,7 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
                   ],
                   const SizedBox(height: 18),
                   Divider(height: 1, thickness: 1, color: Colors.grey[200]),
-                  if (_isLoadingBody) ...[
+                  if (_isLoadingDetail) ...[
                     const SizedBox(height: 24),
                     const Center(
                       child: SizedBox(
@@ -1198,90 +1178,39 @@ class _KlasrumArticleScreenState extends State<KlasrumArticleScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
-                  ] else ...[
-                    if (mediaUrl != null && mediaUrl.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      if (mediaType == 'image')
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            mediaUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink(),
-                          ),
-                        )
-                      else
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                mediaType == 'video'
-                                    ? Icons.play_circle_outline
-                                    : Icons.attach_file,
-                                color: AppColors.brandPrimary,
-                                size: 28,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  mediaType == 'video'
-                                      ? 'Video attached'
-                                      : 'Media attached',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (caption.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          caption,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ],
-                    if (bodyParagraphs.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      ...bodyParagraphs.map(
-                        (paragraph) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: Text(
-                            paragraph,
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 1.55,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ] else if (description.isEmpty) ...[
-                      const SizedBox(height: 24),
+                  ],
+                  if (mediaItems.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    KlasrumMediaCarousel(
+                      key: ValueKey(mediaItems
+                          .map((item) => '${item.type}:${item.url}')
+                          .join('|')),
+                      items: mediaItems,
+                    ),
+                    if (caption.isNotEmpty) ...[
+                      const SizedBox(height: 8),
                       Text(
-                        'No article content available.',
+                        caption,
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
+                  ],
+                  if (bodyHtml.trim().isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    KlasrumRichBody(html: bodyHtml),
+                  ] else if (description.isEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'No article content available.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
                   ],
                 ],
               ),

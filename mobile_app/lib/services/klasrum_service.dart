@@ -1,11 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/klasrum_content.dart';
 import '../utils/api_endpoints.dart';
-import '../utils/media_url.dart';
 import '../services/api_service.dart';
 
 class KlasrumService extends ApiService {
+  KlasrumService({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
+
+  Future<http.Response> _get(Uri uri, Map<String, String> headers) {
+    return _httpClient?.get(uri, headers: headers) ??
+        http.get(uri, headers: headers);
+  }
+
   Future<Map<String, String>> _headers() async {
     return {
       'Content-Type': 'application/json',
@@ -19,39 +28,6 @@ class KlasrumService extends ApiService {
     return {
       'id': category['id'],
       'name': category['name']?.toString() ?? '',
-    };
-  }
-
-  Map<String, dynamic> _mapContent(dynamic raw) {
-    final item = Map<String, dynamic>.from(raw as Map);
-    final category = item['category'];
-    String categoryName = '';
-    dynamic categoryId = item['category_id'];
-    if (category is Map) {
-      categoryName = category['name']?.toString() ?? '';
-      categoryId ??= category['id'];
-    }
-
-    final heading = item['heading'];
-    final caption = item['caption'];
-
-    return {
-      'id': item['id'],
-      'title': item['title']?.toString() ?? '',
-      'description': item['description']?.toString() ?? '',
-      'heading': heading == null || heading.toString() == 'null'
-          ? ''
-          : heading.toString(),
-      'category_id': categoryId,
-      'category_name': categoryName,
-      'cover_url': resolveMediaUrl(item['cover_url']?.toString()),
-      'published_at': item['published_at']?.toString(),
-      'body': item['body']?.toString(),
-      'caption': caption == null || caption.toString() == 'null'
-          ? ''
-          : caption.toString(),
-      'media_url': resolveMediaUrl(item['media_url']?.toString()),
-      'media_type': item['media_type']?.toString(),
     };
   }
 
@@ -73,12 +49,7 @@ class KlasrumService extends ApiService {
       queryParameters: query.isEmpty ? null : query,
     );
 
-    final response = await http
-        .get(
-          uri,
-          headers: await _headers(),
-        )
-        .timeout(
+    final response = await _get(uri, await _headers()).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
         throw TimeoutException('Request timed out after 10 seconds');
@@ -88,22 +59,21 @@ class KlasrumService extends ApiService {
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
       if (data['success'] == true && data['data'] != null) {
-        return (data['data'] as List).map(_mapContent).toList();
+        return (data['data'] as List).map(mapKlasrumContent).toList();
       }
     } else {
-      throw Exception('Failed to load Klasrum contents: ${response.statusCode}');
+      throw Exception(
+          'Failed to load Klasrum contents: ${response.statusCode}');
     }
     return [];
   }
 
   /// GET /api/klasrum/categories
   Future<List<Map<String, dynamic>>> fetchCategories() async {
-    final response = await http
-        .get(
-          Uri.parse(ApiEndpoints.getKlasrumCategories),
-          headers: await _headers(),
-        )
-        .timeout(
+    final response = await _get(
+      Uri.parse(ApiEndpoints.getKlasrumCategories),
+      await _headers(),
+    ).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
         throw TimeoutException('Request timed out after 10 seconds');
@@ -137,5 +107,21 @@ class KlasrumService extends ApiService {
       categoryId: categoryId,
       search: search,
     );
+  }
+
+  /// GET /api/klasrum/{id} returns one full article.
+  Future<Map<String, dynamic>> fetchArticle(dynamic id) async {
+    final response = await _get(
+      Uri.parse(ApiEndpoints.getKlasrumArticle(id)),
+      await _headers(),
+    ).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load Klasrum article: ${response.statusCode}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (data['success'] != true || data['data'] is! Map) {
+      throw const FormatException('Invalid Klasrum article response');
+    }
+    return mapKlasrumContent(data['data']);
   }
 }

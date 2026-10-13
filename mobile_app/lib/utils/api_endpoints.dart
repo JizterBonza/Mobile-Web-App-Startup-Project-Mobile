@@ -123,6 +123,7 @@ class ApiEndpoints {
   static String get getKlasrumCategories => '$baseUrl/api/klasrum/categories';
   static String get getKlasrum => '$baseUrl/api/klasrum';
   static String get getKlasrumContents => '$baseUrl/api/klasrum/contents';
+  static String getKlasrumArticle(dynamic id) => '$baseUrl/api/klasrum/$id';
 
   /// Proof of Delivery endpoints
   static String get uploadProofOfDelivery => '$baseUrl/api/pod/upload';
@@ -143,8 +144,7 @@ class ApiEndpoints {
   static String get paymentStatus => '$baseUrl/api/payment/status/{orderId}';
 
   // App Release endpoints
-  static String get getLatestAppRelease =>
-      '$baseUrl/api/app-releases/latest';
+  static String get getLatestAppRelease => '$baseUrl/api/app-releases/latest';
   static String get downloadAppRelease =>
       '$baseUrl/api/app-releases/{release}/download';
 }
