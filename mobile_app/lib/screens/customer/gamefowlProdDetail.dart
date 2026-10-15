@@ -53,7 +53,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
   Map<String, dynamic>? _shopDetails;
   bool _isLoadingShop = false;
-  bool _hasInquired = false;
   int _selectedVariantIndex = 0;
   dynamic _loadedShopId;
 
@@ -923,6 +922,27 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                             _buildShopCard(
                               shopId: shopId,
                               shopName: _getShopDisplayName(),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: ElevatedButton.icon(
+                                onPressed: productStock > 0 && !_isBuyingNow
+                                    ? () => _handleInquiry(shopId)
+                                    : null,
+                                icon: const Icon(Icons.help, size: 18),
+                                label: const Text('Inquire'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF29479A),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      const Color(0xFF29479A).withOpacity(0.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -1945,62 +1965,141 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  /// Returns the real database item_id used by the cart API.
+  /// Resolves the catalog item ID used by the cart API.
+  /// The generic `id` is only considered from a product record, never from a cart line.
   int? _getCartItemId() {
     Map<String, dynamic>? product = widget.productData;
-
     product ??= Provider.of<ItemsProvider>(
       context,
       listen: false,
     ).getItemById(widget.productId);
+    if (product == null) return null;
 
-    final rawItemId = product?['item_id'];
+    int? parsePositive(dynamic value) {
+      if (value == null) return null;
+      final parsed = value is num
+          ? value.toInt()
+          : int.tryParse(value.toString().trim());
+      return parsed != null && parsed > 0 ? parsed : null;
+    }
 
-    if (rawItemId == null) return null;
+    final item = product['item'] is Map
+        ? Map<String, dynamic>.from(product['item'] as Map)
+        : <String, dynamic>{};
+    final nestedProduct = product['product'] is Map
+        ? Map<String, dynamic>.from(product['product'] as Map)
+        : <String, dynamic>{};
 
-    final itemId = int.tryParse(rawItemId.toString().trim());
+    final candidates = <dynamic>[
+      product['item_id'],
+      product['product_item_id'],
+      product['catalog_item_id'],
+      item['item_id'],
+      item['id'],
+      nestedProduct['item_id'],
+      nestedProduct['id'],
+    ];
 
-    if (itemId == null || itemId <= 0) return null;
+    for (final candidate in candidates) {
+      final id = parsePositive(candidate);
+      if (id != null) return id;
+    }
 
-    return itemId;
+    // The detail page's productId is the lookup key passed to ItemsProvider.
+    // Use it only after confirming a product record was resolved.
+    final resolvedLookupId = parsePositive(widget.productId);
+    if (resolvedLookupId != null) return resolvedLookupId;
+
+    // Last resort: some item endpoints serialize the database item primary key as `id`.
+    // Avoid IDs that explicitly identify a cart row or a listing wrapper.
+    final looksLikeProduct = product.containsKey('item_name') ||
+        product.containsKey('item_price') ||
+        product.containsKey('product_name') ||
+        product.containsKey('selling_price');
+    if (looksLikeProduct &&
+        !product.containsKey('cart_item_id') &&
+        !product.containsKey('cart_id') &&
+        !product.containsKey('listing_id')) {
+      return parsePositive(product['id']);
+    }
+    return null;
   }
 
   void _showInvalidItemIdMessage() {
     if (!mounted) return;
-
     SnackbarHelper.showError(
       context,
       'This gamefowl listing has no valid item ID. Please refresh the listing or check the product data.',
     );
   }
 
+  Future<Map<String, dynamic>?> _findCartLine(
+    CartService cartService,
+    String userId,
+    int itemId,
+  ) async {
+    final items = await cartService.fetchCartItemsFromAPI(userId);
+    for (final item in items) {
+      if (item['item_id']?.toString() == itemId.toString()) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   Future<void> _handleAddToCart(double price) async {
+    if (_isAddingToCart || _isBuyingNow) return;
     if (!await requireAuth(context)) return;
 
     final itemId = _getCartItemId();
-
     if (itemId == null) {
       _showInvalidItemIdMessage();
       return;
     }
+    if (price <= 0) {
+      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
+      return;
+    }
 
-    setState(() {
-      _isAddingToCart = true;
-    });
-
+    setState(() => _isAddingToCart = true);
     try {
       final userId = await ApiService.getUserId();
-
       if (userId == null || userId.isEmpty) {
         if (mounted) {
-          setState(() {
-            _isAddingToCart = false;
-          });
+          SnackbarHelper.showError(context, 'Please login again to use your cart.');
         }
         return;
       }
 
       final cartService = CartService();
+      final existingLine = await _findCartLine(cartService, userId, itemId);
+      if (existingLine != null) {
+        final lineId = existingLine['cart_item_id'] ?? existingLine['id'];
+        if (lineId != null) {
+          final update = await cartService.updateCart(
+            cartItemId: lineId,
+            quantity: _quantity,
+          );
+          if (update['success'] != true) {
+            if (mounted) {
+              SnackbarHelper.showError(
+                context,
+                update['message']?.toString() ?? 'Could not update the item in your crate.',
+              );
+            }
+            return;
+          }
+        }
+        if (mounted) {
+          context.read<BadgeProvider>().fetchBadges();
+          SnackbarHelper.showSuccess(
+            context,
+            'This gamefowl is already in your crate.',
+            duration: const Duration(seconds: 2),
+          );
+        }
+        return;
+      }
 
       final result = await cartService.addToCart(
         userId: userId,
@@ -2008,36 +2107,26 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         price: price,
         quantity: _quantity,
       );
-
-      if (mounted) {
-        if (result['success'] == true) {
-          context.read<BadgeProvider>().fetchBadges();
-
-          SnackbarHelper.showSuccess(
-            context,
-            result['message'] ?? 'Added $_quantity item(s) to cart',
-            duration: const Duration(seconds: 2),
-          );
-        } else {
-          SnackbarHelper.showError(
-            context,
-            result['message'] ?? 'Failed to add item to cart',
-          );
-        }
+      if (!mounted) return;
+      if (result['success'] == true) {
+        context.read<BadgeProvider>().fetchBadges();
+        SnackbarHelper.showSuccess(
+          context,
+          result['message']?.toString() ?? 'Added $_quantity item(s) to crate.',
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to add gamefowl to crate.',
+        );
       }
     } catch (e) {
       if (mounted) {
-        SnackbarHelper.showError(
-          context,
-          'Error adding to cart: ${e.toString()}',
-        );
+        SnackbarHelper.showError(context, 'Error adding to crate: $e');
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isAddingToCart = false;
-        });
-      }
+      if (mounted) setState(() => _isAddingToCart = false);
     }
   }
 
@@ -2143,12 +2232,29 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         return;
       }
 
+      final nestedCart = cartLine['cart'] is Map
+          ? Map<String, dynamic>.from(cartLine['cart'] as Map)
+          : <String, dynamic>{};
+      final rawCartId = cartLine['cart_id'] ??
+          cartLine['cartId'] ??
+          nestedCart['id'] ??
+          nestedCart['cart_id'];
+      final checkoutCartId = int.tryParse(rawCartId?.toString() ?? '');
+
+      if (checkoutCartId == null) {
+        SnackbarHelper.showError(
+          context,
+          'The cart API did not return a valid parent cart ID. Please refresh your cart and try again.',
+        );
+        return;
+      }
       final product = Provider.of<ItemsProvider>(
         context,
         listen: false,
       ).getItemById(widget.productId);
 
       final checkoutItem = <String, dynamic>{
+        'cart_id': checkoutCartId,
         'id': cartLine['id'] is int
             ? cartLine['id']
             : int.tryParse(cartLine['id'].toString()) ?? cartLine['id'],
@@ -2183,6 +2289,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         context,
         MaterialPageRoute(
           builder: (context) => CheckOutScreen(
+            cartId: checkoutCartId,
             selectedCartItems: [checkoutItem],
           ),
         ),
@@ -2203,23 +2310,203 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     }
   }
 
-  Future<void> _handleOrderRequest(dynamic shopId) async {
-    final itemsProvider =
-        Provider.of<ItemsProvider>(context, listen: false);
+  Future<void> _showOrderRequestConfirmation(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow) return;
 
-    final requestProduct =
-        widget.productData ?? itemsProvider.getItemById(widget.productId);
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => GamefowlOrderReq(
-          productData: requestProduct,
-          shopName: _getShopDisplayName(),
-          shopId: shopId,
+    final choice = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                heightFactor: 0.65,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  icon: const Icon(Icons.close),
+                  color: Colors.white,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFD6D6D6),
+                    fixedSize: const Size(30, 30),
+                  ),
+                ),
+              ),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF9AA9D7)),
+                ),
+                child: const Icon(
+                  Icons.receipt_long,
+                  color: Color(0xFF9AA9D7),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ready to Order?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Have you already inquired with the seller and confirmed the details of your chosen gamefowl?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF444444)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0E0E0),
+                          foregroundColor: const Color(0xFF777777),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('No'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4C66B3),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Yes'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+
+    if (!mounted || choice == null) return;
+    if (choice) {
+      await _handleOrderRequest(shopId);
+    } else {
+      await _handleInquiry(shopId);
+    }
+  }
+
+  Future<void> _handleOrderRequest(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+    if (!await requireAuth(context)) return;
+
+    final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
+    final requestProduct =
+        widget.productData ?? itemsProvider.getItemById(widget.productId);
+    final itemId = _getCartItemId();
+    final price = _parsePrice(
+      requestProduct?['item_price'] ??
+          requestProduct?['price'] ??
+          requestProduct?['selling_price'] ??
+          requestProduct?['product_price'],
+    );
+    final resolvedShopId = shopId ?? _resolveShopId(requestProduct);
+
+    if (requestProduct == null || itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+    if (resolvedShopId == null || resolvedShopId.toString().trim().isEmpty) {
+      SnackbarHelper.showError(context, 'This gamefowl has no valid shop ID.');
+      return;
+    }
+    if (price <= 0) {
+      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
+      return;
+    }
+
+    setState(() => _isBuyingNow = true);
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(context, 'Please login again to continue.');
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      var cartLine = await _findCartLine(cartService, userId, itemId);
+      if (cartLine == null) {
+        final addResult = await cartService.addToCart(
+          userId: userId,
+          itemId: itemId.toString(),
+          price: price,
+          quantity: _quantity,
+        );
+        if (addResult['success'] != true) {
+          if (mounted) {
+            SnackbarHelper.showError(
+              context,
+              addResult['message']?.toString() ?? 'Could not add gamefowl to crate.',
+            );
+          }
+          return;
+        }
+        cartLine = await _findCartLine(cartService, userId, itemId);
+      }
+      if (cartLine == null) {
+        if (mounted) {
+          SnackbarHelper.showError(
+            context,
+            'The gamefowl was added, but could not be found in your crate. Please refresh and try again.',
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      context.read<BadgeProvider>().fetchBadges();
+      final normalizedProduct = Map<String, dynamic>.from(requestProduct)
+        ..['item_id'] = itemId
+        ..['shop_id'] = resolvedShopId
+        ..putIfAbsent('item_price', () => price);
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GamefowlOrderReq(
+            productData: normalizedProduct,
+            shopName: _getShopDisplayName(),
+            shopId: resolvedShopId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, 'Unable to open order request: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isBuyingNow = false);
+    }
   }
 
   Future<void> _handleInquiry(dynamic shopId) async {
@@ -2246,11 +2533,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     if (!mounted) return;
 
-    if (result == true) {
-      setState(() {
-        _hasInquired = true;
-      });
-    }
   }
 
   Widget _buildBottomActionBar(
@@ -2306,9 +2588,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                     : const Color(0xFF29479A).withOpacity(0.5),
                 child: InkWell(
                   onTap: canAct
-                      ? () => _hasInquired
-                          ? _handleOrderRequest(shopId)
-                          : _handleInquiry(shopId)
+                      ? () => _showOrderRequestConfirmation(shopId)
                       : null,
                   child: SizedBox(
                     height: 52,
@@ -2326,7 +2606,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                               ),
                             )
                           : Text(
-                              _hasInquired ? 'Order Request' : 'Inquire',
+                              'Order Request',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,

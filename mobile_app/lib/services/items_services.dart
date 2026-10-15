@@ -11,7 +11,7 @@ class ItemsService extends ApiService {
   /// Fetch items from API with authentication
   Future<List<Map<String, dynamic>>> _fetchItemsFromAPI() async {
     final response = await http.get(
-      Uri.parse(ApiEndpoints.getItemsRandom),
+      Uri.parse(ApiEndpoints.getItems),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

@@ -18,12 +18,15 @@ import '../common/editAddressScreen.dart';
 
 class CheckOutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedCartItems;
+  /// Actual parent cart ID returned by the cart API, when available.
+  final int? cartId;
   final OrderService? orderService;
   final PaymentService? paymentService;
 
   const CheckOutScreen({
     super.key,
     required this.selectedCartItems,
+    this.cartId,
     this.orderService,
     this.paymentService,
   });
@@ -151,6 +154,32 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return null;
   }
 
+  /// Resolve the parent cart ID only from fields that explicitly represent
+  /// a cart. Never treat a product ID or cart-row ID as the parent cart ID.
+  int? _resolveCheckoutCartId() {
+    final explicitId = _parseId(widget.cartId);
+    if (explicitId != null) return explicitId;
+
+    for (final cartItem in widget.selectedCartItems) {
+      final directId = _parseId(
+        cartItem['cart_id'] ?? cartItem['cartId'],
+      );
+      if (directId != null) return directId;
+
+      final nestedCart = cartItem['cart'];
+      if (nestedCart is Map) {
+        final nestedId = _parseId(
+          nestedCart['id'] ??
+              nestedCart['cart_id'] ??
+              nestedCart['cartId'],
+        );
+        if (nestedId != null) return nestedId;
+      }
+    }
+
+    return null;
+  }
+
   int _parseQuantity(dynamic value) {
     if (value is int && value > 0) return value;
 
@@ -169,37 +198,118 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   /// Direct gamefowl orders must not send the product ID as cart_id.
   List<Map<String, dynamic>> _buildOrderItemsPayload() {
     return widget.selectedCartItems.map((cartItem) {
+      final isDirectGamefowl =
+          cartItem['is_direct_gamefowl_order'] == true;
+      final rawRequest = cartItem['gamefowl_request'];
+      final gamefowlRequest = rawRequest is Map
+          ? Map<String, dynamic>.from(rawRequest)
+          : <String, dynamic>{};
+      final rawProductData = gamefowlRequest['product_data'];
+      final productData = rawProductData is Map
+          ? Map<String, dynamic>.from(rawProductData)
+          : <String, dynamic>{};
+      final rawItem = cartItem['item'];
+      final nestedItem = rawItem is Map
+          ? Map<String, dynamic>.from(rawItem)
+          : <String, dynamic>{};
+      final rawProduct = cartItem['product'];
+      final nestedProduct = rawProduct is Map
+          ? Map<String, dynamic>.from(rawProduct)
+          : <String, dynamic>{};
+      final productDataItem = productData['item'] is Map
+          ? Map<String, dynamic>.from(productData['item'] as Map)
+          : <String, dynamic>{};
+      final productDataProduct = productData['product'] is Map
+          ? Map<String, dynamic>.from(productData['product'] as Map)
+          : <String, dynamic>{};
+
+      int? firstValidId(Iterable<dynamic> values) {
+        for (final value in values) {
+          final parsed = _parseId(value);
+          if (parsed != null) return parsed;
+        }
+        return null;
+      }
+
+      // Never use cartItem['id'] as the item ID: on a cart line that value
+      // can be the cart-row ID. Resolve the catalog/item ID from explicit
+      // item fields or the original Gamefowl product payload instead.
+      final itemId = firstValidId(<dynamic>[
+        cartItem['item_id'],
+        cartItem['itemId'],
+        cartItem['product_item_id'],
+        cartItem['catalog_item_id'],
+        nestedItem['item_id'],
+        nestedItem['id'],
+        nestedProduct['item_id'],
+        nestedProduct['id'],
+        gamefowlRequest['item_id'],
+        gamefowlRequest['product_item_id'],
+        productData['item_id'],
+        productData['product_item_id'],
+        productData['catalog_item_id'],
+        productDataItem['item_id'],
+        productDataItem['id'],
+        productDataProduct['item_id'],
+        productDataProduct['id'],
+        productData['product_id'],
+        productData['id'],
+      ]);
+
+      final shopId = firstValidId(<dynamic>[
+        cartItem['shop_id'],
+        cartItem['shopId'],
+        gamefowlRequest['shop_id'],
+        productData['shop_id'],
+        productData['shopId'],
+        productData['store_id'],
+      ]);
+
+      if (itemId == null) {
+        throw StateError(
+          'Missing valid item_id for checkout item. '
+          'Available keys: ${cartItem.keys.toList()}',
+        );
+      }
+      if (shopId == null) {
+        throw StateError(
+          'Missing valid shop_id for checkout item. '
+          'Available keys: ${cartItem.keys.toList()}',
+        );
+      }
+
       final item = <String, dynamic>{
-        'item_id': cartItem['item_id'].toString(),
-        'shop_id': cartItem['shop_id'].toString(),
+        'item_id': itemId,
+        'shop_id': shopId,
         'quantity': _parseQuantity(cartItem['quantity']),
         'price_at_purchase': _getEffectivePrice(cartItem),
       };
 
-      final isDirectGamefowl =
-          cartItem['is_direct_gamefowl_order'] == true;
-
       if (!isDirectGamefowl) {
-        // Preserve the original cart-row ID for normal cart checkout.
-        final cartId = _parseId(cartItem['id']);
+        // This is the cart-row ID, not the parent cart ID.
+        final cartItemId = _parseId(
+          cartItem['cart_item_id'] ?? cartItem['cartItemId'] ?? cartItem['id'],
+        );
+        if (cartItemId != null) item['cart_item_id'] = cartItemId;
 
-        if (cartId != null) {
-          item['cart_id'] = cartId;
-        }
+        // Include a parent cart ID only when explicitly supplied.
+        final actualCartId = _parseId(
+          cartItem['cart_id'] ?? cartItem['cartId'],
+        );
+        if (actualCartId != null) item['cart_id'] = actualCartId;
       }
 
-      // Pass the gamefowl request details through to the API.
-      final gamefowlRequest = cartItem['gamefowl_request'];
-
-      if (gamefowlRequest != null) {
+      if (gamefowlRequest.isNotEmpty) {
         item['gamefowl_request'] = gamefowlRequest;
       }
-
-      // Also pass the direct-order flag for backends that use it.
       if (isDirectGamefowl) {
         item['is_direct_gamefowl_order'] = true;
       }
 
+      debugPrint(
+        'CHECKOUT ITEM PAYLOAD: item_id=$itemId, shop_id=$shopId, '
+        'direct_gamefowl=$isDirectGamefowl, keys=${cartItem.keys.toList()}',
+      );
       return item;
     }).toList();
   }
@@ -731,8 +841,30 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
     try {
       final orderItems = _buildOrderItemsPayload();
+      final checkoutCartId = _resolveCheckoutCartId();
+
+      debugPrint('CHECKOUT CART ID: $checkoutCartId');
+      debugPrint('CHECKOUT ORDER ITEMS: $orderItems');
+
+      // Normal cart orders require a real parent cart ID. A direct Gamefowl
+      // order may omit it; the Order API must support that request type.
+      if (checkoutCartId == null && !_isDirectGamefowlOrder) {
+        SnackbarHelper.hide(context);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          SnackbarHelper.showError(
+            context,
+            'Cart ID is missing. Return to your cart and try again. '
+            'The cart screen must pass the actual cart ID to checkout.',
+          );
+        }
+        return;
+      }
 
       final result = await _orderService.createOrder(
+        cartId: checkoutCartId,
         items: orderItems,
         subtotal: _subtotal,
         shippingFee: _totalFees,
