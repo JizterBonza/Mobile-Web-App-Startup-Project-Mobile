@@ -63,4 +63,41 @@ void main() {
         ['3', '3', '3', '3', '3']);
     expect(result['count'], 5);
   });
+
+  test('order creation sends cart row IDs only on items', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.toString(), 'https://example.test/api/orders/create');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body.containsKey('cart_id'), isFalse);
+      expect((body['items'] as List).single['cart_id'], 42);
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {'id': 88}
+        }),
+        200,
+      );
+    });
+    addTearDown(client.close);
+
+    final result = await OrderService(httpClient: client).createOrder(
+      items: [
+        {
+          'cart_id': 42,
+          'item_id': '9',
+          'shop_id': '3',
+          'quantity': 1,
+          'price_at_purchase': 20.0
+        },
+      ],
+      shippingAddress: 'Test address',
+      shippingAddressId: 1,
+      subtotal: 20,
+      shippingFee: 0,
+      totalAmount: 20,
+      deliveryMethodId: 1,
+    );
+    expect(result['success'], isTrue);
+  });
 }

@@ -11,6 +11,8 @@ import '../../services/favorite_services.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/gamefowl_item.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/user_profile_avatar.dart';
 
@@ -20,7 +22,7 @@ import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import 'klasrumScreen.dart';
 import 'shopScreen.dart';
-import 'gamefowlListing.dart';
+import 'gamefowlProdDetail.dart';
 import 'productDetailScreen.dart';
 
 class CustomerDashboardScreen extends StatefulWidget {
@@ -45,6 +47,7 @@ class _CustomerDashboardScreenState
 
   bool _isLoadingProducts = true;
   List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _categories = [];
 
   final PageController _storesPageController =
       PageController(viewportFraction: 0.84);
@@ -65,6 +68,7 @@ class _CustomerDashboardScreenState
   bool _showSearchResults = false;
 
   String _selectedCategory = 'All';
+  dynamic _selectedCategoryId;
 
   final GlobalKey _productsSectionKey = GlobalKey();
 
@@ -108,6 +112,7 @@ class _CustomerDashboardScreenState
       _loadSuggestedStores(),
       _loadKlasrumFeatured(),
       _loadProducts(),
+      _loadCategories(),
       _loadFavoriteState(),
     ]);
 
@@ -364,19 +369,14 @@ class _CustomerDashboardScreenState
       filteredProducts.take(6).toList(),
     );
 
-    final gamefowl = filteredProducts
+    final gamefowl = _products
         .where(_isGamefowlProduct)
         .take(6)
         .toList();
 
-    final displayGamefowl =
-        gamefowl.isNotEmpty
-            ? gamefowl
-            : filteredProducts.take(6).toList();
-
     registerSection(
       'gamefowl',
-      displayGamefowl,
+      gamefowl,
     );
 
     final buyAgain = filteredProducts
@@ -761,6 +761,19 @@ class _CustomerDashboardScreenState
     }
   }
 
+  Future<void> _loadCategories() async {
+    final provider = context.read<CategoryProvider>();
+    await provider.fetchCategories();
+    if (!mounted) return;
+    setState(() {
+      _categories = provider.categories
+          .where((category) => !isGamefowlItem({
+                'category_name': category['name'],
+              }))
+          .toList();
+    });
+  }
+
   void _onSearchChanged() {
     final query = _searchController.text.trim();
 
@@ -908,6 +921,7 @@ class _CustomerDashboardScreenState
       _loadProducts(
         useCache: false,
       ),
+      _loadCategories(),
       _loadFavoriteState(),
     ]);
 
@@ -1357,13 +1371,9 @@ class _CustomerDashboardScreenState
   }
 
   Widget _buildCategoryButtons() {
-    const categories = [
-      'All',
-      'Accessories',
-      'Feeds',
-      'Health',
-      'Tools',
-      'Others',
+    final categories = <Map<String, dynamic>>[
+      {'id': null, 'name': 'All'},
+      ..._categories,
     ];
 
     return SizedBox(
@@ -1385,9 +1395,10 @@ class _CustomerDashboardScreenState
           index,
         ) {
           final category = categories[index];
+          final categoryName = category['name']?.toString() ?? 'Category';
 
           final isSelected =
-              _selectedCategory == category;
+              _selectedCategoryId?.toString() == category['id']?.toString();
 
           return GestureDetector(
             onTap: () => _selectCategory(category),
@@ -1415,7 +1426,7 @@ class _CustomerDashboardScreenState
                 ],
               ),
               child: Text(
-                category,
+                categoryName,
                 style: TextStyle(
                   color: isSelected
                       ? Colors.white
@@ -1433,14 +1444,25 @@ class _CustomerDashboardScreenState
     );
   }
 
-  void _selectCategory(
-    String category,
-  ) {
+  Future<void> _selectCategory(Map<String, dynamic> category) async {
     if (!mounted) return;
 
+    final id = category['id'];
     setState(() {
-      _selectedCategory = category;
+      _selectedCategoryId = id;
+      _selectedCategory = category['name']?.toString() ?? 'All';
     });
+
+    final itemsProvider = context.read<ItemsProvider>();
+    if (id == null) {
+      itemsProvider.clearCategorySelection();
+    } else {
+      await itemsProvider.fetchItemsByCategory(id);
+      if (!mounted || _selectedCategoryId?.toString() != id.toString()) {
+        return;
+      }
+      setState(() {});
+    }
 
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
@@ -1797,11 +1819,10 @@ class _CustomerDashboardScreenState
 
   // ============================================================
   // LOCAL FARMS
-  // ONLY THIS SECTION USES SEPARATE DUMMY GAMEFOWL FARM DATA.
   // ============================================================
 
   Widget _buildLocalFarmsSection() {
-    final localFarmNames = [
+    const localFarmNames = [
       'Golden Crest Game Farm',
       'Elite Rooster Breeding Farm',
       'Blue Feather Game Farm',
@@ -1809,8 +1830,7 @@ class _CustomerDashboardScreenState
       'Champion Rooster Farm',
       'Prime Bloodline Game Farm',
     ];
-
-    final localFarmImages = [
+    const localFarmImages = [
       'assets/images/manok.png',
       'assets/images/cover.png',
       'assets/images/store_sample.png',
@@ -1831,12 +1851,7 @@ class _CustomerDashboardScreenState
               const Color(0xFF4D9D45),
         ),
         const SizedBox(height: 10),
-        if (_isLoadingStores)
-          _buildStoreLoading()
-        else if (_suggestedStores.isEmpty)
-          _buildEmptyStoreState()
-        else
-          Column(
+        Column(
             children: [
               SizedBox(
                 height: 184,
@@ -1860,14 +1875,6 @@ class _CustomerDashboardScreenState
                     context,
                     index,
                   ) {
-                    // Keep the original store data
-                    // only for the underlying shop ID
-                    // used by gamefowlListing.
-                    final sourceStore =
-                        _suggestedStores[
-                            index %
-                                _suggestedStores.length];
-
                     return Padding(
                       padding:
                           const EdgeInsets.only(
@@ -1875,12 +1882,10 @@ class _CustomerDashboardScreenState
                         right: 16,
                       ),
                       child: _buildStoreCard(
-                        sourceStore,
-                        openGamefowlListing: true,
-                        overrideName:
-                            localFarmNames[index],
-                        overrideImage:
-                            localFarmImages[index],
+                        const {},
+                        comingSoon: true,
+                        overrideName: localFarmNames[index],
+                        overrideImage: localFarmImages[index],
                       ),
                     );
                   },
@@ -1981,7 +1986,7 @@ class _CustomerDashboardScreenState
 
   Widget _buildStoreCard(
     Map<String, dynamic> store, {
-    bool openGamefowlListing = false,
+    bool comingSoon = false,
     String? overrideName,
     String? overrideImage,
   }) {
@@ -2037,20 +2042,11 @@ class _CustomerDashboardScreenState
 
     return GestureDetector(
       onTap: () {
-        if (shopId == null) {
+        if (comingSoon) {
+          SnackbarHelper.showInfo(context, 'Product available soon');
           return;
         }
-
-        if (openGamefowlListing) {
-          Navigator.push(
-            context,
-            _createFadeRoute(
-              gamefowlListing(
-                shopId: shopId,
-                shopName: shopName,
-              ),
-            ),
-          );
+        if (shopId == null) {
           return;
         }
 
@@ -2111,7 +2107,7 @@ class _CustomerDashboardScreenState
                   ),
                 ),
               ),
-              const Positioned(
+              if (!comingSoon) const Positioned(
                 top: 8,
                 right: 9,
                 child: Icon(
@@ -2122,7 +2118,7 @@ class _CustomerDashboardScreenState
               ),
               Positioned(
                 left: 12,
-                right: 70,
+                right: comingSoon ? 12 : 70,
                 bottom: 12,
                 child: Column(
                   crossAxisAlignment:
@@ -2142,7 +2138,12 @@ class _CustomerDashboardScreenState
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Row(
+                    if (comingSoon)
+                      const Text(
+                        'Product available soon',
+                        style: TextStyle(color: Colors.white, fontSize: 9),
+                      )
+                    else Row(
                       children: [
                         const Icon(
                           Icons.location_on,
@@ -2178,7 +2179,7 @@ class _CustomerDashboardScreenState
                   ],
                 ),
               ),
-              Positioned(
+              if (!comingSoon) Positioned(
                 right: 10,
                 bottom: 10,
                 child: GestureDetector(
@@ -2252,7 +2253,7 @@ class _CustomerDashboardScreenState
   }
 
   Widget _buildBestOffersSection() {
-    if (_isLoadingProducts) {
+    if (_isLoadingDisplayedProducts) {
       return _buildProductLoading(
         'Best Offers',
       );
@@ -2293,7 +2294,7 @@ class _CustomerDashboardScreenState
   }
 
   Widget _buildFeaturedProductsSection() {
-    if (_isLoadingProducts) {
+    if (_isLoadingDisplayedProducts) {
       return _buildProductLoading(
         'Featured Products',
       );
@@ -2334,7 +2335,7 @@ class _CustomerDashboardScreenState
   }
 
   Widget _buildProductsSection() {
-    if (_isLoadingProducts) {
+    if (_isLoadingDisplayedProducts) {
       return _buildProductLoading(
         'Products',
       );
@@ -2458,25 +2459,14 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
-
-    if (products.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     final gamefowl =
-        products
+        _products
             .where(
               _isGamefowlProduct,
             )
             .take(6)
             .toList();
-
-    final displayProducts =
-        gamefowl.isNotEmpty
-            ? gamefowl
-            : products.take(6).toList();
+    if (gamefowl.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment:
@@ -2500,7 +2490,7 @@ class _CustomerDashboardScreenState
         ),
         const SizedBox(height: 10),
         _buildHorizontalProducts(
-          displayProducts,
+          gamefowl,
           sectionKey: 'gamefowl',
         ),
       ],
@@ -2510,38 +2500,14 @@ class _CustomerDashboardScreenState
   bool _isGamefowlProduct(
     Map<String, dynamic> product,
   ) {
-    final values = [
-      product['category'],
-      product['category_name'],
-      product['categoryName'],
-      product['item_category'],
-      product['product_category'],
-      product['type'],
-      product['item_type'],
-      product['name'],
-      product['item_name'],
-      product['product_name'],
-    ];
-
-    for (final value in values) {
-      if (value == null) {
-        continue;
-      }
-
-      final text =
-          value.toString().toLowerCase();
-
-      if (text.contains('gamefowl') ||
-          text.contains('game fowl')) {
-        return true;
-      }
-    }
-
-    return false;
+    return isGamefowlItem(
+      product,
+      categories: context.read<CategoryProvider>().categories,
+    );
   }
 
   Widget _buildBuyAgainSection() {
-    if (_isLoadingProducts) {
+    if (_isLoadingDisplayedProducts) {
       return _buildProductLoading(
         'Buy Again',
       );
@@ -2645,9 +2611,14 @@ class _CustomerDashboardScreenState
           Navigator.push(
             context,
             _createFadeRoute(
-              ProductDetailScreen(
-                productId: productId,
-              ),
+              _isGamefowlProduct(product)
+                  ? gamefowlProdDetail(
+                      productId: productId,
+                      productData: product,
+                      shopId: product['shop_id'],
+                      shopName: product['shop_name']?.toString(),
+                    )
+                  : ProductDetailScreen(productId: productId, productData: product),
             ),
           );
         },
@@ -2846,45 +2817,22 @@ class _CustomerDashboardScreenState
 
   List<Map<String, dynamic>>
       _getFilteredProducts() {
-    if (_selectedCategory == 'All') {
-      return List<Map<String, dynamic>>.from(
-        _products,
-      );
-    }
-
-    return _products.where(
-      (product) {
-        final values = [
-          product['category'],
-          product['category_name'],
-          product['categoryName'],
-          product['item_category'],
-          product['product_category'],
-        ];
-
-        for (final value in values) {
-          if (value == null) {
-            continue;
-          }
-
-          final text =
-              value.toString().toLowerCase();
-
-          if (text ==
-                  _selectedCategory
-                      .toLowerCase() ||
-              text.contains(
-                _selectedCategory
-                    .toLowerCase(),
-              )) {
-            return true;
-          }
-        }
-
-        return false;
-      },
-    ).toList();
+    final categories = context.read<CategoryProvider>().categories;
+    if (categories.isEmpty) return [];
+    final provider = context.read<ItemsProvider>();
+    final source = _selectedCategoryId == null
+        ? _products
+        : provider.categoryItems;
+    return source
+        .where((item) => !isGamefowlItem(item, categories: categories))
+        .toList();
   }
+
+  bool get _isLoadingDisplayedProducts =>
+      _isLoadingProducts ||
+      context.read<CategoryProvider>().isLoading ||
+      (_selectedCategoryId != null &&
+          context.read<ItemsProvider>().isCategoryLoading);
 
   String? _getImageUrl(
     Map<String, dynamic>? data,
@@ -3194,8 +3142,15 @@ class _CustomerDashboardScreenState
           itemsProvider,
           child,
         ) {
-          final results =
-              itemsProvider.searchResults;
+          final categories = context.read<CategoryProvider>().categories;
+          final results = categories.isEmpty
+              ? <Map<String, dynamic>>[]
+              : itemsProvider.searchResults
+                  .where((item) => !isGamefowlItem(
+                        item,
+                        categories: categories,
+                      ))
+                  .toList();
 
           if (results.isEmpty) {
             return const SizedBox.shrink();

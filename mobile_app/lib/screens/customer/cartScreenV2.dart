@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
+import '../../provider/category_provider.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/cart_item_pricing.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -19,6 +22,7 @@ class CartScreenV2 extends StatefulWidget {
 class _CartScreenV2State extends State<CartScreenV2> {
   List<ZoneData> _zones = [];
   bool _isLoading = true;
+  bool _categoriesReady = false;
   String? _errorMessage;
 
   @override
@@ -43,8 +47,11 @@ class _CartScreenV2State extends State<CartScreenV2> {
         return;
       }
 
+      final categories = context.read<CategoryProvider>();
+      if (categories.categories.isEmpty) await categories.fetchCategories();
       final apiData = await CartService().fetchCartItemsForV2(userId);
       setState(() {
+        _categoriesReady = categories.categories.isNotEmpty;
         _zones = _transformApiData(apiData);
         _isLoading = false;
       });
@@ -62,6 +69,10 @@ class _CartScreenV2State extends State<CartScreenV2> {
 
     for (var cartItem in apiData) {
       final item = cartItem['item'] as Map<String, dynamic>? ?? {};
+      final isGamefowl = isGamefowlItem(
+        {...cartItem, ...item},
+        categories: context.read<CategoryProvider>().categories,
+      );
       final shop = item['shop'] as Map<String, dynamic>? ?? {};
       final zone = shop['zone'] as Map<String, dynamic>? ?? {};
 
@@ -134,6 +145,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
         stock: stock,
         quantity: quantity,
         imageUrl: resolveItemImageUrl(item['item_images']),
+        isGamefowl: isGamefowl,
       ));
     }
 
@@ -153,7 +165,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       for (var shop in zone.shops) {
         shop.isSelected = newState;
         for (var item in shop.items) {
-          item.isSelected = newState && item.isQuantityValid;
+          item.isSelected = newState && _categoriesReady && item.isQuantityValid && !item.isGamefowl;
         }
       }
       _updateZoneSelection(zone);
@@ -168,7 +180,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       shop.isSelected = newState;
 
       for (var item in shop.items) {
-        item.isSelected = newState && item.isQuantityValid;
+          item.isSelected = newState && _categoriesReady && item.isQuantityValid && !item.isGamefowl;
       }
       _updateZoneSelection(zone);
     });
@@ -180,7 +192,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       final shop = zone.shops.firstWhere((s) => s.id == shopId);
       final item = shop.items.firstWhere((i) => i.id == itemId);
 
-      if (!item.isQuantityValid) return;
+      if (!_categoriesReady || !item.isQuantityValid || item.isGamefowl) return;
       item.isSelected = !item.isSelected;
 
       _updateShopSelection(shop);
@@ -189,7 +201,9 @@ class _CartScreenV2State extends State<CartScreenV2> {
   }
 
   void _updateShopSelection(ShopData shop) {
-    final validItems = shop.items.where((i) => i.isQuantityValid).toList();
+    final validItems = shop.items
+        .where((i) => _categoriesReady && i.isQuantityValid && !i.isGamefowl)
+        .toList();
     if (validItems.isEmpty) {
       shop.isSelected = false;
       shop.isIndeterminate = false;
@@ -206,7 +220,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
       _updateShopSelection(shop);
     }
     final shopsWithValidItems =
-        zone.shops.where((s) => s.items.any((i) => i.isQuantityValid)).toList();
+        zone.shops.where((s) => s.items.any((i) => _categoriesReady && i.isQuantityValid && !i.isGamefowl)).toList();
     if (shopsWithValidItems.isEmpty) {
       zone.isSelected = false;
       zone.isIndeterminate = false;
@@ -227,7 +241,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     double total = 0.0;
     for (var shop in zone.shops) {
       for (var item in shop.items) {
-        if (item.isSelected && item.isQuantityValid) {
+        if (item.isSelected && item.isQuantityValid && !item.isGamefowl) {
           total += item.effectivePrice * item.quantity;
         }
       }
@@ -239,7 +253,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     int count = 0;
     for (var shop in zone.shops) {
       for (var item in shop.items) {
-        if (item.isSelected && item.isQuantityValid) {
+        if (item.isSelected && item.isQuantityValid && !item.isGamefowl) {
           count++;
         }
       }
@@ -399,7 +413,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
     final List<Map<String, dynamic>> items = [];
     for (var shop in zone.shops) {
       for (var item in shop.items) {
-        if (item.isSelected && item.isQuantityValid) {
+        if (item.isSelected && item.isQuantityValid && !item.isGamefowl) {
           items.add({
             'id': int.tryParse(item.id) ?? item.id,
             'item_id': int.tryParse(item.itemId) ?? item.itemId,
@@ -410,6 +424,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
             'item_name': item.name,
             'item_price': item.price.toStringAsFixed(2),
             'item_quantity': item.stock.toString(),
+            'is_gamefowl': item.isGamefowl,
             if (item.imageUrl != null) 'item_images': item.imageUrl,
             if (item.discountedPrice != null)
               'discounted_price': item.discountedPrice!.toStringAsFixed(2),
@@ -429,6 +444,10 @@ class _CartScreenV2State extends State<CartScreenV2> {
   }
 
   void _handleZoneCheckout(ZoneData zone) {
+    if (!_categoriesReady) {
+      SnackbarHelper.showError(context, 'Item categories could not be verified. Refresh the cart to retry.');
+      return;
+    }
     final selectedItems = _getSelectedItemsForCheckout(zone);
 
     if (selectedItems.isEmpty) {
@@ -820,7 +839,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
 
   Widget _buildItemCard(String zoneId, String shopId, ItemData item) {
     final lineTotal = item.effectivePrice * item.quantity;
-    final isValid = item.isQuantityValid;
+    final isValid = _categoriesReady && item.isQuantityValid && !item.isGamefowl;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -908,7 +927,17 @@ class _CartScreenV2State extends State<CartScreenV2> {
                     CartItemPriceDisplay(pricing: item.pricing),
 
                     // Stock warning
-                    if (item.isOutOfStock)
+                    if (!_categoriesReady)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text('Item category unavailable. Refresh the cart to retry.'),
+                      )
+                    else if (item.isGamefowl)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text('Gamefowl is view only. Remove this item to clear it from your cart.'),
+                      )
+                    else if (item.isOutOfStock)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Container(
@@ -993,7 +1022,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                           icon: const Icon(Icons.remove, size: 18),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          onPressed: item.quantity <= 1 || item.isOutOfStock
+                           onPressed: !_categoriesReady || item.isGamefowl || item.quantity <= 1 || item.isOutOfStock
                               ? null
                               : () => _updateQuantity(
                                   zoneId, shopId, item.id, item.quantity - 1),
@@ -1021,7 +1050,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                           icon: const Icon(Icons.add, size: 18),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          onPressed: item.quantity >= item.stock ||
+                           onPressed: !_categoriesReady || item.isGamefowl || item.quantity >= item.stock ||
                                   item.isOutOfStock
                               ? null
                               : () => _updateQuantity(
@@ -1132,6 +1161,7 @@ class ItemData {
   int quantity;
   bool isSelected;
   final String? imageUrl;
+  final bool isGamefowl;
 
   ItemData({
     required this.id,
@@ -1146,6 +1176,7 @@ class ItemData {
     required this.quantity,
     this.isSelected = false,
     this.imageUrl,
+    this.isGamefowl = false,
   });
 
   CartItemPricing get pricing => CartItemPricing(

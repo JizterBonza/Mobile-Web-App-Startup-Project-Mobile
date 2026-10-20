@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/url.dart';
 import '../utils/item_discount_fields.dart';
+import '../utils/gamefowl_item.dart';
 import '../utils/media_url.dart';
 import '../services/api_service.dart';
 
@@ -121,6 +122,7 @@ class ShopsService extends ApiService {
               "item_price": item['item_price'],
               "item_quantity": item['item_quantity'],
               "category": item['category'],
+              ...gamefowlFieldsFromItem(item),
               "item_images": fullImageUrls,
               "item_status": item['item_status'],
               "average_rating": item['average_rating'],
@@ -218,6 +220,7 @@ class ShopsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": fullImageUrls,
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],

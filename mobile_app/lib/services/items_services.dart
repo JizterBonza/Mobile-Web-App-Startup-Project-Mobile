@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/url.dart';
 import '../utils/item_discount_fields.dart';
+import '../utils/gamefowl_item.dart';
 import '../services/api_service.dart';
 
 /// Service for managing items/products with API fetching
@@ -48,6 +49,7 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
@@ -120,6 +122,7 @@ class ItemsService extends ApiService {
           'item_price': data['item_price'],
           'item_quantity': data['item_quantity'],
           'category': data['category'],
+          ...gamefowlFieldsFromItem(data),
           'item_images': data['item_images'],
           'item_status': data['item_status'],
           'average_rating': data['average_rating'],
@@ -196,6 +199,7 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
@@ -252,6 +256,7 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
@@ -320,6 +325,7 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": fullImageUrls ?? item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],
@@ -372,6 +378,7 @@ class ItemsService extends ApiService {
             "item_price": item['item_price'],
             "item_quantity": item['item_quantity'],
             "category": item['category'],
+            ...gamefowlFieldsFromItem(item),
             "item_images": item['item_images'],
             "item_status": item['item_status'],
             "average_rating": item['average_rating'],

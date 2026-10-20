@@ -26,6 +26,7 @@ class ItemsProvider with ChangeNotifier {
   bool _isCategoryLoading = false;
   String? _categoryError;
   dynamic _selectedCategoryId;
+  int _categoryRequestId = 0;
 
   // On-sale items state
   List<Map<String, dynamic>> _onSaleItems = [];
@@ -100,14 +101,12 @@ class ItemsProvider with ChangeNotifier {
 
   /// Get a specific item by ID from cached items
   Map<String, dynamic>? getItemById(dynamic id) {
-    try {
-      final item = _items.firstWhere(
-        (item) => item['id'] == id,
-      );
-      return item;
-    } catch (e) {
-      return null;
+    for (final source in [_items, _categoryItems, _searchResults, _onSaleItems]) {
+      for (final item in source) {
+        if (item['id']?.toString() == id?.toString()) return item;
+      }
     }
+    return null;
   }
 
   /// Fetch item reviews from API
@@ -199,6 +198,7 @@ class ItemsProvider with ChangeNotifier {
 
   /// Fetch items by category from API
   Future<void> fetchItemsByCategory(dynamic categoryId) async {
+    final requestId = ++_categoryRequestId;
     _isCategoryLoading = true;
     _categoryError = null;
     _selectedCategoryId = categoryId;
@@ -206,20 +206,25 @@ class ItemsProvider with ChangeNotifier {
 
     try {
       final items = await _itemsService.fetchItemsByCategory(categoryId);
+      if (requestId != _categoryRequestId) return;
       _categoryItems = items;
       _categoryError = null;
     } catch (e) {
+      if (requestId != _categoryRequestId) return;
       _categoryError = e.toString();
       _categoryItems = [];
       print('Error fetching category items: $e');
     } finally {
-      _isCategoryLoading = false;
-      notifyListeners();
+      if (requestId == _categoryRequestId) {
+        _isCategoryLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   /// Clear category selection and items
   void clearCategorySelection() {
+    _categoryRequestId++;
     _categoryItems = [];
     _isCategoryLoading = false;
     _categoryError = null;

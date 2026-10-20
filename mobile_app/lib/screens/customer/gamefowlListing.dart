@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
-import '../../utils/auth_guard.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
-import 'conversationScreen.dart';
 import 'gamefowlProdDetail.dart';
 
 class gamefowlListing extends StatefulWidget {
@@ -35,7 +33,6 @@ class _gamefowlListingState extends State<gamefowlListing> {
   List<Map<String, dynamic>> _shopItems = [];
   String? _error;
 
-  bool _isFollowing = false;
   int _selectedTab = 0;
   dynamic _selectedCategoryId;
 
@@ -54,120 +51,14 @@ class _gamefowlListingState extends State<gamefowlListing> {
     'Bundles',
   ];
 
-  // ================================================================
-  // DUMMY GAMEFOWL DATA
-  // ================================================================
-
-  final List<Map<String, dynamic>> _dummyAllGamefowlItems = [
-    {
-      'id': 'dummy_gamefowl_1',
-      'item_id': 'dummy_gamefowl_1',
-      'item_name': 'Golden Champion',
-      'item_price': 8500,
-      'gamefowl_type': 'One way / Pure',
-      'breeder_name': 'Golden Crest Game Farm',
-      'age': '8 weeks old',
-      'description':
-          'A quality gamefowl from Golden Crest Game Farm.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_2',
-      'item_id': 'dummy_gamefowl_2',
-      'item_name': 'Royal Red Warrior',
-      'item_price': 10000,
-      'gamefowl_type': 'Two-way cross',
-      'breeder_name': 'Royal Feather Game Farm',
-      'age': '9 weeks old',
-      'description':
-          'A strong two-way cross gamefowl with good bloodline.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_3',
-      'item_id': 'dummy_gamefowl_3',
-      'item_name': 'Blue Warrior',
-      'item_price': 12500,
-      'gamefowl_type': 'Three-way cross',
-      'breeder_name': 'Blue Ridge Game Farm',
-      'age': '10 weeks old',
-      'description':
-          'A three-way cross gamefowl from Blue Ridge Game Farm.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_4',
-      'item_id': 'dummy_gamefowl_4',
-      'item_name': 'Red Comb Champion',
-      'item_price': 9000,
-      'gamefowl_type': 'One way / Pure',
-      'breeder_name': 'Red Comb Game Farm',
-      'age': '8 weeks old',
-      'description':
-          'A pure gamefowl with a strong red comb.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_5',
-      'item_id': 'dummy_gamefowl_5',
-      'item_name': 'Black Pearl',
-      'item_price': 15000,
-      'gamefowl_type': 'Four-way cross',
-      'breeder_name': 'Black Pearl Game Farm',
-      'age': '11 weeks old',
-      'description':
-          'A four-way cross gamefowl from Black Pearl Game Farm.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_6',
-      'item_id': 'dummy_gamefowl_6',
-      'item_name': 'Golden Hatch',
-      'item_price': 11000,
-      'gamefowl_type': 'Two-way cross',
-      'breeder_name': 'Golden Hatch Farm',
-      'age': '9 weeks old',
-      'description':
-          'A quality two-way cross gamefowl.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_7',
-      'item_id': 'dummy_gamefowl_7',
-      'item_name': 'Royal Sweater',
-      'item_price': 13500,
-      'gamefowl_type': 'Three-way cross',
-      'breeder_name': 'Royal Sweater Farm',
-      'age': '10 weeks old',
-      'description':
-          'A three-way cross gamefowl from Royal Sweater Farm.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-    {
-      'id': 'dummy_gamefowl_8',
-      'item_id': 'dummy_gamefowl_8',
-      'item_name': 'Champion Line',
-      'item_price': 9500,
-      'gamefowl_type': 'Multiple cross / Unknown',
-      'breeder_name': 'Champion Line Game Farm',
-      'age': '8 weeks old',
-      'description':
-          'A champion-line gamefowl suitable for breeding.',
-      'image': 'assets/images/manok.png',
-      'image_asset': 'assets/images/manok.png',
-    },
-  ];
-
   List<Map<String, dynamic>> get _filteredShopItems {
+    final categories = context.read<CategoryProvider>().categories;
+    if (categories.isEmpty) return [];
     List<Map<String, dynamic>> items =
-        List<Map<String, dynamic>>.from(_shopItems);
+        _shopItems.where((item) => isGamefowlItem(
+              item,
+              categories: categories,
+            )).toList();
 
     if (_selectedCategoryId != null) {
       final categories = Provider.of<CategoryProvider>(
@@ -178,7 +69,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
       Map<String, dynamic>? selectedCategory;
 
       for (final category in categories) {
-        if (category['id'] == _selectedCategoryId) {
+        if (category['id']?.toString() == _selectedCategoryId?.toString()) {
           selectedCategory = category;
           break;
         }
@@ -187,7 +78,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
       if (selectedCategory != null) {
         items = items
             .where(
-              (item) => _itemMatchesCategory(
+              (item) => itemMatchesCategory(
                 item,
                 selectedCategory!,
               ),
@@ -266,7 +157,6 @@ class _gamefowlListingState extends State<gamefowlListing> {
       final isMultipleCross =
           type.contains('multiple') ||
           type.contains('multi') ||
-          type.contains('cross') ||
           combined.contains('multiple cross') ||
           combined.contains('multiple-cross') ||
           combined.contains('multi cross');
@@ -286,28 +176,8 @@ class _gamefowlListingState extends State<gamefowlListing> {
           combined.contains('bundle');
     }
 
-    return type.contains(selected) ||
-        selected.contains(type);
-  }
-
-  bool _itemMatchesCategory(
-    Map<String, dynamic> item,
-    Map<String, dynamic> category,
-  ) {
-    final raw =
-        (item['category'] ?? '').toString().trim();
-
-    if (raw.isEmpty) return false;
-
-    final categoryId =
-        category['id']?.toString();
-
-    final categoryName =
-        (category['name'] ?? '').toString();
-
-    return raw == categoryId ||
-        raw.toLowerCase() ==
-            categoryName.toLowerCase();
+    return type.isNotEmpty &&
+        (type.contains(selected) || selected.contains(type));
   }
 
   @override
@@ -358,17 +228,12 @@ class _gamefowlListingState extends State<gamefowlListing> {
         widget.shopId,
       );
 
-     final items = shopsProvider.getShopItems(widget.shopId);
-
-// Display the actual products returned for this farm.
-// Do not filter by gamefowl-specific fields because the API
-// products might not contain those fields.
-final gamefowlItems = List<Map<String, dynamic>>.from(items);
+      final items = shopsProvider.getShopItems(widget.shopId);
 
       if (mounted) {
         setState(() {
           _shopDetails = shopData;
-          _shopItems = gamefowlItems;
+          _shopItems = List<Map<String, dynamic>>.from(items);
           _isLoading = false;
           _error =
               shopsProvider.getDetailsError(
@@ -1011,7 +876,7 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
       onTap: () {
         /*
          * IMPORTANT:
-         * Dummy products now have their own dummy ID.
+         * Use each live item's ID when opening its details.
          *
          * This allows the card to proceed to Product Details.
          * The complete product information is passed through
@@ -1295,71 +1160,6 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
         );
       },
     );
-  }
-
-  bool _isGamefowlItem(
-    Map<String, dynamic> product,
-  ) {
-    final identity = [
-      _getProductName(product),
-      product['shop_name']?.toString() ?? '',
-      product['seller_name']?.toString() ?? '',
-      product['breeder_name']?.toString() ?? '',
-    ].join(' ').toLowerCase();
-
-    if (identity.contains('test') ||
-        identity.contains('jizter') ||
-        identity.contains('paws') ||
-        identity.contains('agrivet')) {
-      return false;
-    }
-
-    final gamefowlFields = [
-      product['gamefowl_type'],
-      product['fowl_type'],
-      product['breed_type'],
-      product['gamefowl_age'],
-      product['fowl_age'],
-      product['gamefowl_sex'],
-      product['fowl_sex'],
-    ];
-
-    if (gamefowlFields.any(
-      (value) =>
-          value != null &&
-          value.toString().trim().isNotEmpty,
-    )) {
-      return true;
-    }
-
-    final type =
-        _getGamefowlType(product)
-            .toLowerCase()
-            .trim();
-
-    final name =
-        _getProductName(product)
-            .toLowerCase()
-            .trim();
-
-    final gamefowlTypeTerms = [
-      'one way',
-      'one-way',
-      'two way',
-      'two-way',
-      'three way',
-      'three-way',
-      'four way',
-      'four-way',
-      'multiple cross',
-      'pure',
-      'gamefowl',
-    ];
-
-    return gamefowlTypeTerms.any(
-          (term) => type.contains(term),
-        ) ||
-        name.contains('gamefowl');
   }
 
   String _getProductName(
@@ -2180,10 +1980,6 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
                   _buildInfoRow(
                     Icons.phone_outlined,
                     contactNumber,
-                    onTap: () =>
-                        _launchPhoneDialer(
-                      contactNumber,
-                    ),
                   ),
 
                 if (facebookAccount.isNotEmpty)
@@ -2210,67 +2006,6 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
                             : null,
                   ),
 
-                const SizedBox(
-                  height: 10,
-                ),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child:
-                          _buildActionButton(
-                        label:
-                            _isFollowing
-                                ? 'Following'
-                                : 'Follow',
-                        icon: _isFollowing
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        filled: false,
-                        onTap: () {
-                          setState(() {
-                            _isFollowing =
-                                !_isFollowing;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(
-                      width: 10,
-                    ),
-                    Expanded(
-                      child:
-                          _buildActionButton(
-                        label: 'Chat',
-                        icon: Icons
-                            .chat_bubble_outline,
-                        filled: true,
-                        onTap: () async {
-                          if (!await requireAuth(
-                            context,
-                          )) {
-                            return;
-                          }
-
-                          if (!mounted) return;
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ConversationScreen(
-                                shopId:
-                                    widget.shopId,
-                                shopName:
-                                    _getDisplayShopName(),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -2338,7 +2073,7 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
       }
     }
 
-    return 'Gamefarm';
+    return 'Shop';
   }
 
   String _getFacebookAccount() {
@@ -2462,60 +2197,6 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
     );
   }
 
-  Future<void> _launchPhoneDialer(
-    String phoneNumber,
-  ) async {
-    final cleaned = phoneNumber
-        .replaceAll(
-          RegExp(r'[^\d+]'),
-          '',
-        );
-
-    if (cleaned.isEmpty) return;
-
-    final uri = Uri(
-      scheme: 'tel',
-      path: cleaned,
-    );
-
-    try {
-      final launched =
-          await launchUrl(
-        uri,
-        mode: LaunchMode
-            .externalApplication,
-      );
-
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Could not open phone dialer',
-            ),
-            backgroundColor:
-                AppColors.error,
-          ),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Could not open phone dialer',
-            ),
-            backgroundColor:
-                AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   Widget _buildInfoRow(
     IconData icon,
     String text, {
@@ -2588,55 +2269,6 @@ final gamefowlItems = List<Map<String, dynamic>>.from(items);
                 : content,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required IconData icon,
-    required bool filled,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: filled
-          ? AppColors.brandPrimary
-          : Colors.grey[100],
-      borderRadius:
-          BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius:
-            BorderRadius.circular(8),
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: filled
-                    ? Colors.white
-                    : Colors.grey[700],
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight:
-                      FontWeight.w600,
-                  color: filled
-                      ? Colors.white
-                      : Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
