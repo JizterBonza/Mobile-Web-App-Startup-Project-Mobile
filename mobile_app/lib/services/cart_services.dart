@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../utils/api_endpoints.dart';
-
+import '../utils/gamefowl_item.dart';
 import '../services/api_service.dart';
 
 class CartService extends ApiService {
@@ -357,81 +357,16 @@ class CartService extends ApiService {
 
         ...line,
 
-        'id': cartLineId,
-
-        'cart_item_id': cartLineId,
-
-        'cart_id': parentCartId,
-
-        'user_id': line['user_id'] ?? data['user_id'],
-
-        'item_id': line['item_id'] ?? data['item_id'],
-
-        'shop_id': item['shop_id'] ??
-
-            line['shop_id'] ??
-
-            data['shop_id'],
-
-        'shop_name': item['shop_name'] ??
-
-            line['shop_name'] ??
-
-            data['shop_name'],
-
-        'item_name': item['item_name'] ??
-
-            line['item_name'] ??
-
-            data['item_name'],
-
-        'item_price': item['item_price'] ??
-
-            line['item_price'] ??
-
-            data['item_price'],
-
-        'item_quantity': item['item_quantity'] ??
-
-            line['item_quantity'] ??
-
-            data['item_quantity'],
-
-        'quantity': line['quantity'] ?? data['quantity'],
-
-        'price_snapshot':
-
-            line['price_snapshot'] ?? data['price_snapshot'],
-
-        'discounted_price':
-
-            line['discounted_price'] ?? data['discounted_price'],
-
-        'discount_status':
-
-            line['discount_status'] ?? data['discount_status'],
-
-        'discount_details':
-
-            line['discount_details'] ?? data['discount_details'],
-
-        'status': line['status'] ?? data['status'],
-
-        'added_at': line['created_at'] ?? data['created_at'],
-
-      };
-
-      cartItems.add(merged);
-
-      debugPrint(
-
-        'CART ITEM: lineId=$cartLineId, '
-
-        'parentCartId=$parentCartId, '
-
-        'itemId=${merged['item_id']}',
-
-      );
+        // Shop/product information used by CartScreen.
+        'shop_id': item['shop_id'] ?? data['shop_id'],
+        'shop_name': item['shop_name'] ?? data['shop_name'],
+        'item_name': item['item_name'] ?? data['item_name'],
+        'category': item['category'] ?? data['category'],
+        ...gamefowlFieldsFromItem(data),
+        ...gamefowlFieldsFromItem(item),
+        'item_price': item['item_price'] ?? data['item_price'],
+        'item_quantity':
+            item['item_quantity'] ?? data['item_quantity'],
 
     }
 

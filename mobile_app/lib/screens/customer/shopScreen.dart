@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/manila_time.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -35,35 +36,25 @@ class _ShopScreenState extends State<ShopScreen> {
   dynamic _selectedCategoryId;
 
   List<Map<String, dynamic>> get _filteredShopItems {
-    if (_selectedCategoryId == null) return _shopItems;
-
     final categories =
         Provider.of<CategoryProvider>(context, listen: false).categories;
+    if (categories.isEmpty) return [];
+    final regularItems = _shopItems
+        .where((item) => !isGamefowlItem(item, categories: categories))
+        .toList();
+    if (_selectedCategoryId == null) return regularItems;
     Map<String, dynamic>? selectedCategory;
     for (final category in categories) {
-      if (category['id'] == _selectedCategoryId) {
+      if (category['id']?.toString() == _selectedCategoryId?.toString()) {
         selectedCategory = category;
         break;
       }
     }
-    if (selectedCategory == null) return _shopItems;
+    if (selectedCategory == null) return regularItems;
 
-    return _shopItems
-        .where((item) => _itemMatchesCategory(item, selectedCategory!))
+    return regularItems
+        .where((item) => itemMatchesCategory(item, selectedCategory!))
         .toList();
-  }
-
-  bool _itemMatchesCategory(
-    Map<String, dynamic> item,
-    Map<String, dynamic> category,
-  ) {
-    final raw = (item['category'] ?? '').toString().trim();
-    if (raw.isEmpty) return false;
-
-    final categoryId = category['id']?.toString();
-    final categoryName = (category['name'] ?? '').toString();
-
-    return raw == categoryId || raw.toLowerCase() == categoryName.toLowerCase();
   }
 
   @override
@@ -364,17 +355,24 @@ class _ShopScreenState extends State<ShopScreen> {
           );
         }
 
+        final itemCategories = categories
+            .where((category) => !isGamefowlItem({
+                  'category_name': category['name'],
+                }))
+            .toList();
+
         return SizedBox(
           height: 36,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
+            itemCount: itemCategories.length,
             separatorBuilder: (_, __) => SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final category = categories[index];
+              final category = itemCategories[index];
               final categoryId = category['id'];
               final categoryName = category['name'] ?? 'Category';
-              final isSelected = _selectedCategoryId == categoryId;
+              final isSelected =
+                  _selectedCategoryId?.toString() == categoryId?.toString();
 
               return GestureDetector(
                 onTap: () {
@@ -1307,7 +1305,10 @@ class _ShopScreenState extends State<ShopScreen> {
                     Navigator.push(
                       context,
                       _createFadeRoute(
-                        ProductDetailScreen(productId: product['id']),
+                        ProductDetailScreen(
+                          productId: product['id'],
+                          productData: product,
+                        ),
                       ),
                     );
                   },

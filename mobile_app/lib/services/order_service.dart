@@ -94,28 +94,9 @@ class OrderService extends ApiService {
     return parsed != null && parsed > 0 ? parsed : null;
   }
 
-  /// Resolve the cart ID from the explicit argument first, then from item
-  /// maps that actually contain a cart_id/cartId field. Never use a product
-  /// ID or cart-item ID as a substitute for the cart ID.
-  int? _resolveCartId({
-    int? cartId,
-    required List<Map<String, dynamic>> items,
-  }) {
-    final explicitId = _positiveInt(cartId);
-    if (explicitId != null) return explicitId;
-
-    for (final item in items) {
-      final candidate = _positiveInt(item['cart_id'] ?? item['cartId']);
-      if (candidate != null) return candidate;
-    }
-    return null;
-  }
-
   /// Create a new order.
-  ///
-  /// Pass [cartId] when creating an order from the user's cart. If the
-  /// cart ID is also present as `cart_id` or `cartId` in an item map, it
-  /// can be resolved from there. Product IDs are never treated as cart IDs.
+  /// Each item carries its cart-row ID as `cart_id`, matching the original
+  /// order API contract.
   Future<Map<String, dynamic>> createOrder({
     required List<Map<String, dynamic>> items,
     required String shippingAddress,
@@ -127,7 +108,6 @@ class OrderService extends ApiService {
     String? orderInstruction,
     required int? deliveryMethodId,
     String? voucherCode,
-    int? cartId,
   }) async {
     try {
       print('========== CREATE ORDER ==========');
@@ -160,12 +140,10 @@ class OrderService extends ApiService {
         };
       }
 
-      final resolvedCartId = _resolveCartId(cartId: cartId, items: items);
-      if (resolvedCartId == null) {
+      if (items.any((item) => _positiveInt(item['cart_id']) == null)) {
         return {
           'success': false,
-          'message': 'Cart ID is missing or invalid. Pass the actual cart ID '
-              'to createOrder(cartId: ...) before submitting checkout.',
+          'message': 'A cart item ID is missing or invalid.',
           'data': null,
         };
       }
@@ -194,7 +172,6 @@ class OrderService extends ApiService {
 
       final body = <String, dynamic>{
         'user_id': userId,
-        'cart_id': resolvedCartId,
         'items': items,
         'subtotal': subtotal,
         'shipping_fee': shippingFee,

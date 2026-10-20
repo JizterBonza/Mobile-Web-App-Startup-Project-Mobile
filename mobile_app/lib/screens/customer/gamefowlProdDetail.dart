@@ -3,20 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
-import '../../services/cart_services.dart';
-import '../../services/favorite_services.dart';
-import '../../services/api_service.dart';
 import '../../services/shops_service.dart';
-import '../../utils/auth_guard.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
-import 'cartScreenV2.dart';
-import 'checkOutScreen.dart';
 import 'gamefowlListing.dart';
-import 'InquiryChat.dart';
-import 'GamefowlOrderReq.dart';
 
 
 class gamefowlProdDetail extends StatefulWidget {
@@ -39,16 +31,7 @@ class gamefowlProdDetail extends StatefulWidget {
 
 class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   int _selectedImageIndex = 0;
-  int _quantity = 1;
-  bool _isFavorite = false;
   bool _showAllReviews = false;
-  bool _isAddingToCart = false;
-  bool _isBuyingNow = false;
-  bool _isTogglingFavorite = false;
-  String? _favoriteId;
-  late double _averageRating;
-
-  final FavoriteService _favoriteService = FavoriteService();
   final ShopsService _shopsService = ShopsService();
 
   Map<String, dynamic>? _shopDetails;
@@ -69,7 +52,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       );
 
       itemsProvider.fetchItemReviews(widget.productId);
-      _checkFavoriteStatus();
 
       final product =
           widget.productData ?? itemsProvider.getItemById(widget.productId);
@@ -79,7 +61,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       _ensureShopLoaded(shopId);
     });
 
-    _averageRating = 0.0;
   }
 
   dynamic _resolveShopId(Map<String, dynamic>? product) {
@@ -145,7 +126,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     final name = value?.toString().trim() ?? '';
 
-    return name.isNotEmpty ? name : 'Gamefarm Davao';
+    return name.isNotEmpty ? name : 'Shop';
   }
 
   Future<void> _ensureShopLoaded(dynamic shopId) async {
@@ -394,166 +375,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  Future<void> _checkFavoriteStatus() async {
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        return;
-      }
-
-      final isFavorite = await _favoriteService.isItemFavorite(
-        userId,
-        widget.productId.toString(),
-      );
-
-      if (isFavorite) {
-        final favorites =
-            await _favoriteService.fetchFavoritesFromAPI(userId);
-
-        final favorite = favorites.firstWhere(
-          (fav) =>
-              fav['item_id'].toString() == widget.productId.toString(),
-          orElse: () => {},
-        );
-
-        if (favorite.isNotEmpty && mounted) {
-          setState(() {
-            _isFavorite = true;
-            _favoriteId = favorite['id'].toString();
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error checking favorite status: $e');
-    }
-  }
-
-  Future<void> _toggleFavorite() async {
-    if (_isTogglingFavorite) return;
-
-    if (!await requireAuth(context)) return;
-
-    if (!mounted) return;
-
-    setState(() {
-      _isTogglingFavorite = true;
-    });
-
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isTogglingFavorite = false;
-          });
-        }
-        return;
-      }
-
-      if (_isFavorite) {
-        if (_favoriteId == null) {
-          final favorites =
-              await _favoriteService.fetchFavoritesFromAPI(userId);
-
-          final favorite = favorites.firstWhere(
-            (fav) =>
-                fav['item_id'].toString() == widget.productId.toString(),
-            orElse: () => {},
-          );
-
-          if (favorite.isEmpty) {
-            if (mounted) {
-              setState(() {
-                _isFavorite = false;
-                _isTogglingFavorite = false;
-              });
-            }
-            return;
-          }
-
-          _favoriteId = favorite['id'].toString();
-        }
-
-        final result =
-            await _favoriteService.removeFromFavorites(_favoriteId!);
-
-        if (mounted) {
-          if (result['success'] == true) {
-            setState(() {
-              _isFavorite = false;
-              _favoriteId = null;
-            });
-
-            SnackbarHelper.showSuccess(
-              context,
-              result['message'] ?? 'Removed from favorites',
-              duration: const Duration(seconds: 1),
-            );
-          } else {
-            SnackbarHelper.showError(
-              context,
-              result['message'] ?? 'Failed to remove from favorites',
-            );
-          }
-        }
-      } else {
-        final result = await _favoriteService.addToFavorites(
-          userId: userId,
-          itemId: widget.productId.toString(),
-        );
-
-        if (mounted) {
-          if (result['success'] == true) {
-            final favorites =
-                await _favoriteService.fetchFavoritesFromAPI(userId);
-
-            final favorite = favorites.firstWhere(
-              (fav) =>
-                  fav['item_id'].toString() == widget.productId.toString(),
-              orElse: () => {},
-            );
-
-            if (!mounted) return;
-
-            setState(() {
-              _isFavorite = true;
-
-              if (favorite.isNotEmpty) {
-                _favoriteId = favorite['id'].toString();
-              }
-            });
-
-            SnackbarHelper.showSuccess(
-              context,
-              result['message'] ?? 'Added to favorites',
-              duration: const Duration(seconds: 1),
-            );
-          } else {
-            SnackbarHelper.showError(
-              context,
-              result['message'] ?? 'Failed to add to favorites',
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackbarHelper.showError(
-          context,
-          'Error updating favorite: ${e.toString()}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isTogglingFavorite = false;
-        });
-      }
-    }
-  }
-
   double _parsePrice(dynamic price) {
     if (price == null) return 0.0;
 
@@ -582,21 +403,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     }
 
     return 0.0;
-  }
-
-  int _parseStock(dynamic stock) {
-    if (stock == null) return 50;
-
-    if (stock is num) {
-      return stock.toInt();
-    }
-
-    if (stock is String) {
-      final parsed = int.tryParse(stock);
-      return parsed ?? 50;
-    }
-
-    return 50;
   }
 
   double _getAverage() {
@@ -724,7 +530,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         'type',
         'category_name',
       ],
-      'One way / Pure',
+      'Unknown',
     );
   }
 
@@ -785,12 +591,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
           product?['product_description'] ??
           ''
     ).toString();
-
-    final productStock = _parseStock(
-      product?['item_quantity'] ??
-          product?['quantity'] ??
-          product?['stock'],
-    );
 
     final images = _resolveProductImages(product);
 
@@ -861,30 +661,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                                   ),
                                 ),
                                 const Spacer(),
-                                GestureDetector(
-                                  onTap: _isTogglingFavorite
-                                      ? null
-                                      : _toggleFavorite,
-                                  child: _isTogglingFavorite
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Color(0xFFB8BAC0),
-                                          ),
-                                        )
-                                      : Icon(
-                                          _isFavorite
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          size: 20,
-                                          color: _isFavorite
-                                              ? AppColors.error
-                                              : const Color(0xFFB8BAC0),
-                                        ),
-                                ),
-                                const SizedBox(width: 5),
                                 Text(
                                   '$soldCount sold',
                                   style: const TextStyle(
@@ -954,11 +730,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ],
             ),
           ),
-          _buildBottomActionBar(
-            productPrice,
-            productStock > 0,
-            shopId,
-          ),
+          _buildBottomActionBar(),
         ],
       ),
     );
@@ -993,69 +765,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ),
             ),
             const Spacer(),
-            Consumer<BadgeProvider>(
-              builder: (context, badges, _) {
-                final count =
-                    BadgeProvider.formatBadgeCount(badges.cartCount);
-
-                return _buildCircleIconButton(
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CartScreenV2(),
-                      ),
-                    );
-
-                    if (mounted) {
-                      context.read<BadgeProvider>().fetchBadges();
-                    }
-                  },
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/Crate.svg',
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          Colors.grey[800]!,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      if (count != null)
-                        Positioned(
-                          top: -8,
-                          right: -10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentAmber,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                            ),
-                            child: Text(
-                              count,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
             _buildCircleIconButton(
               onTap: () {
                 SnackbarHelper.showSuccess(
