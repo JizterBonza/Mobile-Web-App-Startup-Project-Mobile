@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
+import '../../provider/category_provider.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/cart_item_pricing.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/snackbar_helper.dart';
 import 'customerDashboardScreen.dart';
 import 'checkOutScreen.dart';
@@ -18,6 +21,7 @@ class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _categoriesReady = false;
   Set<String> _selectedItems = {}; // Track selected items by their ID
 
   // Group items by shop_id
@@ -48,6 +52,11 @@ class _CartScreenState extends State<CartScreen> {
   double _getEffectivePrice(Map<String, dynamic> item) {
     return CartItemPricing.fromCartMap(item).effectivePrice;
   }
+
+  bool _isGamefowlCartItem(Map<String, dynamic> item) => isGamefowlItem(
+        item,
+        categories: context.read<CategoryProvider>().categories,
+      );
 
   // Check if item quantity exceeds available stock
   bool _isQuantityValid(Map<String, dynamic> item) {
@@ -82,7 +91,7 @@ class _CartScreenState extends State<CartScreen> {
         .toList();
     return shopItems.fold(0.0, (sum, item) {
       final itemId = item['id'].toString();
-      if (!_selectedItems.contains(itemId) || !_isQuantityValid(item)) {
+      if (!_categoriesReady || !_selectedItems.contains(itemId) || !_isQuantityValid(item) || _isGamefowlCartItem(item)) {
         return sum;
       }
       final effectivePrice = _getEffectivePrice(item);
@@ -97,7 +106,7 @@ class _CartScreenState extends State<CartScreen> {
         .toList();
     return shopItems.where((item) {
       final itemId = item['id'].toString();
-      return _selectedItems.contains(itemId) && _isQuantityValid(item);
+      return _categoriesReady && _selectedItems.contains(itemId) && _isQuantityValid(item) && !_isGamefowlCartItem(item);
     }).length;
   }
 
@@ -108,7 +117,7 @@ class _CartScreenState extends State<CartScreen> {
         .toList();
     return shopItems.where((item) {
       final itemId = item['id'].toString();
-      return _selectedItems.contains(itemId) && _isQuantityValid(item);
+      return _categoriesReady && _selectedItems.contains(itemId) && _isQuantityValid(item) && !_isGamefowlCartItem(item);
     }).toList();
   }
 
@@ -116,7 +125,7 @@ class _CartScreenState extends State<CartScreen> {
     return _cartItems.fold(0.0, (sum, item) {
       final itemId = item['id'].toString();
       // Only include checked items with valid quantity (quantity <= item_quantity)
-      if (!_selectedItems.contains(itemId) || !_isQuantityValid(item)) {
+      if (!_categoriesReady || !_selectedItems.contains(itemId) || !_isQuantityValid(item) || _isGamefowlCartItem(item)) {
         return sum;
       }
       final effectivePrice = _getEffectivePrice(item);
@@ -154,6 +163,8 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _toggleItemSelection(String itemId) {
+    final matches = _cartItems.where((item) => item['id'].toString() == itemId);
+    if (!_categoriesReady || matches.isEmpty || _isGamefowlCartItem(matches.first)) return;
     setState(() {
       if (_selectedItems.contains(itemId)) {
         _selectedItems.remove(itemId);
@@ -295,15 +306,18 @@ class _CartScreenState extends State<CartScreen> {
         return;
       }
 
+      final categories = context.read<CategoryProvider>();
+      if (categories.categories.isEmpty) await categories.fetchCategories();
       final cartItems = await CartService().fetchCartItemsFromAPI(userId);
       setState(() {
+        _categoriesReady = categories.categories.isNotEmpty;
         _cartItems = cartItems;
 
         // Remove any invalid items from selection
         final itemsToRemove = <String>[];
         for (var item in cartItems) {
           final itemId = item['id'].toString();
-          if (!_isQuantityValid(item) && _selectedItems.contains(itemId)) {
+          if ((!_categoriesReady || !_isQuantityValid(item) || _isGamefowlCartItem(item)) && _selectedItems.contains(itemId)) {
             itemsToRemove.add(itemId);
           }
         }
@@ -708,7 +722,8 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCartItem(Map<String, dynamic> item, int index) {
-    final isValidQuantity = _isQuantityValid(item);
+    final isGamefowl = _isGamefowlCartItem(item);
+    final isValidQuantity = _categoriesReady && _isQuantityValid(item) && !isGamefowl;
     final itemId = item['id'].toString();
     final isSelected = _selectedItems.contains(itemId);
 
@@ -785,6 +800,16 @@ class _CartScreenState extends State<CartScreen> {
                   primaryFontSize: 18,
                   strikethroughFontSize: 14,
                 ),
+                if (!_categoriesReady)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text('Item category unavailable. Refresh the cart to retry.'),
+                  )
+                else if (isGamefowl)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text('Gamefowl is view only. Remove this item to clear it from your cart.'),
+                  ),
                 if (!_isQuantityValid(item))
                   Padding(
                     padding: EdgeInsets.only(top: 4),
@@ -815,7 +840,7 @@ class _CartScreenState extends State<CartScreen> {
                             icon: Icon(Icons.remove, size: 18),
                             padding: EdgeInsets.all(4),
                             constraints: BoxConstraints(),
-                            onPressed: _shouldDisableRemove(item)
+                            onPressed: !_categoriesReady || isGamefowl || _shouldDisableRemove(item)
                                 ? null
                                 : () {
                                     _updateQuantity(
@@ -840,7 +865,7 @@ class _CartScreenState extends State<CartScreen> {
                             icon: Icon(Icons.add, size: 18),
                             padding: EdgeInsets.all(4),
                             constraints: BoxConstraints(),
-                            onPressed: _shouldDisableAdd(item)
+                            onPressed: !_categoriesReady || isGamefowl || _shouldDisableAdd(item)
                                 ? null
                                 : () {
                                     _updateQuantity(

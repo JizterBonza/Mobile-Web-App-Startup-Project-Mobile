@@ -8,6 +8,7 @@ import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../services/shops_service.dart';
 import '../../utils/auth_guard.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
@@ -18,10 +19,12 @@ import 'shopScreen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic productId;
+  final Map<String, dynamic>? productData;
 
   const ProductDetailScreen({
     super.key,
     required this.productId,
+    this.productData,
   });
 
   @override
@@ -35,6 +38,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _showAllReviews = false;
   bool _isAddingToCart = false;
   bool _isBuyingNow = false;
+  bool _categoriesReady = false;
   bool _isTogglingFavorite = false;
   String? _favoriteId; // Store favorite record ID for removal
   late double _averageRating;
@@ -50,14 +54,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.initState();
     // Fetch reviews when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCategoriesForPurchase();
       final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
       itemsProvider.fetchItemReviews(widget.productId);
       _checkFavoriteStatus();
-      final product = itemsProvider.getItemById(widget.productId);
+      final product = widget.productData ?? itemsProvider.getItemById(widget.productId);
       _ensureShopLoaded(product?['shop_id']);
     });
 
     _averageRating = _getAverage() as double;
+  }
+
+  Future<void> _loadCategoriesForPurchase() async {
+    final provider = context.read<CategoryProvider>();
+    if (provider.categories.isEmpty) await provider.fetchCategories();
+    if (mounted) {
+      setState(() => _categoriesReady = provider.categories.isNotEmpty);
+    }
+  }
+
+  Map<String, dynamic>? get _currentProduct => widget.productData ??
+      context.read<ItemsProvider>().getItemById(widget.productId);
+
+  bool get _isGamefowlProduct {
+    final product = _currentProduct;
+    return product != null && isGamefowlItem(
+      product,
+      categories: context.read<CategoryProvider>().categories,
+    );
   }
 
   Future<void> _ensureShopLoaded(dynamic shopId) async {
@@ -369,7 +393,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final itemsProvider = Provider.of<ItemsProvider>(context);
-    final product = itemsProvider.getItemById(widget.productId);
+    final product = widget.productData ?? itemsProvider.getItemById(widget.productId);
 
     final productName = product?['item_name'] ?? 'Product';
     final productPrice = _parsePrice(product?['item_price']);
@@ -1408,6 +1432,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart(double price) async {
+    if (!_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
     if (!await requireAuth(context)) return;
 
     setState(() {
@@ -1466,6 +1491,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   /// Sets the cart line to the Buy Now quantity (update if present, add if not),
   /// then opens checkout with only that line.
   Future<void> _handleBuyNow(double price) async {
+    if (!_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
     if (_isBuyingNow || _isAddingToCart) return;
     if (!await requireAuth(context)) return;
 
@@ -1547,7 +1573,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return;
       }
 
-      final product = Provider.of<ItemsProvider>(context, listen: false)
+      final product = widget.productData ?? Provider.of<ItemsProvider>(context, listen: false)
           .getItemById(widget.productId);
 
       final checkoutItem = <String, dynamic>{
@@ -1606,8 +1632,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildBottomActionBar(double price, bool inStock) {
+    if (_isGamefowlProduct) {
+      return const SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: Text('Gamefowl is available to view only')),
+        ),
+      );
+    }
+    if (!_categoriesReady) {
+      return SafeArea(
+        top: false,
+        child: TextButton(
+          onPressed: _loadCategoriesForPurchase,
+          child: const Text('Retry item check'),
+        ),
+      );
+    }
+    if (_currentProduct == null) {
+      return const SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: Text('Item details are unavailable')),
+        ),
+      );
+    }
     final actionsBusy = _isAddingToCart || _isBuyingNow;
-    final canAct = inStock && !actionsBusy;
+    final canAct = inStock && _categoriesReady && !actionsBusy;
 
     return Container(
       decoration: BoxDecoration(

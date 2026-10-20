@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../utils/api_endpoints.dart';
+import '../utils/gamefowl_item.dart';
 import '../services/api_service.dart';
 
 class CartService extends ApiService {
@@ -160,6 +161,9 @@ class CartService extends ApiService {
         'shop_id': item['shop_id'] ?? data['shop_id'],
         'shop_name': item['shop_name'] ?? data['shop_name'],
         'item_name': item['item_name'] ?? data['item_name'],
+        'category': item['category'] ?? data['category'],
+        ...gamefowlFieldsFromItem(data),
+        ...gamefowlFieldsFromItem(item),
         'item_price': item['item_price'] ?? data['item_price'],
         'item_quantity':
             item['item_quantity'] ?? data['item_quantity'],

@@ -3,20 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
-import '../../services/cart_services.dart';
-import '../../services/favorite_services.dart';
-import '../../services/api_service.dart';
 import '../../services/shops_service.dart';
-import '../../utils/auth_guard.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
-import 'cartScreenV2.dart';
-import 'checkOutScreen.dart';
 import 'gamefowlListing.dart';
-import 'InquiryChat.dart';
-import 'GamefowlOrderReq.dart';
 
 
 class gamefowlProdDetail extends StatefulWidget {
@@ -39,21 +31,11 @@ class gamefowlProdDetail extends StatefulWidget {
 
 class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   int _selectedImageIndex = 0;
-  int _quantity = 1;
-  bool _isFavorite = false;
   bool _showAllReviews = false;
-  bool _isAddingToCart = false;
-  bool _isBuyingNow = false;
-  bool _isTogglingFavorite = false;
-  String? _favoriteId;
-  late double _averageRating;
-
-  final FavoriteService _favoriteService = FavoriteService();
   final ShopsService _shopsService = ShopsService();
 
   Map<String, dynamic>? _shopDetails;
   bool _isLoadingShop = false;
-  bool _hasInquired = false;
   int _selectedVariantIndex = 0;
   dynamic _loadedShopId;
 
@@ -70,7 +52,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       );
 
       itemsProvider.fetchItemReviews(widget.productId);
-      _checkFavoriteStatus();
 
       final product =
           widget.productData ?? itemsProvider.getItemById(widget.productId);
@@ -80,7 +61,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       _ensureShopLoaded(shopId);
     });
 
-    _averageRating = 0.0;
   }
 
   dynamic _resolveShopId(Map<String, dynamic>? product) {
@@ -146,7 +126,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     final name = value?.toString().trim() ?? '';
 
-    return name.isNotEmpty ? name : 'Gamefarm Davao';
+    return name.isNotEmpty ? name : 'Shop';
   }
 
   Future<void> _ensureShopLoaded(dynamic shopId) async {
@@ -395,166 +375,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  Future<void> _checkFavoriteStatus() async {
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        return;
-      }
-
-      final isFavorite = await _favoriteService.isItemFavorite(
-        userId,
-        widget.productId.toString(),
-      );
-
-      if (isFavorite) {
-        final favorites =
-            await _favoriteService.fetchFavoritesFromAPI(userId);
-
-        final favorite = favorites.firstWhere(
-          (fav) =>
-              fav['item_id'].toString() == widget.productId.toString(),
-          orElse: () => {},
-        );
-
-        if (favorite.isNotEmpty && mounted) {
-          setState(() {
-            _isFavorite = true;
-            _favoriteId = favorite['id'].toString();
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error checking favorite status: $e');
-    }
-  }
-
-  Future<void> _toggleFavorite() async {
-    if (_isTogglingFavorite) return;
-
-    if (!await requireAuth(context)) return;
-
-    if (!mounted) return;
-
-    setState(() {
-      _isTogglingFavorite = true;
-    });
-
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isTogglingFavorite = false;
-          });
-        }
-        return;
-      }
-
-      if (_isFavorite) {
-        if (_favoriteId == null) {
-          final favorites =
-              await _favoriteService.fetchFavoritesFromAPI(userId);
-
-          final favorite = favorites.firstWhere(
-            (fav) =>
-                fav['item_id'].toString() == widget.productId.toString(),
-            orElse: () => {},
-          );
-
-          if (favorite.isEmpty) {
-            if (mounted) {
-              setState(() {
-                _isFavorite = false;
-                _isTogglingFavorite = false;
-              });
-            }
-            return;
-          }
-
-          _favoriteId = favorite['id'].toString();
-        }
-
-        final result =
-            await _favoriteService.removeFromFavorites(_favoriteId!);
-
-        if (mounted) {
-          if (result['success'] == true) {
-            setState(() {
-              _isFavorite = false;
-              _favoriteId = null;
-            });
-
-            SnackbarHelper.showSuccess(
-              context,
-              result['message'] ?? 'Removed from favorites',
-              duration: const Duration(seconds: 1),
-            );
-          } else {
-            SnackbarHelper.showError(
-              context,
-              result['message'] ?? 'Failed to remove from favorites',
-            );
-          }
-        }
-      } else {
-        final result = await _favoriteService.addToFavorites(
-          userId: userId,
-          itemId: widget.productId.toString(),
-        );
-
-        if (mounted) {
-          if (result['success'] == true) {
-            final favorites =
-                await _favoriteService.fetchFavoritesFromAPI(userId);
-
-            final favorite = favorites.firstWhere(
-              (fav) =>
-                  fav['item_id'].toString() == widget.productId.toString(),
-              orElse: () => {},
-            );
-
-            if (!mounted) return;
-
-            setState(() {
-              _isFavorite = true;
-
-              if (favorite.isNotEmpty) {
-                _favoriteId = favorite['id'].toString();
-              }
-            });
-
-            SnackbarHelper.showSuccess(
-              context,
-              result['message'] ?? 'Added to favorites',
-              duration: const Duration(seconds: 1),
-            );
-          } else {
-            SnackbarHelper.showError(
-              context,
-              result['message'] ?? 'Failed to add to favorites',
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackbarHelper.showError(
-          context,
-          'Error updating favorite: ${e.toString()}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isTogglingFavorite = false;
-        });
-      }
-    }
-  }
-
   double _parsePrice(dynamic price) {
     if (price == null) return 0.0;
 
@@ -583,21 +403,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     }
 
     return 0.0;
-  }
-
-  int _parseStock(dynamic stock) {
-    if (stock == null) return 50;
-
-    if (stock is num) {
-      return stock.toInt();
-    }
-
-    if (stock is String) {
-      final parsed = int.tryParse(stock);
-      return parsed ?? 50;
-    }
-
-    return 50;
   }
 
   double _getAverage() {
@@ -725,7 +530,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         'type',
         'category_name',
       ],
-      'One way / Pure',
+      'Unknown',
     );
   }
 
@@ -786,12 +591,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
           product?['product_description'] ??
           ''
     ).toString();
-
-    final productStock = _parseStock(
-      product?['item_quantity'] ??
-          product?['quantity'] ??
-          product?['stock'],
-    );
 
     final images = _resolveProductImages(product);
 
@@ -862,30 +661,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                                   ),
                                 ),
                                 const Spacer(),
-                                GestureDetector(
-                                  onTap: _isTogglingFavorite
-                                      ? null
-                                      : _toggleFavorite,
-                                  child: _isTogglingFavorite
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Color(0xFFB8BAC0),
-                                          ),
-                                        )
-                                      : Icon(
-                                          _isFavorite
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          size: 20,
-                                          color: _isFavorite
-                                              ? AppColors.error
-                                              : const Color(0xFFB8BAC0),
-                                        ),
-                                ),
-                                const SizedBox(width: 5),
                                 Text(
                                   '$soldCount sold',
                                   style: const TextStyle(
@@ -934,11 +709,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ],
             ),
           ),
-          _buildBottomActionBar(
-            productPrice,
-            productStock > 0,
-            shopId,
-          ),
+          _buildBottomActionBar(),
         ],
       ),
     );
@@ -973,69 +744,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ),
             ),
             const Spacer(),
-            Consumer<BadgeProvider>(
-              builder: (context, badges, _) {
-                final count =
-                    BadgeProvider.formatBadgeCount(badges.cartCount);
-
-                return _buildCircleIconButton(
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CartScreenV2(),
-                      ),
-                    );
-
-                    if (mounted) {
-                      context.read<BadgeProvider>().fetchBadges();
-                    }
-                  },
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/Crate.svg',
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          Colors.grey[800]!,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      if (count != null)
-                        Positioned(
-                          top: -8,
-                          right: -10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentAmber,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                            ),
-                            child: Text(
-                              count,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
             _buildCircleIconButton(
               onTap: () {
                 SnackbarHelper.showSuccess(
@@ -1945,402 +1653,14 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  /// Returns the real database item_id used by the cart API.
-  int? _getCartItemId() {
-    Map<String, dynamic>? product = widget.productData;
-
-    product ??= Provider.of<ItemsProvider>(
-      context,
-      listen: false,
-    ).getItemById(widget.productId);
-
-    final rawItemId = product?['item_id'];
-
-    if (rawItemId == null) return null;
-
-    final itemId = int.tryParse(rawItemId.toString().trim());
-
-    if (itemId == null || itemId <= 0) return null;
-
-    return itemId;
-  }
-
-  void _showInvalidItemIdMessage() {
-    if (!mounted) return;
-
-    SnackbarHelper.showError(
-      context,
-      'This gamefowl listing has no valid item ID. Please refresh the listing or check the product data.',
-    );
-  }
-
-  Future<void> _handleAddToCart(double price) async {
-    if (!await requireAuth(context)) return;
-
-    final itemId = _getCartItemId();
-
-    if (itemId == null) {
-      _showInvalidItemIdMessage();
-      return;
-    }
-
-    setState(() {
-      _isAddingToCart = true;
-    });
-
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isAddingToCart = false;
-          });
-        }
-        return;
-      }
-
-      final cartService = CartService();
-
-      final result = await cartService.addToCart(
-        userId: userId,
-        itemId: itemId.toString(),
-        price: price,
-        quantity: _quantity,
-      );
-
-      if (mounted) {
-        if (result['success'] == true) {
-          context.read<BadgeProvider>().fetchBadges();
-
-          SnackbarHelper.showSuccess(
-            context,
-            result['message'] ?? 'Added $_quantity item(s) to cart',
-            duration: const Duration(seconds: 2),
-          );
-        } else {
-          SnackbarHelper.showError(
-            context,
-            result['message'] ?? 'Failed to add item to cart',
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackbarHelper.showError(
-          context,
-          'Error adding to cart: ${e.toString()}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAddingToCart = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleBuyNow(double price) async {
-    if (_isBuyingNow || _isAddingToCart) {
-      return;
-    }
-
-    if (!await requireAuth(context)) {
-      return;
-    }
-
-    final itemId = _getCartItemId();
-
-    if (itemId == null) {
-      _showInvalidItemIdMessage();
-      return;
-    }
-
-    setState(() {
-      _isBuyingNow = true;
-    });
-
-    try {
-      final userId = await ApiService.getUserId();
-
-      if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isBuyingNow = false;
-          });
-        }
-        return;
-      }
-
-      final cartService = CartService();
-      final productIdStr = itemId.toString();
-
-      var cartItems = await cartService.fetchCartItemsFromAPI(userId);
-
-      Map<String, dynamic>? cartLine;
-
-      for (final item in cartItems) {
-        if (item['item_id']?.toString() == productIdStr) {
-          cartLine = item;
-          break;
-        }
-      }
-
-      if (cartLine != null) {
-        final result = await cartService.updateCart(
-          cartItemId: cartLine['id'],
-          quantity: _quantity,
-        );
-
-        if (!mounted) return;
-
-        if (result['success'] != true) {
-          SnackbarHelper.showError(
-            context,
-            result['message'] ?? 'Failed to prepare checkout',
-          );
-          return;
-        }
-
-        cartLine = Map<String, dynamic>.from(cartLine);
-        cartLine['quantity'] = _quantity;
-      } else {
-        final result = await cartService.addToCart(
-          userId: userId,
-          itemId: productIdStr,
-          price: price,
-          quantity: _quantity,
-        );
-
-        if (!mounted) return;
-
-        if (result['success'] != true) {
-          SnackbarHelper.showError(
-            context,
-            result['message'] ?? 'Failed to prepare checkout',
-          );
-          return;
-        }
-
-        cartItems = await cartService.fetchCartItemsFromAPI(userId);
-
-        for (final item in cartItems) {
-          if (item['item_id']?.toString() == productIdStr) {
-            cartLine = item;
-            break;
-          }
-        }
-      }
-
-      if (!mounted) return;
-
-      if (cartLine == null) {
-        SnackbarHelper.showError(
-          context,
-          'Could not find item in cart for checkout',
-        );
-        return;
-      }
-
-      final product = Provider.of<ItemsProvider>(
-        context,
-        listen: false,
-      ).getItemById(widget.productId);
-
-      final checkoutItem = <String, dynamic>{
-        'id': cartLine['id'] is int
-            ? cartLine['id']
-            : int.tryParse(cartLine['id'].toString()) ?? cartLine['id'],
-        'item_id': cartLine['item_id'] is int
-            ? cartLine['item_id']
-            : int.tryParse(cartLine['item_id'].toString()) ??
-                cartLine['item_id'],
-        'shop_id': cartLine['shop_id'] is int
-            ? cartLine['shop_id']
-            : int.tryParse(cartLine['shop_id'].toString()) ??
-                cartLine['shop_id'],
-        'shop_name': cartLine['shop_name'],
-        'quantity': _quantity,
-        'price_snapshot': cartLine['price_snapshot']?.toString() ??
-            price.toStringAsFixed(2),
-        'item_name': cartLine['item_name'] ?? product?['item_name'],
-        'item_price': cartLine['item_price']?.toString() ??
-            price.toStringAsFixed(2),
-        'item_quantity': cartLine['item_quantity']?.toString() ??
-            product?['item_quantity']?.toString(),
-        if (product?['item_images'] != null)
-          'item_images': product!['item_images'],
-        if (cartLine['discounted_price'] != null)
-          'discounted_price': cartLine['discounted_price'].toString(),
-        if (cartLine['discount_status'] != null)
-          'discount_status': cartLine['discount_status'],
-        if (cartLine['discount_details'] != null)
-          'discount_details': cartLine['discount_details'],
-      };
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CheckOutScreen(
-            selectedCartItems: [checkoutItem],
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        SnackbarHelper.showError(
-          context,
-          'Error starting checkout: ${e.toString()}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isBuyingNow = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleOrderRequest(dynamic shopId) async {
-    final itemsProvider =
-        Provider.of<ItemsProvider>(context, listen: false);
-
-    final requestProduct =
-        widget.productData ?? itemsProvider.getItemById(widget.productId);
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => GamefowlOrderReq(
-          productData: requestProduct,
-          shopName: _getShopDisplayName(),
-          shopId: shopId,
-        ),
+  Widget _buildBottomActionBar() {
+    return const SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: Text('Gamefowl is available to view only')),
       ),
     );
   }
 
-  Future<void> _handleInquiry(dynamic shopId) async {
-    if (!await requireAuth(context)) {
-      return;
-    }
-
-    final itemsProvider =
-        Provider.of<ItemsProvider>(context, listen: false);
-
-    final inquiryProduct =
-        widget.productData ?? itemsProvider.getItemById(widget.productId);
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InquiryChat(
-          shopId: shopId,
-          shopName: _getShopDisplayName(),
-          productData: inquiryProduct,
-        ),
-      ),
-    );
-
-    if (!mounted) return;
-
-    if (result == true) {
-      setState(() {
-        _hasInquired = true;
-      });
-    }
-  }
-
-  Widget _buildBottomActionBar(
-    double price,
-    bool inStock,
-    dynamic shopId,
-  ) {
-    final actionsBusy = _isAddingToCart || _isBuyingNow;
-    final canAct = inStock && !actionsBusy;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: canAct
-                    ? const Color(0xFF4C66B3)
-                    : const Color(0xFF4C66B3).withOpacity(0.5),
-                child: InkWell(
-                  onTap: canAct ? () => _handleAddToCart(price) : null,
-                  child: const SizedBox(
-                    height: 52,
-                    child: Center(
-                      child: Text(
-                        'Add to Crate',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Material(
-                color: canAct
-                    ? const Color(0xFF29479A)
-                    : const Color(0xFF29479A).withOpacity(0.5),
-                child: InkWell(
-                  onTap: canAct
-                      ? () => _hasInquired
-                          ? _handleOrderRequest(shopId)
-                          : _handleInquiry(shopId)
-                      : null,
-                  child: SizedBox(
-                    height: 52,
-                    child: Center(
-                      child: _isBuyingNow
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              _hasInquired ? 'Order Request' : 'Inquire',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

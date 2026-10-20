@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
+import '../../provider/category_provider.dart';
 import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/voucher_service.dart';
 import '../../utils/cart_item_pricing.dart';
+import '../../utils/gamefowl_item.dart';
 import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
@@ -53,6 +55,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   bool _isCheckingZoneCoverage = false;
   bool _isLoadingPaymentMethods = true;
   bool _isLoadingCalculation = true;
+  bool _categoriesReady = false;
+  bool _isLoadingCategories = true;
   bool _isValidatingVoucher = false;
 
   double _subtotal = 0.0;
@@ -98,13 +102,12 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   // Payment methods from API.
   List<Map<String, dynamic>> _paymentMethods = [];
 
-  /// True if this checkout contains a direct gamefowl order.
-  ///
-  /// Direct gamefowl orders come from the Gamefowl Order Request screen.
-  /// They use the product/item ID and do not have a cart-row ID.
-  bool get _isDirectGamefowlOrder =>
+  bool get _hasGamefowlItems =>
       widget.selectedCartItems.any(
-        (item) => item['is_direct_gamefowl_order'] == true,
+        (item) => isGamefowlItem(
+          item,
+          categories: context.read<CategoryProvider?>()?.categories ?? const [],
+        ),
       );
 
   @override
@@ -114,9 +117,38 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     _orderService = widget.orderService ?? OrderService();
     _paymentService = widget.paymentService ?? PaymentService();
 
-    _loadUserProfile();
-    _loadDeliveryMethods();
-    _loadPaymentMethods();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadCategoriesForCheckout();
+      _loadUserProfile();
+      _loadDeliveryMethods();
+      _loadPaymentMethods();
+    });
+  }
+
+  Future<void> _loadCategoriesForCheckout() async {
+    if (!_isLoadingCategories && mounted) {
+      setState(() => _isLoadingCategories = true);
+    }
+    final provider = context.read<CategoryProvider?>();
+    if (provider == null) {
+      if (mounted) {
+        setState(() {
+          _categoriesReady = true;
+          _isLoadingCategories = false;
+        });
+        await _maybeRecalculateOrder();
+      }
+      return;
+    }
+    if (provider.categories.isEmpty) await provider.fetchCategories();
+    if (!mounted) return;
+    setState(() {
+      _categoriesReady = provider.categories.isNotEmpty;
+      _isLoadingCategories = false;
+      if (!_categoriesReady) _isLoadingCalculation = false;
+    });
+    if (_categoriesReady) await _maybeRecalculateOrder();
   }
 
   @override
@@ -166,7 +198,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   /// Builds the payload used for both fee calculation and order creation.
   ///
   /// Normal cart items include their real cart-row ID.
-  /// Direct gamefowl orders must not send the product ID as cart_id.
   List<Map<String, dynamic>> _buildOrderItemsPayload() {
     return widget.selectedCartItems.map((cartItem) {
       final item = <String, dynamic>{
@@ -176,29 +207,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         'price_at_purchase': _getEffectivePrice(cartItem),
       };
 
-      final isDirectGamefowl =
-          cartItem['is_direct_gamefowl_order'] == true;
-
-      if (!isDirectGamefowl) {
-        // Preserve the original cart-row ID for normal cart checkout.
-        final cartId = _parseId(cartItem['id']);
-
-        if (cartId != null) {
-          item['cart_id'] = cartId;
-        }
-      }
-
-      // Pass the gamefowl request details through to the API.
-      final gamefowlRequest = cartItem['gamefowl_request'];
-
-      if (gamefowlRequest != null) {
-        item['gamefowl_request'] = gamefowlRequest;
-      }
-
-      // Also pass the direct-order flag for backends that use it.
-      if (isDirectGamefowl) {
-        item['is_direct_gamefowl_order'] = true;
-      }
+      final cartItemId = _parseId(cartItem['id']);
+      if (cartItemId != null) item['cart_id'] = cartItemId;
 
       return item;
     }).toList();
@@ -501,7 +511,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Future<void> _maybeRecalculateOrder() async {
-    if (_selectedAddress == null ||
+    if (!_categoriesReady || _selectedAddress == null ||
         _selectedDeliveryMethodId == null ||
         _isCheckingZoneCoverage ||
         _coverageBlocksCheckout) {
@@ -524,11 +534,14 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Future<void> _loadOrderCalculation() async {
+    if (!_categoriesReady) return;
+    if (_hasGamefowlItems) {
+      if (mounted) setState(() => _isLoadingCalculation = false);
+      return;
+    }
     final requestId = ++_calculationRequestId;
 
     try {
-      // Direct gamefowl orders are sent without cart_id.
-      // Normal cart orders retain their real cart-row ID.
       final orderItems = _buildOrderItemsPayload();
 
       final result = await _orderService.calculateOrder(
@@ -660,6 +673,16 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   
   Future<void> _placeOrder() async {
     if (_isLoading) return;
+
+    if (!_categoriesReady) {
+      SnackbarHelper.showError(context, 'Item categories could not be verified. Please retry.');
+      return;
+    }
+
+    if (_hasGamefowlItems) {
+      SnackbarHelper.showError(context, 'Gamefowl is view only and cannot be checked out.');
+      return;
+    }
 
     if (!_formKey.currentState!.validate()) return;
 
@@ -1053,10 +1076,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               ),
             ],
           ),
-          if (_isDirectGamefowlOrder) ...[
+          if (_hasGamefowlItems) ...[
             const SizedBox(height: 6),
             const Text(
-              'Direct Gamefowl Order',
+              'Gamefowl is view only and cannot be checked out.',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey,
@@ -2887,7 +2910,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Widget _buildPlaceOrderButton() {
-    final isDisabled = _isLoading ||
+    final isDisabled = _hasGamefowlItems ||
+        _isLoading ||
         _isLoadingCalculation ||
         _isCheckingZoneCoverage ||
         _coverageBlocksCheckout ||
@@ -2897,7 +2921,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ElevatedButton(
         key: const ValueKey('checkout-place-order-button'),
-        onPressed: isDisabled ? null : _placeOrder,
+        onPressed: _hasGamefowlItems
+            ? null
+            : !_categoriesReady && !_isLoadingCategories
+                ? _loadCategoriesForCheckout
+                : isDisabled || !_categoriesReady
+                    ? null
+                    : _placeOrder,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.brandPrimary,
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2919,7 +2949,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 ),
               )
             : Text(
-                _isCheckingZoneCoverage
+                _hasGamefowlItems
+                    ? 'Gamefowl cannot be checked out'
+                    : !_categoriesReady
+                        ? _isLoadingCategories
+                            ? 'Checking item categories...'
+                            : 'Retry item check'
+                        : _isCheckingZoneCoverage
                     ? 'Checking delivery coverage...'
                     : _isLoadingCalculation
                         ? 'Calculating...'
