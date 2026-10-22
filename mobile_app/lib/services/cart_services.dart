@@ -363,7 +363,11 @@ class CartService extends ApiService {
         'item_price': item['item_price'] ?? data['item_price'],
         'item_quantity':
             item['item_quantity'] ?? data['item_quantity'],
-
+        if (parentCartId != null) 'cart_id': parentCartId,
+        if (cartLineId != null) 'id': cartLineId,
+        'item': item,
+      };
+      cartItems.add(merged);
     }
 
     return cartItems;

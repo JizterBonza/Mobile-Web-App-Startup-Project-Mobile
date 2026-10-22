@@ -113,6 +113,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         ),
       );
 
+  bool get _isDirectGamefowlOrder => widget.selectedCartItems.any(
+        (item) => item['is_direct_gamefowl_order'] == true,
+      );
+
   @override
   void initState() {
     super.initState();
@@ -908,7 +912,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       }
 
       final result = await _orderService.createOrder(
-        cartId: checkoutCartId,
         items: orderItems,
         subtotal: _subtotal,
         shippingFee: _totalFees,

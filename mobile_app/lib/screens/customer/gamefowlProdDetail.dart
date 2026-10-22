@@ -4,11 +4,17 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../services/shops_service.dart';
+import '../../services/api_service.dart';
+import '../../services/cart_services.dart';
+import '../../utils/auth_guard.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'gamefowlListing.dart';
+import 'checkOutScreen.dart';
+import 'gamefowlOrderReq.dart';
+import 'InquiryChat.dart';
 
 
 class gamefowlProdDetail extends StatefulWidget {
@@ -31,6 +37,9 @@ class gamefowlProdDetail extends StatefulWidget {
 
 class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   int _selectedImageIndex = 0;
+  int _quantity = 1;
+  bool _isAddingToCart = false;
+  bool _isBuyingNow = false;
   bool _showAllReviews = false;
   final ShopsService _shopsService = ShopsService();
 
@@ -584,6 +593,9 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
           product?['product_price'] ??
           product?['amount'],
     );
+    final productStock = int.tryParse(
+          (product?['item_quantity'] ?? product?['stock'] ?? 0).toString(),
+        ) ?? 0;
 
     final productDescription = (
       product?['item_description'] ??
@@ -730,7 +742,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ],
             ),
           ),
-          _buildBottomActionBar(),
+          _buildBottomActionBar(productPrice, productStock > 0, shopId),
         ],
       ),
     );
