@@ -60,6 +60,7 @@ Map<String, dynamic> mapKlasrumContent(dynamic raw) {
   final heading = item['heading'];
   final caption = item['caption'];
   return {
+    ...item,
     'id': item['id'],
     'title': item['title']?.toString() ?? '',
     'description': item['description']?.toString() ?? '',

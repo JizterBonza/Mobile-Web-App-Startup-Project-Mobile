@@ -63,6 +63,14 @@ class _CartScreenV2State extends State<CartScreenV2> {
     }
   }
 
+  String? _extractParentCartId(Map<String, dynamic> cartItem) {
+    dynamic cartId = cartItem['cart_id'] ?? cartItem['cartId'];
+    final nestedCart = cartItem['cart'];
+    if (cartId == null && nestedCart is Map) {
+      cartId = nestedCart['id'] ?? nestedCart['cart_id'] ?? nestedCart['cartId'];
+    }
+    return cartId?.toString();
+  }
   /// Transforms the flat API response into a Zone -> Shop -> Item hierarchy.
   List<ZoneData> _transformApiData(List<Map<String, dynamic>> apiData) {
     final Map<String, ZoneData> zoneMap = {};
@@ -145,6 +153,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
         stock: stock,
         quantity: quantity,
         imageUrl: resolveItemImageUrl(item['item_images']),
+        cartId: _extractParentCartId(cartItem),
+
         isGamefowl: isGamefowl,
       ));
     }
@@ -416,6 +426,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
         if (item.isSelected && item.isQuantityValid && !item.isGamefowl) {
           items.add({
             'id': int.tryParse(item.id) ?? item.id,
+            if (item.cartId != null)
+              'cart_id': int.tryParse(item.cartId!) ?? item.cartId,
             'item_id': int.tryParse(item.itemId) ?? item.itemId,
             'shop_id': int.tryParse(shop.id) ?? shop.id,
             'shop_name': shop.name,
@@ -458,14 +470,29 @@ class _CartScreenV2State extends State<CartScreenV2> {
       return;
     }
 
+    final rawCartId = selectedItems
+        .map((item) => item['cart_id'])
+        .firstWhere((id) => id != null, orElse: () => null);
+    final cartId = int.tryParse(rawCartId?.toString() ?? '');
+
+    if (cartId == null) {
+      SnackbarHelper.showError(
+        context,
+        'Cart ID is missing from the cart API response. Please refresh your cart and try again.',
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckOutScreen(selectedCartItems: selectedItems),
+        builder: (context) => CheckOutScreen(
+          cartId: cartId,
+          selectedCartItems: selectedItems,
+        ),
       ),
     );
   }
-
   // ---------------------------------------------------------------------------
   // Build methods
   // ---------------------------------------------------------------------------
@@ -1150,6 +1177,7 @@ class ShopData {
 
 class ItemData {
   final String id;
+  final String? cartId;
   final String itemId;
   final String name;
   final double price;
@@ -1165,6 +1193,7 @@ class ItemData {
 
   ItemData({
     required this.id,
+    this.cartId,
     required this.itemId,
     required this.name,
     required this.price,

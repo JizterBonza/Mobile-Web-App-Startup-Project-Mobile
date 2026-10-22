@@ -699,6 +699,27 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                               shopId: shopId,
                               shopName: _getShopDisplayName(),
                             ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: ElevatedButton.icon(
+                                onPressed: productStock > 0 && !_isBuyingNow
+                                    ? () => _handleInquiry(shopId)
+                                    : null,
+                                icon: const Icon(Icons.help, size: 18),
+                                label: const Text('Inquire'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF29479A),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      const Color(0xFF29479A).withOpacity(0.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1653,14 +1674,662 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  Widget _buildBottomActionBar() {
-    return const SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: Text('Gamefowl is available to view only')),
-      ),
+  /// Resolves the catalog item ID used by the cart API.
+  /// The generic `id` is only considered from a product record, never from a cart line.
+  int? _getCartItemId() {
+    Map<String, dynamic>? product = widget.productData;
+    product ??= Provider.of<ItemsProvider>(
+      context,
+      listen: false,
+    ).getItemById(widget.productId);
+    if (product == null) return null;
+
+    int? parsePositive(dynamic value) {
+      if (value == null) return null;
+      final parsed = value is num
+          ? value.toInt()
+          : int.tryParse(value.toString().trim());
+      return parsed != null && parsed > 0 ? parsed : null;
+    }
+
+    final item = product['item'] is Map
+        ? Map<String, dynamic>.from(product['item'] as Map)
+        : <String, dynamic>{};
+    final nestedProduct = product['product'] is Map
+        ? Map<String, dynamic>.from(product['product'] as Map)
+        : <String, dynamic>{};
+
+    final candidates = <dynamic>[
+      product['item_id'],
+      product['product_item_id'],
+      product['catalog_item_id'],
+      item['item_id'],
+      item['id'],
+      nestedProduct['item_id'],
+      nestedProduct['id'],
+    ];
+
+    for (final candidate in candidates) {
+      final id = parsePositive(candidate);
+      if (id != null) return id;
+    }
+
+    // The detail page's productId is the lookup key passed to ItemsProvider.
+    // Use it only after confirming a product record was resolved.
+    final resolvedLookupId = parsePositive(widget.productId);
+    if (resolvedLookupId != null) return resolvedLookupId;
+
+    // Last resort: some item endpoints serialize the database item primary key as `id`.
+    // Avoid IDs that explicitly identify a cart row or a listing wrapper.
+    final looksLikeProduct = product.containsKey('item_name') ||
+        product.containsKey('item_price') ||
+        product.containsKey('product_name') ||
+        product.containsKey('selling_price');
+    if (looksLikeProduct &&
+        !product.containsKey('cart_item_id') &&
+        !product.containsKey('cart_id') &&
+        !product.containsKey('listing_id')) {
+      return parsePositive(product['id']);
+    }
+    return null;
+  }
+
+  void _showInvalidItemIdMessage() {
+    if (!mounted) return;
+    SnackbarHelper.showError(
+      context,
+      'This gamefowl listing has no valid item ID. Please refresh the listing or check the product data.',
     );
   }
 
+  Future<Map<String, dynamic>?> _findCartLine(
+    CartService cartService,
+    String userId,
+    int itemId,
+  ) async {
+    final items = await cartService.fetchCartItemsFromAPI(userId);
+    for (final item in items) {
+      if (item['item_id']?.toString() == itemId.toString()) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _handleAddToCart(double price) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+    if (!await requireAuth(context)) return;
+
+    final itemId = _getCartItemId();
+    if (itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+    if (price <= 0) {
+      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
+      return;
+    }
+
+    setState(() => _isAddingToCart = true);
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(context, 'Please login again to use your cart.');
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      final existingLine = await _findCartLine(cartService, userId, itemId);
+      if (existingLine != null) {
+        final lineId = existingLine['cart_item_id'] ?? existingLine['id'];
+        if (lineId != null) {
+          final update = await cartService.updateCart(
+            cartItemId: lineId,
+            quantity: _quantity,
+          );
+          if (update['success'] != true) {
+            if (mounted) {
+              SnackbarHelper.showError(
+                context,
+                update['message']?.toString() ?? 'Could not update the item in your crate.',
+              );
+            }
+            return;
+          }
+        }
+        if (mounted) {
+          context.read<BadgeProvider>().fetchBadges();
+          SnackbarHelper.showSuccess(
+            context,
+            'This gamefowl is already in your crate.',
+            duration: const Duration(seconds: 2),
+          );
+        }
+        return;
+      }
+
+      final result = await cartService.addToCart(
+        userId: userId,
+        itemId: itemId.toString(),
+        price: price,
+        quantity: _quantity,
+      );
+      if (!mounted) return;
+      if (result['success'] == true) {
+        context.read<BadgeProvider>().fetchBadges();
+        SnackbarHelper.showSuccess(
+          context,
+          result['message']?.toString() ?? 'Added $_quantity item(s) to crate.',
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to add gamefowl to crate.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, 'Error adding to crate: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isAddingToCart = false);
+    }
+  }
+
+  Future<void> _handleBuyNow(double price) async {
+    if (_isBuyingNow || _isAddingToCart) {
+      return;
+    }
+
+    if (!await requireAuth(context)) {
+      return;
+    }
+
+    final itemId = _getCartItemId();
+
+    if (itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+
+    setState(() {
+      _isBuyingNow = true;
+    });
+
+    try {
+      final userId = await ApiService.getUserId();
+
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isBuyingNow = false;
+          });
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      final productIdStr = itemId.toString();
+
+      var cartItems = await cartService.fetchCartItemsFromAPI(userId);
+
+      Map<String, dynamic>? cartLine;
+
+      for (final item in cartItems) {
+        if (item['item_id']?.toString() == productIdStr) {
+          cartLine = item;
+          break;
+        }
+      }
+
+      if (cartLine != null) {
+        final result = await cartService.updateCart(
+          cartItemId: cartLine['id'],
+          quantity: _quantity,
+        );
+
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          SnackbarHelper.showError(
+            context,
+            result['message'] ?? 'Failed to prepare checkout',
+          );
+          return;
+        }
+
+        cartLine = Map<String, dynamic>.from(cartLine);
+        cartLine['quantity'] = _quantity;
+      } else {
+        final result = await cartService.addToCart(
+          userId: userId,
+          itemId: productIdStr,
+          price: price,
+          quantity: _quantity,
+        );
+
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          SnackbarHelper.showError(
+            context,
+            result['message'] ?? 'Failed to prepare checkout',
+          );
+          return;
+        }
+
+        cartItems = await cartService.fetchCartItemsFromAPI(userId);
+
+        for (final item in cartItems) {
+          if (item['item_id']?.toString() == productIdStr) {
+            cartLine = item;
+            break;
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      if (cartLine == null) {
+        SnackbarHelper.showError(
+          context,
+          'Could not find item in cart for checkout',
+        );
+        return;
+      }
+
+      final nestedCart = cartLine['cart'] is Map
+          ? Map<String, dynamic>.from(cartLine['cart'] as Map)
+          : <String, dynamic>{};
+      final rawCartId = cartLine['cart_id'] ??
+          cartLine['cartId'] ??
+          nestedCart['id'] ??
+          nestedCart['cart_id'];
+      final checkoutCartId = int.tryParse(rawCartId?.toString() ?? '');
+
+      if (checkoutCartId == null) {
+        SnackbarHelper.showError(
+          context,
+          'The cart API did not return a valid parent cart ID. Please refresh your cart and try again.',
+        );
+        return;
+      }
+      final product = Provider.of<ItemsProvider>(
+        context,
+        listen: false,
+      ).getItemById(widget.productId);
+
+      final checkoutItem = <String, dynamic>{
+        'cart_id': checkoutCartId,
+        'id': cartLine['id'] is int
+            ? cartLine['id']
+            : int.tryParse(cartLine['id'].toString()) ?? cartLine['id'],
+        'item_id': cartLine['item_id'] is int
+            ? cartLine['item_id']
+            : int.tryParse(cartLine['item_id'].toString()) ??
+                cartLine['item_id'],
+        'shop_id': cartLine['shop_id'] is int
+            ? cartLine['shop_id']
+            : int.tryParse(cartLine['shop_id'].toString()) ??
+                cartLine['shop_id'],
+        'shop_name': cartLine['shop_name'],
+        'quantity': _quantity,
+        'price_snapshot': cartLine['price_snapshot']?.toString() ??
+            price.toStringAsFixed(2),
+        'item_name': cartLine['item_name'] ?? product?['item_name'],
+        'item_price': cartLine['item_price']?.toString() ??
+            price.toStringAsFixed(2),
+        'item_quantity': cartLine['item_quantity']?.toString() ??
+            product?['item_quantity']?.toString(),
+        if (product?['item_images'] != null)
+          'item_images': product!['item_images'],
+        if (cartLine['discounted_price'] != null)
+          'discounted_price': cartLine['discounted_price'].toString(),
+        if (cartLine['discount_status'] != null)
+          'discount_status': cartLine['discount_status'],
+        if (cartLine['discount_details'] != null)
+          'discount_details': cartLine['discount_details'],
+      };
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CheckOutScreen(
+            cartId: checkoutCartId,
+            selectedCartItems: [checkoutItem],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error starting checkout: ${e.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBuyingNow = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showOrderRequestConfirmation(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+
+    final choice = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                heightFactor: 0.65,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  icon: const Icon(Icons.close),
+                  color: Colors.white,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFD6D6D6),
+                    fixedSize: const Size(30, 30),
+                  ),
+                ),
+              ),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF9AA9D7)),
+                ),
+                child: const Icon(
+                  Icons.receipt_long,
+                  color: Color(0xFF9AA9D7),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ready to Order?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Have you already inquired with the seller and confirmed the details of your chosen gamefowl?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Color(0xFF444444)),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0E0E0),
+                          foregroundColor: const Color(0xFF777777),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('No'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4C66B3),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Yes'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || choice == null) return;
+    if (choice) {
+      await _handleOrderRequest(shopId);
+    } else {
+      await _handleInquiry(shopId);
+    }
+  }
+
+  Future<void> _handleOrderRequest(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+    if (!await requireAuth(context)) return;
+
+    final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
+    final requestProduct =
+        widget.productData ?? itemsProvider.getItemById(widget.productId);
+    final itemId = _getCartItemId();
+    final price = _parsePrice(
+      requestProduct?['item_price'] ??
+          requestProduct?['price'] ??
+          requestProduct?['selling_price'] ??
+          requestProduct?['product_price'],
+    );
+    final resolvedShopId = shopId ?? _resolveShopId(requestProduct);
+
+    if (requestProduct == null || itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+    if (resolvedShopId == null || resolvedShopId.toString().trim().isEmpty) {
+      SnackbarHelper.showError(context, 'This gamefowl has no valid shop ID.');
+      return;
+    }
+    if (price <= 0) {
+      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
+      return;
+    }
+
+    setState(() => _isBuyingNow = true);
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(context, 'Please login again to continue.');
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      var cartLine = await _findCartLine(cartService, userId, itemId);
+      if (cartLine == null) {
+        final addResult = await cartService.addToCart(
+          userId: userId,
+          itemId: itemId.toString(),
+          price: price,
+          quantity: _quantity,
+        );
+        if (addResult['success'] != true) {
+          if (mounted) {
+            SnackbarHelper.showError(
+              context,
+              addResult['message']?.toString() ?? 'Could not add gamefowl to crate.',
+            );
+          }
+          return;
+        }
+        cartLine = await _findCartLine(cartService, userId, itemId);
+      }
+      if (cartLine == null) {
+        if (mounted) {
+          SnackbarHelper.showError(
+            context,
+            'The gamefowl was added, but could not be found in your crate. Please refresh and try again.',
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      context.read<BadgeProvider>().fetchBadges();
+      final normalizedProduct = Map<String, dynamic>.from(requestProduct)
+        ..['item_id'] = itemId
+        ..['shop_id'] = resolvedShopId
+        ..putIfAbsent('item_price', () => price);
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GamefowlOrderReq(
+            productData: normalizedProduct,
+            shopName: _getShopDisplayName(),
+            shopId: resolvedShopId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, 'Unable to open order request: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isBuyingNow = false);
+    }
+  }
+
+  Future<void> _handleInquiry(dynamic shopId) async {
+    if (!await requireAuth(context)) {
+      return;
+    }
+
+    final itemsProvider =
+        Provider.of<ItemsProvider>(context, listen: false);
+
+    final inquiryProduct =
+        widget.productData ?? itemsProvider.getItemById(widget.productId);
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InquiryChat(
+          shopId: shopId,
+          shopName: _getShopDisplayName(),
+          productData: inquiryProduct,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+  }
+
+  Widget _buildBottomActionBar(
+    double price,
+    bool inStock,
+    dynamic shopId,
+  ) {
+    final actionsBusy = _isAddingToCart || _isBuyingNow;
+    final canAct = inStock && !actionsBusy;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Material(
+                color: canAct
+                    ? const Color(0xFF4C66B3)
+                    : const Color(0xFF4C66B3).withOpacity(0.5),
+                child: InkWell(
+                  onTap: canAct ? () => _handleAddToCart(price) : null,
+                  child: const SizedBox(
+                    height: 52,
+                    child: Center(
+                      child: Text(
+                        'Add to Crate',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Material(
+                color: canAct
+                    ? const Color(0xFF29479A)
+                    : const Color(0xFF29479A).withOpacity(0.5),
+                child: InkWell(
+                  onTap: canAct
+                      ? () => _showOrderRequestConfirmation(shopId)
+                      : null,
+                  child: SizedBox(
+                    height: 52,
+                    child: Center(
+                      child: _isBuyingNow
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              'Order Request',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

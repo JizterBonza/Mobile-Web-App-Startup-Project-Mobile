@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -28,14 +29,15 @@ class MessageProvider with ChangeNotifier {
   String? get error => _error;
   int get unreadCount => _unreadCount;
 
-  /// Connects Reverb and subscribes to known conversation channels.
   Future<void> startLiveUpdates() async {
     _liveEnabled = true;
     _reverb.onShopMessageSent = _onShopMessageSent;
+
     await _reverb.connect();
     await fetchUnreadCount();
     await fetchConversations(silent: true);
     await _syncRealtimeSubscriptions();
+
     final activeId = _activeThread?.conversation.id;
     if (activeId != null) {
       await _reverb.subscribeConversation(activeId);
@@ -52,25 +54,31 @@ class MessageProvider with ChangeNotifier {
     await _reverb.disconnect();
   }
 
-  /// Messages list is visible — refresh the list when a realtime event arrives.
   void watchConversations() {
     _conversationWatchers++;
     startLiveUpdates();
   }
 
   void unwatchConversations() {
-    if (_conversationWatchers > 0) _conversationWatchers--;
+    if (_conversationWatchers > 0) {
+      _conversationWatchers--;
+    }
   }
 
   Future<void> _syncRealtimeSubscriptions() async {
     if (!_liveEnabled) return;
+
     final ids = _conversations
         .map((item) => item.id)
         .where((id) => id != null)
         .map((id) => id.toString())
         .toSet();
+
     final activeId = _activeThread?.conversation.id;
-    if (activeId != null) ids.add(activeId.toString());
+    if (activeId != null) {
+      ids.add(activeId.toString());
+    }
+
     await _reverb.syncSubscriptions(ids);
   }
 
@@ -79,15 +87,20 @@ class MessageProvider with ChangeNotifier {
     Map<String, dynamic> data,
   ) async {
     if (_eventInFlight) return;
+
     _eventInFlight = true;
+
     try {
       final activeId = _activeThread?.conversation.id?.toString();
+
       if (activeId != null &&
           conversationId != null &&
           activeId == conversationId.toString()) {
         await refreshActiveThread();
       }
+
       await fetchUnreadCount();
+
       if (_conversations.isNotEmpty || _conversationWatchers > 0) {
         await fetchConversations(silent: true);
         await _syncRealtimeSubscriptions();
@@ -106,53 +119,70 @@ class MessageProvider with ChangeNotifier {
 
     try {
       final result = await _service.fetchConversations();
+
       if (result['success'] == true && result['data'] != null) {
         final payload = result['data'] as ConversationListResponse;
+
         final unchanged = silent &&
             payload.unreadCount == _unreadCount &&
-            _sameConversationList(payload.conversations, _conversations);
+            _sameConversationList(
+              payload.conversations,
+              _conversations,
+            );
+
         _conversations = payload.conversations;
         _unreadCount = payload.unreadCount;
         _error = null;
+
         if (_liveEnabled) {
           await _syncRealtimeSubscriptions();
         }
+
         if (!silent) {
           _isLoading = false;
           notifyListeners();
         } else if (!unchanged) {
           notifyListeners();
         }
+
         return true;
       }
+
       _error = result['message'] ?? 'Failed to fetch conversations';
+
       if (!silent) {
         _isLoading = false;
         notifyListeners();
       }
+
       return false;
     } catch (e) {
       _error = e.toString();
+
       if (!silent) {
         _isLoading = false;
         notifyListeners();
       }
+
       return false;
     }
   }
 
-  /// GET /api/messages/unread-count — lightweight badge refresh.
   Future<bool> fetchUnreadCount() async {
     try {
       final result = await _service.fetchUnreadCount();
+
       if (result['success'] == true && result['data'] != null) {
         final next = result['data'] as int;
+
         if (_unreadCount != next) {
           _unreadCount = next;
           notifyListeners();
         }
+
         return true;
       }
+
       return false;
     } catch (_) {
       return false;
@@ -166,16 +196,25 @@ class MessageProvider with ChangeNotifier {
 
     try {
       final result = await _service.fetchConversation(conversationId);
+
       if (result['success'] == true && result['data'] != null) {
-        _activeThread = _mergeThread(result['data'] as ConversationThread);
+        // Use the thread returned by the API without carrying over
+        // shop details from the previously opened conversation.
+        _activeThread = result['data'] as ConversationThread;
         _error = null;
+
         _markConversationRead(_activeThread!.conversation.id);
         _syncConversationPreview(_activeThread!);
+
         if (_liveEnabled) {
-          await _reverb.subscribeConversation(_activeThread!.conversation.id);
+          await _reverb.subscribeConversation(
+            _activeThread!.conversation.id,
+          );
         }
+
         return true;
       }
+
       _error = result['message'] ?? 'Failed to load conversation';
       return false;
     } catch (e) {
@@ -187,15 +226,26 @@ class MessageProvider with ChangeNotifier {
     }
   }
 
-  /// Starts or resumes a conversation with a shop. Empty body is allowed.
+  /// Starts or resumes a conversation with the selected shop.
   Future<bool> startOrResumeConversation({
     required dynamic shopId,
     String? body,
     List<File> attachments = const [],
     dynamic itemId,
   }) async {
+    final requestedShopId = shopId.toString().trim();
+
+    if (requestedShopId.isEmpty || requestedShopId == '0') {
+      _error = 'Invalid shop ID.';
+      notifyListeners();
+      return false;
+    }
+
     _isLoading = true;
     _error = null;
+
+    // Prevent stale shop details from the previous conversation.
+    _activeThread = null;
     notifyListeners();
 
     try {
@@ -205,35 +255,58 @@ class MessageProvider with ChangeNotifier {
         attachments: attachments,
         itemId: itemId,
       );
+
       if (result['success'] == true && result['data'] != null) {
-        _activeThread = _mergeThread(result['data'] as ConversationThread);
-        _error = null;
-        _markConversationRead(_activeThread!.conversation.id);
-        _syncConversationPreview(
-          _activeThread!,
-          bumpTimestamp: itemId != null,
-        );
-        if (_liveEnabled) {
-          await _reverb.subscribeConversation(_activeThread!.conversation.id);
+        final incoming = result['data'] as ConversationThread;
+
+        // This model exposes shop details through incoming.shop.
+        final returnedShopId = incoming.shop?.id;
+
+        if (returnedShopId != null &&
+            returnedShopId.toString().trim() != requestedShopId) {
+          _error =
+              'The conversation does not match the selected shop.';
+        } else {
+          _activeThread = incoming;
+          _error = null;
+
+          _markConversationRead(_activeThread!.conversation.id);
+          _syncConversationPreview(
+            _activeThread!,
+            bumpTimestamp: itemId != null,
+          );
+
+          if (_liveEnabled) {
+            await _reverb.subscribeConversation(
+              _activeThread!.conversation.id,
+            );
+          }
+
+          return true;
         }
-        return true;
       }
 
+      // Look for an existing conversation for this exact shop only.
       await fetchConversations(silent: true);
+
       ConversationModel? existing;
+
       for (final conversation in _conversations) {
-        if (conversation.shopId?.toString() == shopId.toString()) {
+        if (conversation.shopId?.toString().trim() == requestedShopId) {
           existing = conversation;
           break;
         }
       }
-      if (existing != null) {
-        return loadConversation(existing.id);
+
+      if (existing?.id != null) {
+        return await loadConversation(existing!.id);
       }
 
-      _error = result['message'] ?? 'Failed to start conversation';
+      _activeThread = null;
+      _error ??= result['message'] ?? 'Failed to start conversation';
       return false;
     } catch (e) {
+      _activeThread = null;
       _error = e.toString();
       return false;
     } finally {
@@ -259,12 +332,20 @@ class MessageProvider with ChangeNotifier {
         attachments: attachments,
         itemId: itemId,
       );
+
       if (result['success'] == true && result['data'] != null) {
-        _activeThread = _mergeThread(result['data'] as ConversationThread);
+        final incoming = result['data'] as ConversationThread;
+        _activeThread = _mergeThread(incoming);
         _error = null;
-        _syncConversationPreview(_activeThread!, bumpTimestamp: true);
+
+        _syncConversationPreview(
+          _activeThread!,
+          bumpTimestamp: true,
+        );
+
         return true;
       }
+
       _error = result['message'] ?? 'Failed to send message';
       return false;
     } catch (e) {
@@ -282,9 +363,16 @@ class MessageProvider with ChangeNotifier {
     required dynamic itemId,
   }) async {
     if (conversationId != null) {
-      return sendMessage(conversationId: conversationId, itemId: itemId);
+      return sendMessage(
+        conversationId: conversationId,
+        itemId: itemId,
+      );
     }
-    return startOrResumeConversation(shopId: shopId, itemId: itemId);
+
+    return startOrResumeConversation(
+      shopId: shopId,
+      itemId: itemId,
+    );
   }
 
   Future<bool> refreshActiveThread() async {
@@ -293,15 +381,22 @@ class MessageProvider with ChangeNotifier {
 
     try {
       final result = await _service.fetchConversation(id);
+
       if (result['success'] == true && result['data'] != null) {
-        final incoming = _mergeThread(result['data'] as ConversationThread);
-        if (_sameThread(incoming, _activeThread)) return true;
-        _activeThread = incoming;
+        final incoming = result['data'] as ConversationThread;
+
+        if (_sameThread(incoming, _activeThread)) {
+          return true;
+        }
+
+        _activeThread = _mergeThread(incoming);
         _error = null;
         _syncConversationPreview(_activeThread!);
         notifyListeners();
+
         return true;
       }
+
       return false;
     } catch (_) {
       return false;
@@ -310,7 +405,10 @@ class MessageProvider with ChangeNotifier {
 
   void clearActiveThread({bool notify = true}) {
     _activeThread = null;
-    if (notify) notifyListeners();
+
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   void clear() {
@@ -326,31 +424,51 @@ class MessageProvider with ChangeNotifier {
 
   void _markConversationRead(dynamic id) {
     if (id == null) return;
+
     final index = _conversations.indexWhere(
       (item) => item.id?.toString() == id.toString(),
     );
+
     if (index < 0) return;
+
     final current = _conversations[index];
     if (!current.unread) return;
-    _conversations[index] = current.copyWith(unread: false, unreadCount: 0);
-    if (_unreadCount > 0) _unreadCount -= 1;
+
+    _conversations[index] = current.copyWith(
+      unread: false,
+      unreadCount: 0,
+    );
+
+    if (_unreadCount > 0) {
+      _unreadCount -= 1;
+    }
   }
 
   ConversationThread _mergeThread(ConversationThread incoming) {
-    final previous = _activeThread;
-    if (incoming.shop != null || previous?.shop == null) return incoming;
-    return incoming.copyWith(shop: previous!.shop);
+    // Never carry over shop information from another active thread.
+    // The API response remains the source of truth.
+    return incoming;
   }
 
-  bool _sameThread(ConversationThread incoming, ConversationThread? current) {
+  bool _sameThread(
+    ConversationThread incoming,
+    ConversationThread? current,
+  ) {
     if (current == null) return false;
+
     if (incoming.conversation.lastSeen != current.conversation.lastSeen) {
       return false;
     }
-    if (incoming.messages.length != current.messages.length) return false;
+
+    if (incoming.messages.length != current.messages.length) {
+      return false;
+    }
+
     if (incoming.messages.isEmpty) return true;
+
     final nextLast = incoming.messages.last;
     final prevLast = current.messages.last;
+
     return nextLast.id?.toString() == prevLast.id?.toString() &&
         nextLast.status == prevLast.status &&
         nextLast.displayText == prevLast.displayText &&
@@ -362,9 +480,11 @@ class MessageProvider with ChangeNotifier {
     List<ConversationModel> current,
   ) {
     if (incoming.length != current.length) return false;
+
     for (var i = 0; i < incoming.length; i++) {
       final a = incoming[i];
       final b = current[i];
+
       if (a.id?.toString() != b.id?.toString()) return false;
       if (a.lastMessage != b.lastMessage) return false;
       if (a.unread != b.unread) return false;
@@ -372,6 +492,7 @@ class MessageProvider with ChangeNotifier {
       if (a.lastMessageSide != b.lastMessageSide) return false;
       if (a.lastMessageAt != b.lastMessageAt) return false;
     }
+
     return true;
   }
 
@@ -383,6 +504,7 @@ class MessageProvider with ChangeNotifier {
     if (id == null) return;
 
     ConversationModel? existing;
+
     for (final item in _conversations) {
       if (item.id?.toString() == id.toString()) {
         existing = item;
@@ -392,21 +514,32 @@ class MessageProvider with ChangeNotifier {
 
     String lastMessage = existing?.lastMessage ?? '';
     String? lastMessageSide = existing?.lastMessageSide;
+
     for (final message in thread.messages.reversed) {
       if (message.isDate) continue;
+
       if (message.displayText.isEmpty &&
           message.attachments.isEmpty &&
           !message.isProduct) {
         continue;
       }
+
       final preview = message.previewText;
+
       if (preview.isNotEmpty) {
         lastMessage = preview;
       }
-      if (message.side.isNotEmpty) lastMessageSide = message.side;
+
+      if (message.side.isNotEmpty) {
+        lastMessageSide = message.side;
+      }
+
       break;
     }
-    if (bumpTimestamp) lastMessageSide = 'outgoing';
+
+    if (bumpTimestamp) {
+      lastMessageSide = 'outgoing';
+    }
 
     _upsertConversation(
       ConversationModel(
@@ -430,6 +563,7 @@ class MessageProvider with ChangeNotifier {
     _conversations.removeWhere(
       (item) => item.id?.toString() == conversation.id?.toString(),
     );
+
     _conversations.insert(0, conversation);
   }
 }

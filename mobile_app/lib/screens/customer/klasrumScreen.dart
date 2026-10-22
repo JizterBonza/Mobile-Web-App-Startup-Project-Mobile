@@ -16,6 +16,7 @@ import '../../widgets/skeletons/app_skeletons.dart';
 import '../../widgets/user_profile_avatar.dart';
 import '../common/profileScreen.dart';
 import 'cartScreenV2.dart';
+import 'breederNewsfeed.dart';
 import 'messagesScreen.dart';
 
 class KlasrumScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
   String? _userName;
   String? _profileImageUrl;
   dynamic _selectedCategoryId;
+  int _selectedClassroomTab = 0;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -264,25 +266,37 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildGreenHeader(topInset),
-                      _buildFeaturedHero(provider),
+                      _buildContentTabs(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _buildSearchField(),
+                      ),
                       _buildSectionHeader(),
-                      _buildCategoryChips(provider),
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-                        child: Text(
-                          'MORE ARTICLE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: Color(0xFF6B7280),
+                      if (_selectedClassroomTab == 0) ...[
+                        _buildFeaturedHero(provider),
+                        _buildCategoryChips(provider),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: Text(
+                            'MORE ARTICLE',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
-                _buildArticleListSliver(provider),
+                if (_selectedClassroomTab == 0)
+                  _buildArticleListSliver(provider)
+                else
+                  SliverToBoxAdapter(
+                    child: BreederNewsfeed(posts: const []),
+                  ),
               ],
             ),
           );
@@ -614,13 +628,6 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                 ],
               ),
             ),
-            // Search sits inside the dark bottom of the featured card
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: _buildSearchField(),
-            ),
           ],
         ),
       ),
@@ -664,7 +671,9 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             isDense: true,
-            hintText: 'Search articles...',
+            hintText: _selectedClassroomTab == 0
+                ? 'Search articles...'
+                : 'Search articles, posts, breeders...',
             hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
             prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey[500]),
             prefixIconConstraints: const BoxConstraints(
@@ -741,6 +750,74 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildContentTabs() {
+    return Align(
+      alignment: Alignment.center,
+      child: FractionallySizedBox(
+        widthFactor: 0.9,
+        child: Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _buildContentTab(Icons.article_outlined, 'Articles', 0),
+              _buildContentTab(Icons.wifi, 'Newsfeed', 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentTab(IconData icon, String label, int index) {
+    final isSelected = _selectedClassroomTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedClassroomTab = index),
+        child: Container(
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xFF263F91),
+                      Color(0xFF20377F),
+                    ],
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 12,
+                color: isSelected ? Colors.white : AppColors.brandPrimary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.brandPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
