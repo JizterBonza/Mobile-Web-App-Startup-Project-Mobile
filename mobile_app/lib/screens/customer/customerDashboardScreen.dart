@@ -807,18 +807,43 @@ class _CustomerDashboardScreenState
   ) async {
     if (!mounted) return;
 
+    final normalizedQuery = query.trim().toLowerCase();
+    final categories = context.read<CategoryProvider>().categories;
+    final isCategorySearch = categories.any((category) {
+      final name = category['name']?.toString().trim().toLowerCase() ?? '';
+      return name.isNotEmpty && name.contains(normalizedQuery);
+    });
+
     final itemsProvider = Provider.of<ItemsProvider>(
       context,
       listen: false,
     );
 
-    await itemsProvider.searchItems(query);
+    if (isCategorySearch) {
+      itemsProvider.clearSearch();
+    } else {
+      await itemsProvider.searchItems(query);
+    }
 
     if (!mounted) return;
 
     setState(() {
       _showSearchResults = query.length >= 2;
     });
+
+    if (_showSearchResults) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final targetContext = _productsSectionKey.currentContext;
+        if (targetContext == null) return;
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          alignment: 0.05,
+        );
+      });
+    }
   }
 
   void _clearSearch() {
@@ -984,8 +1009,6 @@ class _CustomerDashboardScreenState
                       ],
                     ),
                   ),
-                  if (_showSearchResults)
-                    _buildSearchResultsOverlay(),
                 ],
               ),
             ),
@@ -1377,7 +1400,7 @@ class _CustomerDashboardScreenState
     ];
 
     return SizedBox(
-      height: 36,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(
@@ -1407,20 +1430,26 @@ class _CustomerDashboardScreenState
                   const Duration(milliseconds: 180),
               padding:
                   const EdgeInsets.symmetric(
-                horizontal: 15,
+                horizontal: 18,
               ),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF3155B7)
-                    : Colors.white,
+                    : const Color(0xFFFFF3C4),
                 borderRadius:
                     BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF3155B7)
+                      : const Color(0xFFE5B72E),
+                  width: 1.2,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black
-                        .withOpacity(0.04),
-                    blurRadius: 3,
+                        .withOpacity(isSelected ? 0.10 : 0.03),
+                    blurRadius: isSelected ? 4 : 2,
                     offset: const Offset(0, 1),
                   ),
                 ],
@@ -1430,8 +1459,8 @@ class _CustomerDashboardScreenState
                 style: TextStyle(
                   color: isSelected
                       ? Colors.white
-                      : const Color(0xFF777777),
-                  fontSize: 10,
+                      : const Color(0xFF4A3B11),
+                  fontSize: 12,
                   fontWeight: isSelected
                       ? FontWeight.w700
                       : FontWeight.w500,
@@ -2259,8 +2288,7 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
@@ -2300,8 +2328,7 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
@@ -2341,8 +2368,10 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts(applySearch: true);
+    final searchQuery = _showSearchResults
+        ? _searchController.text.trim()
+        : '';
 
     if (products.isEmpty) {
       return Column(
@@ -2368,7 +2397,9 @@ class _CustomerDashboardScreenState
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'No products found for $_selectedCategory.',
+              searchQuery.isNotEmpty
+                  ? 'No products found for "$searchQuery".'
+                  : 'No products found for $_selectedCategory.',
               style: TextStyle(
                 color:
                     Colors.grey.shade600,
@@ -2390,7 +2421,9 @@ class _CustomerDashboardScreenState
             horizontal: 16,
           ),
           child: Text(
-            _selectedCategory == 'All'
+            searchQuery.isNotEmpty
+                ? 'Products matching "$searchQuery"'
+                : _selectedCategory == 'All'
                 ? 'Products'
                 : '$_selectedCategory Products',
             style: const TextStyle(
@@ -2404,7 +2437,7 @@ class _CustomerDashboardScreenState
         ),
         const SizedBox(height: 10),
         _buildHorizontalProducts(
-          products.take(6).toList(),
+          _showSearchResults ? products : products.take(6).toList(),
           sectionKey: 'products',
         ),
       ],
@@ -2815,16 +2848,55 @@ class _CustomerDashboardScreenState
     );
   }
 
-  List<Map<String, dynamic>>
-      _getFilteredProducts() {
+  List<Map<String, dynamic>> _getFilteredProducts({bool applySearch = false}) {
     final categories = context.read<CategoryProvider>().categories;
     if (categories.isEmpty) return [];
     final provider = context.read<ItemsProvider>();
     final source = _selectedCategoryId == null
         ? _products
         : provider.categoryItems;
-    return source
+    final baseProducts = source
         .where((item) => !isGamefowlItem(item, categories: categories))
+        .toList();
+    if (!applySearch || !_showSearchResults) return baseProducts;
+
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return baseProducts;
+
+    final matchingCategories = categories.where((category) {
+      final name = category['name']?.toString().trim().toLowerCase() ?? '';
+      return name.isNotEmpty && name.contains(query);
+    }).toList();
+    if (matchingCategories.isNotEmpty) {
+      return baseProducts
+          .where((item) => matchingCategories
+              .any((category) => itemMatchesCategory(item, category)))
+          .toList();
+    }
+
+    final localMatches = baseProducts.where((item) {
+      final searchableText = [
+        item['item_name'],
+        item['product_name'],
+        item['name'],
+        item['item_description'],
+        item['description'],
+        item['brand'],
+        item['brand_name'],
+        item['item_brand'],
+      ].whereType<Object>().join(' ').toLowerCase();
+      return searchableText.contains(query);
+    });
+
+    if (_selectedCategoryId != null) return localMatches.toList();
+
+    final seenIds = <String>{};
+    return [...context.read<ItemsProvider>().searchResults, ...localMatches]
+        .where((item) => !isGamefowlItem(item, categories: categories))
+        .where((item) {
+          final id = (item['id'] ?? item['item_id'])?.toString();
+          return id == null || seenIds.add(id);
+        })
         .toList();
   }
 
@@ -3124,96 +3196,6 @@ class _CustomerDashboardScreenState
                       : const Color(0xFFD1D4DC),
               borderRadius:
                   BorderRadius.circular(5),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSearchResultsOverlay() {
-    return Positioned(
-      top: 8,
-      left: 16,
-      right: 16,
-      child: Consumer<ItemsProvider>(
-        builder: (
-          context,
-          itemsProvider,
-          child,
-        ) {
-          final categories = context.read<CategoryProvider>().categories;
-          final results = categories.isEmpty
-              ? <Map<String, dynamic>>[]
-              : itemsProvider.searchResults
-                  .where((item) => !isGamefowlItem(
-                        item,
-                        categories: categories,
-                      ))
-                  .toList();
-
-          if (results.isEmpty) {
-            return const SizedBox.shrink();
-          }
-
-          return Material(
-            elevation: 8,
-            borderRadius:
-                BorderRadius.circular(16),
-            color: Colors.white,
-            child: Container(
-              constraints:
-                  const BoxConstraints(
-                maxHeight: 350,
-              ),
-              decoration:
-                  BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(16),
-              ),
-              child:
-                  ListView.separated(
-                shrinkWrap: true,
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical: 6,
-                ),
-                itemCount: results.length,
-                separatorBuilder: (
-                  context,
-                  index,
-                ) =>
-                    const Divider(
-                  height: 1,
-                ),
-                itemBuilder: (
-                  context,
-                  index,
-                ) {
-                  final product =
-                      results[index];
-
-                  return ListTile(
-                    dense: true,
-                    title: Text(
-                      product['item_name']
-                              ?.toString() ??
-                          'Unknown Product',
-                      maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
-                    ),
-                    onTap: _clearSearch,
-                  );
-                },
-              ),
             ),
           );
         },

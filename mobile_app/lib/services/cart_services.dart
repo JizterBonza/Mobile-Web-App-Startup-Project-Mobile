@@ -353,6 +353,13 @@ class CartService extends ApiService {
 
         ...line,
 
+        // Keep the cart line ID separate from the parent cart ID.
+        if (cartLineId != null) 'id': cartLineId,
+        if (parentCartId != null) 'cart_id': parentCartId,
+        if (parentCartId != null) 'cartId': parentCartId,
+        if (parentCartId != null) 'parent_cart_id': parentCartId,
+        'item_id': line['item_id'] ?? data['item_id'] ?? item['id'],
+
         // Shop/product information used by CartScreen.
         'shop_id': item['shop_id'] ?? data['shop_id'],
         'shop_name': item['shop_name'] ?? data['shop_name'],
@@ -363,6 +370,10 @@ class CartService extends ApiService {
         'item_price': item['item_price'] ?? data['item_price'],
         'item_quantity':
             item['item_quantity'] ?? data['item_quantity'],
+
+      };
+
+      cartItems.add(merged);
 
     }
 
