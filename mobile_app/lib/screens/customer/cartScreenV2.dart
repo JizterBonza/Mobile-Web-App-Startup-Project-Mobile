@@ -63,14 +63,6 @@ class _CartScreenV2State extends State<CartScreenV2> {
     }
   }
 
-  String? _extractParentCartId(Map<String, dynamic> cartItem) {
-    dynamic cartId = cartItem['cart_id'] ?? cartItem['cartId'];
-    final nestedCart = cartItem['cart'];
-    if (cartId == null && nestedCart is Map) {
-      cartId = nestedCart['id'] ?? nestedCart['cart_id'] ?? nestedCart['cartId'];
-    }
-    return cartId?.toString();
-  }
   /// Transforms the flat API response into a Zone -> Shop -> Item hierarchy.
   List<ZoneData> _transformApiData(List<Map<String, dynamic>> apiData) {
     final Map<String, ZoneData> zoneMap = {};
@@ -153,7 +145,8 @@ class _CartScreenV2State extends State<CartScreenV2> {
         stock: stock,
         quantity: quantity,
         imageUrl: resolveItemImageUrl(item['item_images']),
-        cartId: _extractParentCartId(cartItem),
+        // `carts.id` is the cart-row ID required on each order item.
+        cartId: cartItem['id']?.toString(),
 
         isGamefowl: isGamefowl,
       ));
@@ -470,24 +463,10 @@ class _CartScreenV2State extends State<CartScreenV2> {
       return;
     }
 
-    final rawCartId = selectedItems
-        .map((item) => item['cart_id'])
-        .firstWhere((id) => id != null, orElse: () => null);
-    final cartId = int.tryParse(rawCartId?.toString() ?? '');
-
-    if (cartId == null) {
-      SnackbarHelper.showError(
-        context,
-        'Cart ID is missing from the cart API response. Please refresh your cart and try again.',
-      );
-      return;
-    }
-
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CheckOutScreen(
-          cartId: cartId,
           selectedCartItems: selectedItems,
         ),
       ),

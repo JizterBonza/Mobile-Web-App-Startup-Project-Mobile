@@ -35,6 +35,7 @@ class ApiEndpoints {
   static String get getSearchItem => '$baseUrl/api/items/search';
   static String get getItemsByCategory => '$baseUrl/api/items';
   static String get getItemsOnSale => '$baseUrl/api/items/on-sale';
+  
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -147,4 +148,5 @@ class ApiEndpoints {
   static String get getLatestAppRelease => '$baseUrl/api/app-releases/latest';
   static String get downloadAppRelease =>
       '$baseUrl/api/app-releases/{release}/download';
+      
 }

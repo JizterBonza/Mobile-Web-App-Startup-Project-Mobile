@@ -97,18 +97,20 @@ class OrderService extends ApiService {
   /// Create a new order.
   /// Each item carries its cart-row ID as `cart_id`, matching the original
   /// order API contract.
-  Future<Map<String, dynamic>> createOrder({
-    required List<Map<String, dynamic>> items,
-    required String shippingAddress,
-    required int? shippingAddressId,
-    String? paymentMethod,
-    required double subtotal,
-    required double shippingFee,
-    required double totalAmount,
-    String? orderInstruction,
-    required int? deliveryMethodId,
-    String? voucherCode,
-  }) async {
+Future<Map<String, dynamic>> createOrder({
+  int? cartId,
+  required List<Map<String, dynamic>> items,
+  required String shippingAddress,
+  required int? shippingAddressId,
+  String? paymentMethod,
+  required double subtotal,
+  required double shippingFee,
+  required double totalAmount,
+  String? orderInstruction,
+  required int? deliveryMethodId,
+  String? voucherCode,
+}) async {
+  
     try {
       print('========== CREATE ORDER ==========');
       print('Shipping address ID: $shippingAddressId');
@@ -140,13 +142,27 @@ class OrderService extends ApiService {
         };
       }
 
-      if (items.any((item) => _positiveInt(item['cart_id']) == null)) {
-        return {
-          'success': false,
-          'message': 'A cart item ID is missing or invalid.',
-          'data': null,
-        };
-      }
+     final isDirectGamefowlOrder = items.any(
+  (item) => item['is_direct_gamefowl_order'] == true,
+);
+
+if (!isDirectGamefowlOrder &&
+    items.any((item) => _positiveInt(item['cart_id']) == null)) {
+  return {
+    'success': false,
+    'message': 'A cart item ID is missing or invalid.',
+    'data': null,
+  };
+}
+
+if (isDirectGamefowlOrder &&
+    items.any((item) => item['item_id'] == null)) {
+  return {
+    'success': false,
+    'message': 'The Gamefowl product ID is missing.',
+    'data': null,
+  };
+}
 
       final token = await ApiService.getToken();
       if (token == null || token.isEmpty) {
@@ -170,22 +186,22 @@ class OrderService extends ApiService {
       final trimmedVoucher = voucherCode?.trim();
       final trimmedPaymentMethod = paymentMethod?.trim();
 
-      final body = <String, dynamic>{
-        'user_id': userId,
-        'items': items,
-        'subtotal': subtotal,
-        'shipping_fee': shippingFee,
-        'total_amount': totalAmount,
-        'shipping_address': shippingAddress,
-        'shipping_address_id': shippingAddressId,
-        'order_instruction': orderInstruction ?? '',
-        'delivery_method_id': deliveryMethodId,
-        if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
-          'voucher_code': trimmedVoucher,
-        if (trimmedPaymentMethod != null && trimmedPaymentMethod.isNotEmpty)
-          'payment_method': trimmedPaymentMethod,
-      };
-
+final body = <String, dynamic>{
+  'user_id': userId,
+  if (cartId != null) 'cart_id': cartId,
+  'items': items,
+  'subtotal': subtotal,
+  'shipping_fee': shippingFee,
+  'total_amount': totalAmount,
+  'shipping_address': shippingAddress,
+  'shipping_address_id': shippingAddressId,
+  'order_instruction': orderInstruction ?? '',
+  'delivery_method_id': deliveryMethodId,
+  if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
+    'voucher_code': trimmedVoucher,
+  if (trimmedPaymentMethod != null && trimmedPaymentMethod.isNotEmpty)
+    'payment_method': trimmedPaymentMethod,
+};
       print('CREATE ORDER URL: $uri');
       print('CREATE ORDER REQUEST BODY: ${jsonEncode(body)}');
 
