@@ -7,14 +7,14 @@ class Url {
     // return dotenv.env['DEV_URL']!;
     // return dotenv.env['MOBILE_LOCAL_URL']!;
     // return dotenv.env['WEB_LOCAL_URL']!;
-   // return dotenv.env['STAGING_URL']!;
+   return dotenv.env['STAGING_URL']!;
 
     // return dotenv.env['TEST_URL']!;
     // return dotenv.env['DEV_URL']!;
     // return dotenv.env['MOBILE_LOCAL_URL']!;
     // return dotenv.env['WEB_LOCAL_URL']!;
     // return dotenv.env['STAGING_URL']!;
-    return dotenv.env['LIVE_URL']!;
+    //return dotenv.env['LIVE_URL']!;
 
   }
 }

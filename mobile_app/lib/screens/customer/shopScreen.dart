@@ -34,6 +34,8 @@ class _ShopScreenState extends State<ShopScreen> {
   bool _isFollowing = false;
   int _selectedTab = 0; // 0 = Products, 1 = Reviews
   dynamic _selectedCategoryId;
+  final TextEditingController _shopSearchController = TextEditingController();
+  String _shopSearchQuery = '';
 
   List<Map<String, dynamic>> get _filteredShopItems {
     final categories =
@@ -42,27 +44,69 @@ class _ShopScreenState extends State<ShopScreen> {
     final regularItems = _shopItems
         .where((item) => !isGamefowlItem(item, categories: categories))
         .toList();
-    if (_selectedCategoryId == null) return regularItems;
-    Map<String, dynamic>? selectedCategory;
-    for (final category in categories) {
-      if (category['id']?.toString() == _selectedCategoryId?.toString()) {
-        selectedCategory = category;
-        break;
+    var filteredItems = regularItems;
+    if (_selectedCategoryId != null) {
+      Map<String, dynamic>? selectedCategory;
+      for (final category in categories) {
+        if (category['id']?.toString() == _selectedCategoryId?.toString()) {
+          selectedCategory = category;
+          break;
+        }
+      }
+      if (selectedCategory != null) {
+        filteredItems = filteredItems
+            .where((item) => itemMatchesCategory(item, selectedCategory!))
+            .toList();
       }
     }
-    if (selectedCategory == null) return regularItems;
 
-    return regularItems
-        .where((item) => itemMatchesCategory(item, selectedCategory!))
-        .toList();
+    final query = _shopSearchQuery.trim().toLowerCase();
+    if (query.isEmpty) return filteredItems;
+
+    final matchingCategories = categories.where((category) {
+      final name = category['name']?.toString().trim().toLowerCase() ?? '';
+      return name.isNotEmpty && name.contains(query);
+    }).toList();
+    if (matchingCategories.isNotEmpty) {
+      return filteredItems
+          .where((item) => matchingCategories
+              .any((category) => itemMatchesCategory(item, category)))
+          .toList();
+    }
+
+    return filteredItems.where((item) {
+      final searchableText = [
+        item['item_name'],
+        item['name'],
+        item['item_description'],
+        item['product_description'],
+        item['description'],
+        item['brand'],
+        item['brand_name'],
+        item['item_brand'],
+      ].whereType<Object>().join(' ').toLowerCase();
+      return searchableText.contains(query);
+    }).toList();
   }
 
   @override
   void initState() {
     super.initState();
+    _shopSearchController.addListener(_onShopSearchChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadShopData();
     });
+  }
+
+  void _onShopSearchChanged() {
+    setState(() => _shopSearchQuery = _shopSearchController.text);
+  }
+
+  @override
+  void dispose() {
+    _shopSearchController.removeListener(_onShopSearchChanged);
+    _shopSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadShopData() async {
@@ -109,23 +153,6 @@ class _ShopScreenState extends State<ShopScreen> {
         });
       }
     }
-  }
-
-  String _formatOperatingHours(String hours) {
-    final match = RegExp(
-      r'(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})',
-    ).firstMatch(hours);
-    if (match == null) return hours;
-
-    String formatPart(String hour, String minute) {
-      final h = int.tryParse(hour) ?? 0;
-      final period = h >= 12 ? 'PM' : 'AM';
-      final displayHour = h % 12 == 0 ? 12 : h % 12;
-      return '$displayHour:${minute.padLeft(2, '0')} $period';
-    }
-
-    return '${formatPart(match.group(1)!, match.group(2)!)} - '
-        '${formatPart(match.group(3)!, match.group(4)!)}';
   }
 
   String _formatRating(dynamic rating) {
@@ -242,6 +269,7 @@ class _ShopScreenState extends State<ShopScreen> {
     final rating = _shopDetails?['shop_rating'];
     return Container(
       color: AppColors.surfaceLight,
+      width: double.infinity,
       child: Row(
         children: [
           Expanded(
@@ -540,13 +568,27 @@ class _ShopScreenState extends State<ShopScreen> {
                 children: [
                   Icon(Icons.search, size: 20, color: Colors.grey[500]),
                   SizedBox(width: 8),
-                  Text(
-                    'Search in store',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
+                  Expanded(
+                    child: TextField(
+                      controller: _shopSearchController,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: 'Search in store',
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
+                  if (_shopSearchQuery.isNotEmpty)
+                    GestureDetector(
+                      onTap: _shopSearchController.clear,
+                      child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+                    ),
                 ],
               ),
             ),
@@ -577,10 +619,34 @@ class _ShopScreenState extends State<ShopScreen> {
     final shopName = _shopDetails?['shop_name'] ?? widget.shopName ?? 'Shop';
     final shopAddress = _shopDetails?['shop_address']?.toString() ?? '';
     final contactNumber = _shopDetails?['contact_number']?.toString() ?? '';
-    final operatingHours =
-        _shopDetails?['operating_hours']?.toString().trim() ?? '';
-    final operatingDays =
-        _shopDetails?['operating_days']?.toString().trim() ?? '';
+    final breederName = (_shopDetails?['breeder_name'] ??
+            _shopDetails?['breeders_name'] ??
+            _shopDetails?['owner_name'])
+        ?.toString()
+        .trim() ??
+        '';
+    final username = (_shopDetails?['username'] ??
+            _shopDetails?['shop_username'])
+        ?.toString()
+        .trim();
+    final breederDetails = [
+      if (breederName.isNotEmpty) breederName,
+      if (username != null && username.isNotEmpty)
+        username.startsWith('@') ? username : '@$username',
+    ].join(' / ');
+    final breederDisplay = breederDetails.isNotEmpty
+        ? breederDetails
+        : 'Breeders Name / Username';
+    final email = (_shopDetails?['email'] ?? _shopDetails?['shop_email'])
+            ?.toString()
+            .trim() ??
+        '';
+    final contactDetails = [email, contactNumber]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' / ');
+    final farmAddress = (_shopDetails?['farm_address'] ?? shopAddress)
+        .toString()
+        .trim();
     final isOpen = _isShopOpen();
 
     return Stack(
@@ -617,7 +683,14 @@ class _ShopScreenState extends State<ShopScreen> {
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: Offset(0, 3),
+                ),
+              ],
             ),
             padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(
@@ -670,15 +743,27 @@ class _ShopScreenState extends State<ShopScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            shopName,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[900],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  shopName,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[900],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.verified,
+                                size: 16,
+                                color: AppColors.brandPrimary,
+                              ),
+                            ],
                           ),
                           SizedBox(height: 1),
                           Text(
@@ -691,32 +776,32 @@ class _ShopScreenState extends State<ShopScreen> {
                                   : AppColors.error,
                             ),
                           ),
+                          SizedBox(height: 8),
+                          _buildShopStats(),
                         ],
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 2),
+                SizedBox(height: 26),
 
-                // Info rows
-                if (shopAddress.isNotEmpty)
-                  _buildInfoRow(Icons.location_on_outlined, shopAddress),
-                if (contactNumber.isNotEmpty)
+                // Breeder, contact, and farm details.
+                _buildInfoRow(
+                  Icons.location_on_outlined,
+                  breederDisplay,
+                ),
+                if (contactDetails.isNotEmpty)
                   _buildInfoRow(
-                    Icons.phone_outlined,
-                    contactNumber,
-                    onTap: () => _launchPhoneDialer(contactNumber),
+                    Icons.location_on_outlined,
+                    contactDetails,
+                    onTap: contactNumber.isNotEmpty
+                        ? () => _launchPhoneDialer(contactNumber)
+                        : null,
                   ),
-                if (operatingHours.isNotEmpty || operatingDays.isNotEmpty)
+                if (farmAddress.isNotEmpty)
                   _buildInfoRow(
-                    Icons.access_time,
-                    operatingHours.isNotEmpty
-                        ? _formatOperatingHours(operatingHours)
-                        : operatingDays,
-                    subtitle:
-                        operatingHours.isNotEmpty && operatingDays.isNotEmpty
-                            ? operatingDays
-                            : null,
+                    Icons.location_on_outlined,
+                    farmAddress,
                   ),
                 SizedBox(height: 18),
 
@@ -762,6 +847,43 @@ class _ShopScreenState extends State<ShopScreen> {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShopStats() {
+    final followers = _shopDetails?['followers_count'] ??
+        _shopDetails?['followers'] ??
+        0;
+    final following = _shopDetails?['following_count'] ??
+        _shopDetails?['following'] ??
+        0;
+
+    return Row(
+      children: [
+        Expanded(child: _buildShopStat(followers, 'Followers')),
+        Expanded(child: _buildShopStat(following, 'Following')),
+        Expanded(child: _buildShopStat(_shopItems.length, 'Products')),
+      ],
+    );
+  }
+
+  Widget _buildShopStat(dynamic value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value.toString(),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF202638),
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
         ),
       ],
     );
@@ -893,9 +1015,9 @@ class _ShopScreenState extends State<ShopScreen> {
   }) {
     return Material(
       color: filled ? AppColors.brandPrimary : Colors.grey[100],
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
           height: 48,
@@ -1263,9 +1385,11 @@ class _ShopScreenState extends State<ShopScreen> {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      _selectedCategoryId != null
-                          ? 'No products in this category'
-                          : 'No products yet',
+                      _shopSearchQuery.trim().isNotEmpty
+                          ? 'No matching products'
+                          : _selectedCategoryId != null
+                              ? 'No products in this category'
+                              : 'No products yet',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -1274,9 +1398,11 @@ class _ShopScreenState extends State<ShopScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      _selectedCategoryId != null
-                          ? 'Try selecting a different category'
-                          : 'This shop hasn\'t added any products',
+                      _shopSearchQuery.trim().isNotEmpty
+                          ? 'Try another search term'
+                          : _selectedCategoryId != null
+                              ? 'Try selecting a different category'
+                              : 'This shop hasn\'t added any products',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[500],

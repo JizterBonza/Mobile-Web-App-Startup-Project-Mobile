@@ -6,7 +6,9 @@ import '../../provider/provider.dart';
 import '../../utils/gamefowl_item.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/url.dart';
+import '../../utils/auth_guard.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import 'conversationScreen.dart';
 import 'gamefowlProdDetail.dart';
 
 class gamefowlListing extends StatefulWidget {
@@ -32,6 +34,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
   Map<String, dynamic>? _shopDetails;
   List<Map<String, dynamic>> _shopItems = [];
   String? _error;
+  bool _isFollowing = false;
 
   int _selectedTab = 0;
   dynamic _selectedCategoryId;
@@ -254,31 +257,6 @@ class _gamefowlListingState extends State<gamefowlListing> {
     }
   }
 
-  String _formatOperatingHours(
-    String hours,
-  ) {
-    final match = RegExp(
-      r'(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})',
-    ).firstMatch(hours);
-
-    if (match == null) return hours;
-
-    String formatPart(
-      String hour,
-      String minute,
-    ) {
-      final h = int.tryParse(hour) ?? 0;
-      final period = h >= 12 ? 'PM' : 'AM';
-      final displayHour =
-          h % 12 == 0 ? 12 : h % 12;
-
-      return '$displayHour:${minute.padLeft(2, '0')} $period';
-    }
-
-    return '${formatPart(match.group(1)!, match.group(2)!)} - '
-        '${formatPart(match.group(3)!, match.group(4)!)}';
-  }
-
   String _formatRating(dynamic rating) {
     if (rating == null) return '0.0';
 
@@ -460,9 +438,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
 
     return Container(
       color: AppColors.surfaceLight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-      ),
+      width: double.infinity,
       child: Row(
         children: [
           Expanded(
@@ -1746,11 +1722,9 @@ class _gamefowlListingState extends State<gamefowlListing> {
             ? passedShopImage
             : apiShopBanner;
 
-    final shopLogo =
-        passedShopImage != null &&
-                passedShopImage.isNotEmpty
-            ? passedShopImage
-            : apiShopLogo;
+    final shopLogo = apiShopLogo != null && apiShopLogo.trim().isNotEmpty
+        ? apiShopLogo
+        : null;
 
     final hasLogo =
         shopLogo != null &&
@@ -1772,21 +1746,34 @@ class _gamefowlListingState extends State<gamefowlListing> {
         _shopDetails?['contact_number']
                 ?.toString() ??
             '';
-
-    final facebookAccount =
-        _getFacebookAccount();
-
-    final operatingHours =
-        _shopDetails?['operating_hours']
-                ?.toString()
-                .trim() ??
-            '';
-
-    final operatingDays =
-        _shopDetails?['operating_days']
-                ?.toString()
-                .trim() ??
-            '';
+    final breederName = (_shopDetails?['breeder_name'] ??
+            _shopDetails?['breeders_name'] ??
+            _shopDetails?['owner_name'])
+        ?.toString()
+        .trim() ??
+        '';
+    final username = (_shopDetails?['username'] ??
+            _shopDetails?['shop_username'])
+        ?.toString()
+        .trim();
+    final breederDetails = [
+      if (breederName.isNotEmpty) breederName,
+      if (username != null && username.isNotEmpty)
+        username.startsWith('@') ? username : '@$username',
+    ].join(' / ');
+    final breederDisplay = breederDetails.isNotEmpty
+        ? breederDetails
+        : 'Breeders Name / Username';
+    final email = (_shopDetails?['email'] ?? _shopDetails?['shop_email'])
+            ?.toString()
+            .trim() ??
+        '';
+    final contactDetails = [email, contactNumber]
+        .where((value) => value.trim().isNotEmpty)
+        .join(' / ');
+    final farmAddress = (_shopDetails?['farm_address'] ?? shopAddress)
+        .toString()
+        .trim();
 
     final isOpen =
         _isShopOpen();
@@ -1833,12 +1820,16 @@ class _gamefowlListingState extends State<gamefowlListing> {
           child: Container(
             width: double.infinity,
             decoration:
-                const BoxDecoration(
+                BoxDecoration(
               color: Colors.white,
-              borderRadius:
-                  BorderRadius.vertical(
-                top: Radius.circular(10),
-              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             padding:
                 const EdgeInsets.fromLTRB(
@@ -1893,13 +1884,10 @@ class _gamefowlListingState extends State<gamefowlListing> {
                           child: hasLogo
                               ? _buildHeaderImage(
                                   shopLogo!,
-                                  fallback:
-                                      _buildProfileFallback(
-                                    shopImage,
-                                  ),
+                                  fallback: _buildProfileFallback(null),
                                 )
                               : _buildProfileFallback(
-                                  shopImage,
+                                  null,
                                 ),
                         ),
                       ),
@@ -1962,50 +1950,54 @@ class _gamefowlListingState extends State<gamefowlListing> {
                                       .error,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          _buildShopStats(),
                         ],
                       ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 0),
+                const SizedBox(height: 14),
 
-                if (shopAddress.isNotEmpty)
+                _buildInfoRow(
+                  Icons.location_on_outlined,
+                  breederDisplay,
+                ),
+                if (contactDetails.isNotEmpty)
                   _buildInfoRow(
                     Icons.location_on_outlined,
-                    shopAddress,
+                    contactDetails,
                   ),
-
-                if (contactNumber.isNotEmpty)
+                if (farmAddress.isNotEmpty)
                   _buildInfoRow(
-                    Icons.phone_outlined,
-                    contactNumber,
+                    Icons.location_on_outlined,
+                    farmAddress,
                   ),
-
-                if (facebookAccount.isNotEmpty)
-                  _buildInfoRow(
-                    Icons.facebook,
-                    facebookAccount,
-                    onTap: null,
-                  ),
-
-                if (operatingHours.isNotEmpty ||
-                    operatingDays.isNotEmpty)
-                  _buildInfoRow(
-                    Icons.access_time,
-                    operatingHours.isNotEmpty
-                        ? _formatOperatingHours(
-                            operatingHours,
-                          )
-                        : operatingDays,
-                    subtitle:
-                        operatingHours.isNotEmpty &&
-                                operatingDays
-                                    .isNotEmpty
-                            ? operatingDays
-                            : null,
-                  ),
-
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildProfileActionButton(
+                        label: _isFollowing ? 'Following' : 'Follow',
+                        icon: _isFollowing ? Icons.favorite : Icons.favorite_border,
+                        filled: false,
+                        onTap: () => setState(
+                          () => _isFollowing = !_isFollowing,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildProfileActionButton(
+                        label: 'Chat',
+                        icon: Icons.chat_bubble,
+                        filled: true,
+                        onTap: _openShopChat,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -2044,6 +2036,98 @@ class _gamefowlListingState extends State<gamefowlListing> {
     );
   }
 
+  Widget _buildShopStats() {
+    final categories = context.read<CategoryProvider>().categories;
+    final productCount = _shopItems
+        .where((item) => isGamefowlItem(item, categories: categories))
+        .length;
+    final followers = _shopDetails?['followers_count'] ??
+        _shopDetails?['followers'] ??
+        0;
+    final following = _shopDetails?['following_count'] ??
+        _shopDetails?['following'] ??
+        0;
+
+    return Row(
+      children: [
+        Expanded(child: _buildShopStat(followers, 'Followers')),
+        Expanded(child: _buildShopStat(following, 'Following')),
+        Expanded(child: _buildShopStat(productCount, 'Products')),
+      ],
+    );
+  }
+
+  Widget _buildShopStat(dynamic value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value.toString(),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF202638),
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileActionButton({
+    required String label,
+    required IconData icon,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    final backgroundColor = filled ? AppColors.brandPrimary : Colors.grey[100]!;
+    final foregroundColor = filled ? Colors.white : Colors.grey[700]!;
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 19, color: foregroundColor),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: foregroundColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openShopChat() async {
+    if (!await requireAuth(context) || !mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConversationScreen(
+          shopId: widget.shopId,
+          shopName: _getDisplayShopName(),
+        ),
+      ),
+    );
+  }
+
   String _getDisplayShopName() {
     final passedName =
         widget.shopName?.trim();
@@ -2074,18 +2158,6 @@ class _gamefowlListingState extends State<gamefowlListing> {
     }
 
     return 'Shop';
-  }
-
-  String _getFacebookAccount() {
-    final value =
-        _shopDetails?['facebook_account'] ??
-        _shopDetails?['facebook'] ??
-        _shopDetails?['facebook_name'] ??
-        _shopDetails?['facebook_url'] ??
-        _shopDetails?['facebook_link'] ??
-        '';
-
-    return value.toString().trim();
   }
 
   Widget _buildProfileFallback(

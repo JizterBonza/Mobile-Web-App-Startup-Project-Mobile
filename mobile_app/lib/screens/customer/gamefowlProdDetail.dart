@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../services/shops_service.dart';
-import '../../services/api_service.dart';
 import '../../services/cart_services.dart';
+import '../../services/api_service.dart';
 import '../../utils/auth_guard.dart';
+import 'InquiryChat.dart';
+import 'checkOutScreen.dart';
+import 'gamefowlOrderReq.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
@@ -15,7 +18,6 @@ import 'gamefowlListing.dart';
 import 'checkOutScreen.dart';
 import 'gamefowlOrderReq.dart';
 import 'InquiryChat.dart';
-
 
 class gamefowlProdDetail extends StatefulWidget {
   final dynamic productId;
@@ -69,12 +71,10 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
       _ensureShopLoaded(shopId);
     });
-
   }
 
   dynamic _resolveShopId(Map<String, dynamic>? product) {
-    if (widget.shopId != null &&
-        widget.shopId.toString().trim().isNotEmpty) {
+    if (widget.shopId != null && widget.shopId.toString().trim().isNotEmpty) {
       return widget.shopId;
     }
 
@@ -177,9 +177,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     if (product == null) return const [];
 
     final rawImages =
-        product['item_images'] ??
-        product['images'] ??
-        product['image_urls'];
+        product['item_images'] ?? product['images'] ?? product['image_urls'];
 
     final urls = <String>[];
 
@@ -206,8 +204,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     }
 
     if (urls.isEmpty) {
-      final singleImage =
-          product['image_url'] ??
+      final singleImage = product['image_url'] ??
           product['image'] ??
           product['product_image'] ??
           product['item_image'] ??
@@ -332,8 +329,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               first['file_path'] ??
               first['image'];
 
-          if (nestedValue is String &&
-              nestedValue.trim().isNotEmpty) {
+          if (nestedValue is String && nestedValue.trim().isNotEmpty) {
             final resolved = _resolveMediaUrl(nestedValue);
 
             if (resolved != null) {
@@ -384,6 +380,11 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
+  int _parseStock(dynamic stock) {
+    if (stock is num) return stock.toInt();
+    return int.tryParse(stock?.toString() ?? '') ?? 0;
+  }
+
   double _parsePrice(dynamic price) {
     if (price == null) return 0.0;
 
@@ -424,8 +425,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     final totalRating = reviews.fold<double>(
       0.0,
-      (sum, review) =>
-          sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
+      (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
     );
 
     return totalRating / reviews.length;
@@ -595,21 +595,19 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
     final productStock = int.tryParse(
           (product?['item_quantity'] ?? product?['stock'] ?? 0).toString(),
-        ) ?? 0;
+        ) ??
+        0;
 
-    final productDescription = (
-      product?['item_description'] ??
-          product?['description'] ??
-          product?['product_description'] ??
-          ''
-    ).toString();
+    final productDescription = (product?['item_description'] ??
+            product?['description'] ??
+            product?['product_description'] ??
+            '')
+        .toString();
 
     final images = _resolveProductImages(product);
 
     final soldCount = _parseSoldCount(
-      product?['sold_count'] ??
-          product?['sold'] ??
-          product?['sales_count'],
+      product?['sold_count'] ?? product?['sold'] ?? product?['sales_count'],
     );
 
     final shopId = widget.shopId ?? _resolveShopId(product);
@@ -841,9 +839,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
             width: selected ? 18 : 7,
             height: 7,
             decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.brandPrimary
-                  : Colors.grey[300],
+              color: selected ? AppColors.brandPrimary : Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -874,9 +870,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.brandPrimaryDark
-                      : Colors.white,
+                  color: selected ? AppColors.brandPrimaryDark : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: selected
@@ -929,20 +923,20 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     required dynamic shopId,
     required String shopName,
   }) {
-    final address = (
-      _shopDetails?['shop_address'] ??
-          _shopDetails?['address'] ??
-          _shopDetails?['store_address'] ??
-          ''
-    ).toString().trim();
+    final address = (_shopDetails?['shop_address'] ??
+            _shopDetails?['address'] ??
+            _shopDetails?['store_address'] ??
+            '')
+        .toString()
+        .trim();
 
-    final contact = (
-      _shopDetails?['contact_number'] ??
-          _shopDetails?['phone'] ??
-          _shopDetails?['phone_number'] ??
-          _shopDetails?['mobile_number'] ??
-          ''
-    ).toString().trim();
+    final contact = (_shopDetails?['contact_number'] ??
+            _shopDetails?['phone'] ??
+            _shopDetails?['phone_number'] ??
+            _shopDetails?['mobile_number'] ??
+            '')
+        .toString()
+        .trim();
 
     return Material(
       color: Colors.white,
@@ -1155,9 +1149,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   }
 
   Widget _buildDescriptionSection(String description) {
-    final text = description.trim().isEmpty
-        ? 'No description available.'
-        : description;
+    final text =
+        description.trim().isEmpty ? 'No description available.' : description;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,17 +1202,13 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   Widget _buildReviewsSection() {
     return Consumer<ItemsProvider>(
       builder: (context, itemsProvider, child) {
-        final reviewsData =
-            itemsProvider.getItemReviews(widget.productId);
+        final reviewsData = itemsProvider.getItemReviews(widget.productId);
 
-        final isLoading =
-            itemsProvider.isReviewsLoading(widget.productId);
+        final isLoading = itemsProvider.isReviewsLoading(widget.productId);
 
-        final error =
-            itemsProvider.getReviewsError(widget.productId);
+        final error = itemsProvider.getReviewsError(widget.productId);
 
-        final reviews =
-            itemsProvider.getReviewsList(widget.productId);
+        final reviews = itemsProvider.getReviewsList(widget.productId);
 
         double averageRating = 0.0;
 
@@ -1417,9 +1406,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               const SizedBox(height: 16),
               ...(_showAllReviews || reviews.length <= 3
                   ? reviews.map((review) => _buildReviewCard(review))
-                  : reviews
-                      .take(3)
-                      .map((review) => _buildReviewCard(review))),
+                  : reviews.take(3).map((review) => _buildReviewCard(review))),
             ],
           ],
         );
@@ -1495,8 +1482,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     final rating = (review['rating'] as num?)?.toDouble() ?? 0.0;
     final comment = (review['comment'] ?? '').toString();
 
-    final verified =
-        review['verified'] == true || review['verified'] == 'true';
+    final verified = review['verified'] == true || review['verified'] == 'true';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1515,8 +1501,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor:
-                    AppColors.brandPrimary.withOpacity(0.2),
+                backgroundColor: AppColors.brandPrimary.withOpacity(0.2),
                 child: Text(
                   username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
@@ -1698,9 +1683,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     int? parsePositive(dynamic value) {
       if (value == null) return null;
-      final parsed = value is num
-          ? value.toInt()
-          : int.tryParse(value.toString().trim());
+      final parsed =
+          value is num ? value.toInt() : int.tryParse(value.toString().trim());
       return parsed != null && parsed > 0 ? parsed : null;
     }
 
@@ -1787,7 +1771,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       final userId = await ApiService.getUserId();
       if (userId == null || userId.isEmpty) {
         if (mounted) {
-          SnackbarHelper.showError(context, 'Please login again to use your cart.');
+          SnackbarHelper.showError(
+              context, 'Please login again to use your cart.');
         }
         return;
       }
@@ -1805,7 +1790,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
             if (mounted) {
               SnackbarHelper.showError(
                 context,
-                update['message']?.toString() ?? 'Could not update the item in your crate.',
+                update['message']?.toString() ??
+                    'Could not update the item in your crate.',
               );
             }
             return;
@@ -1989,11 +1975,11 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                 cartLine['shop_id'],
         'shop_name': cartLine['shop_name'],
         'quantity': _quantity,
-        'price_snapshot': cartLine['price_snapshot']?.toString() ??
-            price.toStringAsFixed(2),
+        'price_snapshot':
+            cartLine['price_snapshot']?.toString() ?? price.toStringAsFixed(2),
         'item_name': cartLine['item_name'] ?? product?['item_name'],
-        'item_price': cartLine['item_price']?.toString() ??
-            price.toStringAsFixed(2),
+        'item_price':
+            cartLine['item_price']?.toString() ?? price.toStringAsFixed(2),
         'item_quantity': cartLine['item_quantity']?.toString() ??
             product?['item_quantity']?.toString(),
         if (product?['item_images'] != null)
@@ -2187,7 +2173,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
           if (mounted) {
             SnackbarHelper.showError(
               context,
-              addResult['message']?.toString() ?? 'Could not add gamefowl to crate.',
+              addResult['message']?.toString() ??
+                  'Could not add gamefowl to crate.',
             );
           }
           return;
@@ -2235,8 +2222,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
       return;
     }
 
-    final itemsProvider =
-        Provider.of<ItemsProvider>(context, listen: false);
+    final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
 
     final inquiryProduct =
         widget.productData ?? itemsProvider.getItemById(widget.productId);
@@ -2253,7 +2239,6 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
 
     if (!mounted) return;
-
   }
 
   Widget _buildBottomActionBar(
@@ -2320,8 +2305,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(
+                                valueColor: AlwaysStoppedAnimation<Color>(
                                   Colors.white,
                                 ),
                               ),

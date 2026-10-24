@@ -38,6 +38,11 @@ class CheckOutScreen extends StatefulWidget {
 }
 
 class _CheckOutScreenState extends State<CheckOutScreen> {
+  bool get _isDirectGamefowlOrder {
+  return widget.selectedCartItems.any(
+    (item) => item['is_direct_gamefowl_order'] == true,
+  );
+}
   final _formKey = GlobalKey<FormState>();
   final _orderInstructionController = TextEditingController();
   final _voucherController = TextEditingController();
@@ -320,26 +325,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         'price_at_purchase': _getEffectivePrice(cartItem),
       };
 
-      if (!isDirectGamefowl) {
-        // This is the cart-row ID, not the parent cart ID.
-        final cartItemId = _parseId(
-          cartItem['cart_item_id'] ?? cartItem['cartItemId'] ?? cartItem['id'],
-        );
-        if (cartItemId != null) item['cart_item_id'] = cartItemId;
-
-        // Include a parent cart ID only when explicitly supplied.
-        final actualCartId = _parseId(
-          cartItem['cart_id'] ?? cartItem['cartId'],
-        );
-        if (actualCartId != null) item['cart_id'] = actualCartId;
-      }
-
-      if (gamefowlRequest.isNotEmpty) {
-        item['gamefowl_request'] = gamefowlRequest;
-      }
-      if (isDirectGamefowl) {
-        item['is_direct_gamefowl_order'] = true;
-      }
+      final cartItemId = _parseId(cartItem['id']);
+      if (cartItemId != null) item['cart_id'] = cartItemId;
 
       debugPrint(
         'CHECKOUT ITEM PAYLOAD: item_id=$itemId, shop_id=$shopId, '
