@@ -8,7 +8,10 @@ import '../services/reverb_service.dart';
 
 /// Shared state for customer conversations and the open thread.
 class MessageProvider with ChangeNotifier {
-  final MessageService _service = MessageService();
+  MessageProvider({MessageService? messageService})
+      : _service = messageService ?? MessageService();
+
+  final MessageService _service;
   final ReverbService _reverb = ReverbService();
 
   List<ConversationModel> _conversations = [];
@@ -108,10 +111,34 @@ class MessageProvider with ChangeNotifier {
       final result = await _service.fetchConversations();
       if (result['success'] == true && result['data'] != null) {
         final payload = result['data'] as ConversationListResponse;
+        final conversations = payload.conversations.map((item) {
+          ConversationModel? previous;
+          for (final existing in _conversations) {
+            if (existing.id?.toString() == item.id?.toString()) {
+              previous = existing;
+              break;
+            }
+          }
+          if (previous == null) return item;
+          if (item.farmId != null || item.shopId != null) {
+            return item.copyWith(
+                avatarUrl: item.avatarUrl ?? previous.avatarUrl);
+          }
+          if (previous.farmId == null) {
+            return item.copyWith(
+                avatarUrl: item.avatarUrl ?? previous.avatarUrl);
+          }
+          return item.copyWith(
+            farmId: previous.farmId,
+            shopName:
+                item.shopName.isNotEmpty ? item.shopName : previous.shopName,
+            avatarUrl: item.avatarUrl ?? previous.avatarUrl,
+          );
+        }).toList();
         final unchanged = silent &&
             payload.unreadCount == _unreadCount &&
-            _sameConversationList(payload.conversations, _conversations);
-        _conversations = payload.conversations;
+            _sameConversationList(conversations, _conversations);
+        _conversations = conversations;
         _unreadCount = payload.unreadCount;
         _error = null;
         if (_liveEnabled) {
@@ -242,6 +269,61 @@ class MessageProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> startOrResumeFarmConversation({
+    required dynamic farmId,
+    String? farmName,
+    String? body,
+    List<File> attachments = const [],
+    dynamic itemId,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _service.startFarmConversation(
+        farmId,
+        body: body,
+        attachments: attachments,
+        itemId: itemId,
+      );
+      if (result['success'] != true || result['data'] is! ConversationThread) {
+        _error = result['message'] ?? 'Failed to start farm conversation';
+        return false;
+      }
+      var thread = result['data'] as ConversationThread;
+      if (thread.conversation.id == null) {
+        _error = 'Farm conversation has no ID';
+        return false;
+      }
+      if (thread.farm == null &&
+          farmName != null &&
+          farmName.trim().isNotEmpty) {
+        thread = thread.copyWith(
+          farm: MessageShopInfo(id: farmId, shopName: farmName.trim()),
+        );
+      }
+      _activeThread = _mergeThread(thread);
+      _markConversationRead(_activeThread!.conversation.id);
+      _syncConversationPreview(
+        _activeThread!,
+        bumpTimestamp: itemId != null ||
+            (body?.trim().isNotEmpty ?? false) ||
+            attachments.isNotEmpty,
+      );
+      if (_liveEnabled) {
+        await _reverb.subscribeConversation(_activeThread!.conversation.id);
+      }
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> sendMessage({
     required dynamic conversationId,
     String? body,
@@ -338,8 +420,12 @@ class MessageProvider with ChangeNotifier {
 
   ConversationThread _mergeThread(ConversationThread incoming) {
     final previous = _activeThread;
-    if (incoming.shop != null || previous?.shop == null) return incoming;
-    return incoming.copyWith(shop: previous!.shop);
+    if (previous == null ||
+        previous.conversation.id?.toString() !=
+            incoming.conversation.id?.toString()) return incoming;
+    return incoming.copyWith(
+        shop: incoming.shop ?? previous.shop,
+        farm: incoming.farm ?? previous.farm);
   }
 
   bool _sameThread(ConversationThread incoming, ConversationThread? current) {
@@ -366,6 +452,8 @@ class MessageProvider with ChangeNotifier {
       final a = incoming[i];
       final b = current[i];
       if (a.id?.toString() != b.id?.toString()) return false;
+      if (a.shopName != b.shopName || a.farmId != b.farmId) return false;
+      if (a.avatarUrl != b.avatarUrl) return false;
       if (a.lastMessage != b.lastMessage) return false;
       if (a.unread != b.unread) return false;
       if (a.unreadCount != b.unreadCount) return false;
@@ -412,9 +500,11 @@ class MessageProvider with ChangeNotifier {
       ConversationModel(
         id: id,
         shopId: thread.shop?.id ?? existing?.shopId,
-        shopName: thread.shopName.isNotEmpty
-            ? thread.shopName
+        farmId: thread.farm?.id ?? existing?.farmId,
+        shopName: thread.displayName.isNotEmpty
+            ? thread.displayName
             : (existing?.shopName ?? ''),
+        avatarUrl: thread.avatarUrl ?? existing?.avatarUrl,
         lastMessage: lastMessage,
         lastMessageAt: bumpTimestamp
             ? DateTime.now().toUtc()

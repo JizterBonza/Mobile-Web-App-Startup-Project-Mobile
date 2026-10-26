@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,25 +13,35 @@ import '../../constants/constants.dart';
 import '../../models/messageModel.dart';
 import '../../provider/message_provider.dart';
 import '../../services/message_service.dart';
+import '../../services/farms_service.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
+import '../../widgets/farm_gamefowl_message_card.dart';
+import '../../widgets/gamefowl_icon.dart';
+import '../../widgets/conversation_avatar.dart';
 import 'messageProductPickerScreen.dart';
+import 'farmGamefowlMessagePickerScreen.dart';
 import 'productDetailScreen.dart';
+import 'farmGamefowlListingDetailScreen.dart';
 
 class InquiryChat extends StatefulWidget {
   final dynamic conversationId;
   final dynamic shopId;
+  final dynamic farmId;
   final String? shopName;
   final Map<String, dynamic>? productData;
+  final FarmsService? farmsService;
 
   const InquiryChat({
     super.key,
     this.conversationId,
     this.shopId,
+    this.farmId,
     this.shopName,
     this.productData,
+    this.farmsService,
   });
 
   @override
@@ -50,13 +59,39 @@ class _InquiryChatState extends State<InquiryChat> {
   bool _attachMenuOpen = false;
   bool _inquiryCompleted = false;
   bool _didInitialLoad = false;
+  bool _initialInquiryAttempted = false;
 
   int _lastMessageCount = 0;
   MessageProvider? _messageProvider;
+  late final FarmsService _farmsService;
+  final Map<String, Future<Map<String, dynamic>>> _farmListingFutures = {};
+
+  bool get _isFarmConversation =>
+      widget.farmId != null || _messageProvider?.activeThread?.farm != null;
+
+  String? _headerAvatarUrl(
+      ConversationThread? thread, MessageProvider provider) {
+    final entityAvatar = thread?.farm?.avatarUrl ?? thread?.shop?.avatarUrl;
+    if (entityAvatar != null) return entityAvatar;
+    final id = thread?.conversation.id ?? widget.conversationId;
+    for (final item in provider.conversations) {
+      if (item.id?.toString() == id?.toString() && item.avatarUrl != null) {
+        return item.avatarUrl;
+      }
+    }
+    return thread?.conversation.avatarUrl;
+  }
+
+  Future<Map<String, dynamic>> _farmListing(dynamic id) {
+    if (id == null) return Future.value(const <String, dynamic>{});
+    return _farmListingFutures.putIfAbsent(
+        id.toString(), () => _farmsService.fetchFarmGamefowlListing(id));
+  }
 
   @override
   void initState() {
     super.initState();
+    _farmsService = widget.farmsService ?? FarmsService();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrap();
@@ -64,23 +99,22 @@ class _InquiryChatState extends State<InquiryChat> {
   }
 
   Future<void> _bootstrap() async {
-    await _loadThread();
-    if (!mounted) return;
+    final loaded = await _loadThread();
+    if (!mounted || !loaded) return;
 
     _messageProvider?.startLiveUpdates();
 
-    _lastMessageCount =
-        _messageProvider?.activeThread?.messages.length ?? 0;
+    _lastMessageCount = _messageProvider?.activeThread?.messages.length ?? 0;
 
     await _sendInitialProductInquiry();
   }
 
   Future<void> _sendInitialProductInquiry() async {
     final product = widget.productData;
-    if (product == null) return;
+    if (product == null || _initialInquiryAttempted) return;
+    _initialInquiryAttempted = true;
 
-    final provider =
-        Provider.of<MessageProvider>(context, listen: false);
+    final provider = Provider.of<MessageProvider>(context, listen: false);
 
     final conversationId =
         provider.activeThread?.conversation.id ?? widget.conversationId;
@@ -116,10 +150,12 @@ class _InquiryChatState extends State<InquiryChat> {
             conversationId: conversationId,
             body: body,
           )
-        : await provider.startOrResumeConversation(
-            shopId: widget.shopId,
-            body: body,
-          );
+        : widget.farmId != null
+            ? false
+            : await provider.startOrResumeConversation(
+                shopId: widget.shopId,
+                body: body,
+              );
 
     if (!mounted) return;
 
@@ -378,8 +414,7 @@ class _InquiryChatState extends State<InquiryChat> {
     // First, use the exact image prepared by the listing card if available.
     final listingImage = product['__listing_display_image'];
 
-    if (listingImage != null &&
-        listingImage.toString().trim().isNotEmpty) {
+    if (listingImage != null && listingImage.toString().trim().isNotEmpty) {
       final resolved = _resolveProductImage(listingImage.toString());
       if (resolved != null) return resolved;
     }
@@ -446,11 +481,9 @@ class _InquiryChatState extends State<InquiryChat> {
       final baseUrl = Url.getUrl().trim();
       if (baseUrl.isEmpty) return null;
 
-      final normalizedBase =
-          baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+      final normalizedBase = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
 
-      final normalizedPath =
-          value.startsWith('/') ? value.substring(1) : value;
+      final normalizedPath = value.startsWith('/') ? value.substring(1) : value;
 
       return Uri.parse(normalizedBase).resolve(normalizedPath).toString();
     } catch (_) {
@@ -486,10 +519,7 @@ class _InquiryChatState extends State<InquiryChat> {
     return Container(
       color: const Color(0xFFF3F4F6),
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.pets,
-        color: AppColors.brandPrimary,
-      ),
+      child: const GamefowlIcon(color: AppColors.brandPrimary),
     );
   }
 
@@ -587,9 +617,8 @@ class _InquiryChatState extends State<InquiryChat> {
     );
   }
 
-  Future<void> _loadThread() async {
-    final provider =
-        Provider.of<MessageProvider>(context, listen: false);
+  Future<bool> _loadThread() async {
+    final provider = Provider.of<MessageProvider>(context, listen: false);
 
     bool success;
 
@@ -599,12 +628,17 @@ class _InquiryChatState extends State<InquiryChat> {
       success = await provider.startOrResumeConversation(
         shopId: widget.shopId,
       );
+    } else if (widget.farmId != null) {
+      success = await provider.startOrResumeFarmConversation(
+        farmId: widget.farmId,
+        farmName: widget.shopName,
+      );
     } else {
       success = false;
       provider.clearActiveThread();
     }
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     setState(() => _didInitialLoad = true);
 
@@ -615,6 +649,7 @@ class _InquiryChatState extends State<InquiryChat> {
     } else if (provider.error != null) {
       SnackbarHelper.showError(context, provider.error!);
     }
+    return success;
   }
 
   void _onMessagesChanged() {
@@ -702,8 +737,7 @@ class _InquiryChatState extends State<InquiryChat> {
 
   Future<void> _pickFromCamera() async {
     try {
-      final photo =
-          await _imagePicker.pickImage(source: ImageSource.camera);
+      final photo = await _imagePicker.pickImage(source: ImageSource.camera);
 
       if (photo == null) return;
 
@@ -736,10 +770,10 @@ class _InquiryChatState extends State<InquiryChat> {
   }
 
   void _openProductPicker() {
+    if (_isFarmConversation) return;
     setState(() => _attachMenuOpen = false);
 
-    final shopId =
-        widget.shopId ?? _messageProvider?.activeThread?.shop?.id;
+    final shopId = widget.shopId ?? _messageProvider?.activeThread?.shop?.id;
 
     if (shopId == null) {
       SnackbarHelper.showWarning(context, 'No shop to browse');
@@ -756,6 +790,29 @@ class _InquiryChatState extends State<InquiryChat> {
           shopId: shopId,
           conversationId: conversationId,
           shopName: widget.shopName,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) _scrollToBottom();
+    });
+  }
+
+  void _openFarmGamefowlPicker() {
+    setState(() => _attachMenuOpen = false);
+    final farmId = widget.farmId ?? _messageProvider?.activeThread?.farm?.id;
+    final conversationId = _messageProvider?.activeThread?.conversation.id ??
+        widget.conversationId;
+    if (farmId == null || conversationId == null) {
+      SnackbarHelper.showWarning(context, 'Farm conversation is still loading');
+      return;
+    }
+    Navigator.push(
+      context,
+      customerFadeRoute(
+        FarmGamefowlMessagePickerScreen(
+          farmId: farmId,
+          conversationId: conversationId,
+          farmsService: _farmsService,
         ),
       ),
     ).then((_) {
@@ -838,6 +895,14 @@ class _InquiryChatState extends State<InquiryChat> {
       );
     }
 
+    if (widget.farmId != null) {
+      return provider.startOrResumeFarmConversation(
+        farmId: widget.farmId,
+        farmName: widget.shopName,
+        body: body,
+        attachments: attachments,
+      );
+    }
     return provider.startOrResumeConversation(
       shopId: widget.shopId,
       body: body,
@@ -858,8 +923,7 @@ class _InquiryChatState extends State<InquiryChat> {
       return;
     }
 
-    final provider =
-        Provider.of<MessageProvider>(context, listen: false);
+    final provider = Provider.of<MessageProvider>(context, listen: false);
 
     final conversationId =
         provider.activeThread?.conversation.id ?? widget.conversationId;
@@ -868,7 +932,9 @@ class _InquiryChatState extends State<InquiryChat> {
     final hasBody = body.isNotEmpty;
     final hasAttachments = attachments.isNotEmpty;
 
-    if (conversationId == null && widget.shopId == null) {
+    if (conversationId == null &&
+        widget.shopId == null &&
+        widget.farmId == null) {
       SnackbarHelper.showError(context, 'No conversation to send to');
       return;
     }
@@ -894,8 +960,7 @@ class _InquiryChatState extends State<InquiryChat> {
 
       setState(() {});
 
-      final threadId =
-          provider.activeThread?.conversation.id ?? conversationId;
+      final threadId = provider.activeThread?.conversation.id ?? conversationId;
 
       if (threadId == null) {
         SnackbarHelper.showError(context, 'No conversation to send to');
@@ -961,8 +1026,7 @@ class _InquiryChatState extends State<InquiryChat> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final provider =
-        Provider.of<MessageProvider>(context, listen: false);
+    final provider = Provider.of<MessageProvider>(context, listen: false);
 
     if (!identical(_messageProvider, provider)) {
       _messageProvider?.removeListener(_onMessagesChanged);
@@ -990,8 +1054,8 @@ class _InquiryChatState extends State<InquiryChat> {
 
         final title = widget.shopName?.trim().isNotEmpty == true
             ? widget.shopName!.trim()
-            : (thread?.shopName.isNotEmpty == true
-                ? thread!.shopName
+            : (thread?.displayName.isNotEmpty == true
+                ? thread!.displayName
                 : 'Chat');
 
         final lastSeen = thread?.conversation.lastSeen ?? '';
@@ -1022,7 +1086,8 @@ class _InquiryChatState extends State<InquiryChat> {
                   statusBarIconBrightness: Brightness.dark,
                   statusBarBrightness: Brightness.light,
                 ),
-                title: _buildHeader(title, lastSeen),
+                title: _buildHeader(
+                    title, lastSeen, _headerAvatarUrl(thread, provider)),
                 bottom: PreferredSize(
                   preferredSize: const Size.fromHeight(1),
                   child: Divider(
@@ -1043,18 +1108,21 @@ class _InquiryChatState extends State<InquiryChat> {
                           )
                         : RefreshIndicator(
                             onRefresh: () async {
+                              bool loaded;
                               if (provider.activeThread?.conversation.id !=
                                   null) {
-                                await provider.refreshActiveThread();
+                                loaded = await provider.refreshActiveThread();
                               } else {
-                                await _loadThread();
+                                loaded = await _loadThread();
                               }
+                              if (loaded) await _sendInitialProductInquiry();
                             },
                             color: AppColors.brandPrimary,
                             child: _buildMessageList(thread),
                           ),
                   ),
-                  _buildComposer(provider.isSending),
+                  _buildComposer(provider.isSending ||
+                      (_isFarmConversation && thread?.conversation.id == null)),
                 ],
               ),
             ),
@@ -1102,12 +1170,13 @@ class _InquiryChatState extends State<InquiryChat> {
           return _buildInquiryProductMessage(message, inquiryProduct);
         }
 
-        return _buildBubble(message);
+        return _buildBubble(message,
+            isFarmConversation: widget.farmId != null || thread?.farm != null);
       },
     );
   }
 
-  Widget _buildHeader(String title, String lastSeen) {
+  Widget _buildHeader(String title, String lastSeen, String? avatarUrl) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -1130,10 +1199,10 @@ class _InquiryChatState extends State<InquiryChat> {
             ),
           ),
           const SizedBox(width: 10),
-          SvgPicture.asset(
-            'assets/icons/Store.svg',
-            width: 40,
-            height: 40,
+          ConversationAvatar(
+            avatarUrl: avatarUrl,
+            isFarm: _isFarmConversation,
+            size: 40,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1212,10 +1281,12 @@ class _InquiryChatState extends State<InquiryChat> {
     return value.contains('read') || value.contains('seen');
   }
 
-  Widget _buildBubble(MessageModel message) {
+  Widget _buildBubble(MessageModel message,
+      {required bool isFarmConversation}) {
     final mine = _isMine(message);
     final time = _formatMessageTime(message.time);
     final isProduct = message.isProduct && message.product != null;
+    final isFarmProduct = isFarmConversation && isProduct;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -1279,7 +1350,25 @@ class _InquiryChatState extends State<InquiryChat> {
                   crossAxisAlignment:
                       mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    if (isProduct) _buildProductSnapshot(message.product!),
+                    if (isFarmProduct)
+                      FarmGamefowlMessageCard(
+                        product: message.product!,
+                        body: message.displayText,
+                        listingFuture: _farmListing(message.product!.listingId),
+                        onTap: message.product!.listingId == null
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  customerFadeRoute(
+                                    FarmGamefowlListingDetailScreen(
+                                      listingId: message.product!.listingId,
+                                      farmsService: _farmsService,
+                                    ),
+                                  ),
+                                ),
+                      )
+                    else if (isProduct)
+                      _buildProductSnapshot(message.product!),
                     if (message.attachments.isNotEmpty) ...[
                       if (isProduct) const SizedBox(height: 8),
                       ...message.attachments.map(
@@ -1289,7 +1378,7 @@ class _InquiryChatState extends State<InquiryChat> {
                         ),
                       ),
                     ],
-                    if (message.displayText.isNotEmpty) ...[
+                    if (message.displayText.isNotEmpty && !isFarmProduct) ...[
                       if (isProduct || message.attachments.isNotEmpty)
                         const SizedBox(height: 8),
                       Text(
@@ -1414,7 +1503,11 @@ class _InquiryChatState extends State<InquiryChat> {
                             Navigator.push(
                               context,
                               customerFadeRoute(
-                                ProductDetailScreen(productId: product.id),
+                                widget.farmId != null
+                                    ? FarmGamefowlListingDetailScreen(
+                                        listingId: product.id)
+                                    : ProductDetailScreen(
+                                        productId: product.id),
                               ),
                             );
                           },
@@ -1456,9 +1549,7 @@ class _InquiryChatState extends State<InquiryChat> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: mine
-              ? Colors.white.withOpacity(0.55)
-              : AppColors.surfaceLight,
+          color: mine ? Colors.white.withOpacity(0.55) : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -1472,9 +1563,7 @@ class _InquiryChatState extends State<InquiryChat> {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                attachment.name.isNotEmpty
-                    ? attachment.name
-                    : 'Attachment',
+                attachment.name.isNotEmpty ? attachment.name : 'Attachment',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1512,16 +1601,14 @@ class _InquiryChatState extends State<InquiryChat> {
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final file = _pendingAttachments[index];
-                  final name =
-                      file.path.split(Platform.pathSeparator).last;
+                  final name = file.path.split(Platform.pathSeparator).last;
 
                   return InputChip(
                     label: Text(
                       name,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    onDeleted:
-                        isSending ? null : () => _removePending(index),
+                    onDeleted: isSending ? null : () => _removePending(index),
                     deleteIconColor: AppColors.error,
                     backgroundColor: AppColors.surfaceLight,
                   );
@@ -1639,15 +1726,22 @@ class _InquiryChatState extends State<InquiryChat> {
                               ? null
                               : () => _onAttachAction(_pickFromCamera),
                         ),
-                        _buildAttachTile(
-                          icon: const Icon(
-                            Icons.shopping_bag_outlined,
-                            size: 24,
-                            color: iconGrey,
+                        if (_isFarmConversation)
+                          _buildAttachTile(
+                            icon: const GamefowlIcon(size: 24, color: iconGrey),
+                            label: 'Gamefowl',
+                            onTap: isSending ? null : _openFarmGamefowlPicker,
+                          )
+                        else
+                          _buildAttachTile(
+                            icon: const Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 24,
+                              color: iconGrey,
+                            ),
+                            label: 'Products',
+                            onTap: isSending ? null : _openProductPicker,
                           ),
-                          label: 'Products',
-                          onTap: isSending ? null : _openProductPicker,
-                        ),
                       ],
                     ),
                   )

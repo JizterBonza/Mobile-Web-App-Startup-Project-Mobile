@@ -7,12 +7,12 @@ import 'package:provider/provider.dart';
 
 import '../../constants/constants.dart';
 import '../../services/api_service.dart';
+import '../../services/farms_service.dart';
 import '../../services/favorite_services.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/gamefowl_item.dart';
-import '../../utils/snackbar_helper.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/user_profile_avatar.dart';
 
@@ -22,6 +22,7 @@ import 'cartScreenV2.dart';
 import '../common/profileScreen.dart';
 import 'klasrumScreen.dart';
 import 'shopScreen.dart';
+import 'farmDetailsScreen.dart';
 import 'gamefowlProdDetail.dart';
 import 'productDetailScreen.dart';
 
@@ -33,8 +34,7 @@ class CustomerDashboardScreen extends StatefulWidget {
       _CustomerDashboardScreenState();
 }
 
-class _CustomerDashboardScreenState
-    extends State<CustomerDashboardScreen> {
+class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   String? _userName;
   String? _profileImageUrl;
   bool _isGuest = true;
@@ -44,6 +44,12 @@ class _CustomerDashboardScreenState
   List<Map<String, dynamic>> _suggestedStores = [];
   bool _isLoadingStores = true;
   String? _storeError;
+
+  final FarmsService _farmsService = FarmsService();
+  List<Map<String, dynamic>> _farms = [];
+  bool _isLoadingFarms = true;
+  String? _farmError;
+  String? _openingFarmChatId;
 
   bool _isLoadingProducts = true;
   List<Map<String, dynamic>> _products = [];
@@ -58,8 +64,7 @@ class _CustomerDashboardScreenState
   int _currentStorePage = 0;
   int _currentFarmPage = 0;
 
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   final FocusNode _searchFocus = FocusNode();
 
@@ -77,13 +82,11 @@ class _CustomerDashboardScreenState
 
   final Set<String> _favoriteProductIds = <String>{};
 
-  final Map<String, String> _favoriteRecordIds =
-      <String, String>{};
+  final Map<String, String> _favoriteRecordIds = <String, String>{};
 
   final Set<String> _favoriteCardKeys = <String>{};
 
-  final Map<String, String> _favoriteCardProductIds =
-      <String, String>{};
+  final Map<String, String> _favoriteCardProductIds = <String, String>{};
 
   @override
   void initState() {
@@ -110,6 +113,7 @@ class _CustomerDashboardScreenState
     await Future.wait([
       _loadUserName(),
       _loadSuggestedStores(),
+      _loadFarms(),
       _loadKlasrumFeatured(),
       _loadProducts(),
       _loadCategories(),
@@ -245,8 +249,7 @@ class _CustomerDashboardScreenState
         return;
       }
 
-      final favorites =
-          await _favoriteService.fetchFavoritesFromAPI(userId);
+      final favorites = await _favoriteService.fetchFavoritesFromAPI(userId);
 
       final favoriteProductIds = <String>{};
       final favoriteRecordIds = <String, String>{};
@@ -261,8 +264,7 @@ class _CustomerDashboardScreenState
           favoriteProductIds.add(itemIdString);
 
           if (favoriteId != null) {
-            favoriteRecordIds[itemIdString] =
-                favoriteId.toString();
+            favoriteRecordIds[itemIdString] = favoriteId.toString();
           }
         }
       }
@@ -308,8 +310,7 @@ class _CustomerDashboardScreenState
     if (!mounted) return;
 
     final newFavoriteCardKeys = <String>{};
-    final newFavoriteCardProductIds =
-        <String, String>{};
+    final newFavoriteCardProductIds = <String, String>{};
 
     final alreadyAssignedProducts = <String>{};
 
@@ -320,9 +321,7 @@ class _CustomerDashboardScreenState
       for (int index = 0; index < products.length; index++) {
         final product = products[index];
 
-        final productId =
-            product['id'] ??
-                product['item_id'];
+        final productId = product['id'] ?? product['item_id'];
 
         if (productId == null) {
           continue;
@@ -338,21 +337,18 @@ class _CustomerDashboardScreenState
           continue;
         }
 
-        final cardKey =
-            _getFavoriteCardKey(
+        final cardKey = _getFavoriteCardKey(
           section,
           index,
         );
 
         alreadyAssignedProducts.add(itemId);
         newFavoriteCardKeys.add(cardKey);
-        newFavoriteCardProductIds[cardKey] =
-            itemId;
+        newFavoriteCardProductIds[cardKey] = itemId;
       }
     }
 
-    final filteredProducts =
-        _getFilteredProducts();
+    final filteredProducts = _getFilteredProducts();
 
     registerSection(
       'best_offers',
@@ -369,10 +365,7 @@ class _CustomerDashboardScreenState
       filteredProducts.take(6).toList(),
     );
 
-    final gamefowl = _products
-        .where(_isGamefowlProduct)
-        .take(6)
-        .toList();
+    final gamefowl = _products.where(_isGamefowlProduct).take(6).toList();
 
     registerSection(
       'gamefowl',
@@ -416,9 +409,7 @@ class _CustomerDashboardScreenState
       return;
     }
 
-    final productId =
-        product['id'] ??
-            product['item_id'];
+    final productId = product['id'] ?? product['item_id'];
 
     if (productId == null) {
       return;
@@ -426,14 +417,13 @@ class _CustomerDashboardScreenState
 
     final itemId = productId.toString();
 
-    final isCardFavorite =
-        favoriteCardKey != null
-            ? _favoriteCardKeys.contains(
-                favoriteCardKey,
-              )
-            : _favoriteProductIds.contains(
-                itemId,
-              );
+    final isCardFavorite = favoriteCardKey != null
+        ? _favoriteCardKeys.contains(
+            favoriteCardKey,
+          )
+        : _favoriteProductIds.contains(
+            itemId,
+          );
 
     if (isCardFavorite) {
       if (favoriteCardKey != null) {
@@ -448,19 +438,15 @@ class _CustomerDashboardScreenState
         });
       }
 
-      final anotherCardUsesProduct =
-          _favoriteCardProductIds.entries.any(
-        (entry) =>
-            entry.value == itemId &&
-            entry.key != favoriteCardKey,
+      final anotherCardUsesProduct = _favoriteCardProductIds.entries.any(
+        (entry) => entry.value == itemId && entry.key != favoriteCardKey,
       );
 
       if (anotherCardUsesProduct) {
         return;
       }
 
-      final favoriteRecordId =
-          _favoriteRecordIds[itemId];
+      final favoriteRecordId = _favoriteRecordIds[itemId];
 
       if (favoriteRecordId == null) {
         await _loadFavoriteState();
@@ -468,8 +454,7 @@ class _CustomerDashboardScreenState
       }
 
       try {
-        final result =
-            await _favoriteService.removeFromFavorites(
+        final result = await _favoriteService.removeFromFavorites(
           favoriteRecordId,
         );
 
@@ -485,10 +470,8 @@ class _CustomerDashboardScreenState
             ..hideCurrentSnackBar()
             ..showSnackBar(
               const SnackBar(
-                content:
-                    Text('Removed from favorites'),
-                duration:
-                    Duration(seconds: 2),
+                content: Text('Removed from favorites'),
+                duration: Duration(seconds: 2),
               ),
             );
         } else {
@@ -497,11 +480,9 @@ class _CustomerDashboardScreenState
             ..showSnackBar(
               SnackBar(
                 content: Text(
-                  result['message'] ??
-                      'Failed to remove from favorites',
+                  result['message'] ?? 'Failed to remove from favorites',
                 ),
-                duration:
-                    const Duration(seconds: 2),
+                duration: const Duration(seconds: 2),
               ),
             );
         }
@@ -515,8 +496,7 @@ class _CustomerDashboardScreenState
               content: Text(
                 'Error removing favorite: $e',
               ),
-              duration:
-                  const Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
       }
@@ -530,9 +510,7 @@ class _CustomerDashboardScreenState
           favoriteCardKey,
         );
 
-        _favoriteCardProductIds[
-                favoriteCardKey] =
-            itemId;
+        _favoriteCardProductIds[favoriteCardKey] = itemId;
       });
     }
 
@@ -541,8 +519,7 @@ class _CustomerDashboardScreenState
     }
 
     try {
-      final userId =
-          await ApiService.getUserId();
+      final userId = await ApiService.getUserId();
 
       if (userId == null || userId.isEmpty) {
         if (!mounted) return;
@@ -569,8 +546,7 @@ class _CustomerDashboardScreenState
         return;
       }
 
-      final result =
-          await _favoriteService.addToFavorites(
+      final result = await _favoriteService.addToFavorites(
         userId: userId,
         itemId: itemId,
       );
@@ -586,10 +562,8 @@ class _CustomerDashboardScreenState
           ..hideCurrentSnackBar()
           ..showSnackBar(
             const SnackBar(
-              content:
-                  Text('Added to favorites'),
-              duration:
-                  Duration(seconds: 2),
+              content: Text('Added to favorites'),
+              duration: Duration(seconds: 2),
             ),
           );
       } else {
@@ -610,11 +584,9 @@ class _CustomerDashboardScreenState
           ..showSnackBar(
             SnackBar(
               content: Text(
-                result['message'] ??
-                    'Failed to add to favorites',
+                result['message'] ?? 'Failed to add to favorites',
               ),
-              duration:
-                  const Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ),
           );
       }
@@ -640,8 +612,7 @@ class _CustomerDashboardScreenState
             content: Text(
               'Error adding favorite: $e',
             ),
-            duration:
-                const Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
     }
@@ -717,6 +688,37 @@ class _CustomerDashboardScreenState
     }
   }
 
+  Future<void> _loadFarms() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingFarms = true;
+      _farmError = null;
+    });
+
+    try {
+      final farms = await _farmsService.fetchFarms();
+      if (!mounted) return;
+
+      final resetPage = _currentFarmPage >= farms.length;
+      setState(() {
+        _farms = farms;
+        _isLoadingFarms = false;
+        if (resetPage) _currentFarmPage = 0;
+      });
+      if (resetPage && _farmsPageController.hasClients) {
+        _farmsPageController.jumpToPage(0);
+      }
+    } catch (e) {
+      debugPrint('Error loading farms: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFarms = false;
+        _farmError = e.toString();
+      });
+    }
+  }
+
   Future<void> _loadProducts({
     bool useCache = true,
   }) async {
@@ -738,8 +740,7 @@ class _CustomerDashboardScreenState
 
       if (!mounted) return;
 
-      final loadedItems =
-          List<Map<String, dynamic>>.from(
+      final loadedItems = List<Map<String, dynamic>>.from(
         itemsProvider.items,
       );
 
@@ -870,10 +871,8 @@ class _CustomerDashboardScreenState
           child: child,
         );
       },
-      transitionDuration:
-          const Duration(milliseconds: 160),
-      reverseTransitionDuration:
-          const Duration(milliseconds: 160),
+      transitionDuration: const Duration(milliseconds: 160),
+      reverseTransitionDuration: const Duration(milliseconds: 160),
     );
   }
 
@@ -917,6 +916,7 @@ class _CustomerDashboardScreenState
       _loadSuggestedStores(
         useCache: false,
       ),
+      _loadFarms(),
       _loadKlasrumFeatured(),
       _loadProducts(
         useCache: false,
@@ -951,19 +951,14 @@ class _CustomerDashboardScreenState
                     color: AppColors.brandPrimary,
                     onRefresh: _onRefresh,
                     child: CustomScrollView(
-                      physics:
-                          const AlwaysScrollableScrollPhysics(),
+                      physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [
                         SliverPersistentHeader(
                           pinned: true,
-                          delegate:
-                              _RoosterCoverHeaderDelegate(
-                            searchWidget:
-                                _buildSearchBar(),
-                            categoriesWidget:
-                                _buildCategoryButtons(),
-                            cover:
-                                _buildRoosterCover(),
+                          delegate: _RoosterCoverHeaderDelegate(
+                            searchWidget: _buildSearchBar(),
+                            categoriesWidget: _buildCategoryButtons(),
+                            cover: _buildRoosterCover(),
                             maxHeight: 324,
                             minHeight: 112,
                           ),
@@ -984,8 +979,7 @@ class _CustomerDashboardScreenState
                       ],
                     ),
                   ),
-                  if (_showSearchResults)
-                    _buildSearchResultsOverlay(),
+                  if (_showSearchResults) _buildSearchResultsOverlay(),
                 ],
               ),
             ),
@@ -1000,8 +994,7 @@ class _CustomerDashboardScreenState
   }
 
   Widget _buildFixedHeader() {
-    final topPadding =
-        MediaQuery.of(context).padding.top;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Container(
       height: 76 + topPadding,
@@ -1046,8 +1039,7 @@ class _CustomerDashboardScreenState
           onTap: _openProfile,
           child: UserProfileAvatar(
             size: 42,
-            imageUrl:
-                _isGuest ? null : _profileImageUrl,
+            imageUrl: _isGuest ? null : _profileImageUrl,
             backgroundColor: Colors.white,
             iconColor: Colors.grey.shade600,
             iconSize: 23,
@@ -1056,8 +1048,7 @@ class _CustomerDashboardScreenState
         const SizedBox(width: 10),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
@@ -1068,9 +1059,7 @@ class _CustomerDashboardScreenState
                 ),
               ),
               Text(
-                _isGuest
-                    ? 'Guest'
-                    : (_userName ?? 'Customer'),
+                _isGuest ? 'Guest' : (_userName ?? 'Customer'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1093,8 +1082,7 @@ class _CustomerDashboardScreenState
                 'assets/icons/Crate.svg',
                 width: 25,
                 height: 25,
-                colorFilter:
-                    const ColorFilter.mode(
+                colorFilter: const ColorFilter.mode(
                   Colors.white,
                   BlendMode.srcIn,
                 ),
@@ -1120,8 +1108,7 @@ class _CustomerDashboardScreenState
                 'assets/icons/chat.svg',
                 width: 25,
                 height: 25,
-                colorFilter:
-                    const ColorFilter.mode(
+                colorFilter: const ColorFilter.mode(
                   Colors.white,
                   BlendMode.srcIn,
                 ),
@@ -1184,15 +1171,13 @@ class _CustomerDashboardScreenState
                   minWidth: 15,
                   minHeight: 15,
                 ),
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 3,
                   vertical: 1,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.red,
-                  borderRadius:
-                      BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: Colors.white,
                     width: 1,
@@ -1343,28 +1328,25 @@ class _CustomerDashboardScreenState
             size: 17,
             color: Colors.grey.shade500,
           ),
-          prefixIconConstraints:
-              const BoxConstraints(
+          prefixIconConstraints: const BoxConstraints(
             minWidth: 40,
             minHeight: 40,
           ),
-          suffixIcon:
-              _searchController.text.isNotEmpty
-                  ? IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(
-                        minWidth: 35,
-                        minHeight: 35,
-                      ),
-                      icon: Icon(
-                        Icons.close,
-                        size: 15,
-                        color: Colors.grey.shade500,
-                      ),
-                      onPressed: _clearSearch,
-                    )
-                  : null,
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 35,
+                    minHeight: 35,
+                  ),
+                  icon: Icon(
+                    Icons.close,
+                    size: 15,
+                    color: Colors.grey.shade500,
+                  ),
+                  onPressed: _clearSearch,
+                )
+              : null,
         ),
       ),
     );
@@ -1403,23 +1385,19 @@ class _CustomerDashboardScreenState
           return GestureDetector(
             onTap: () => _selectCategory(category),
             child: AnimatedContainer(
-              duration:
-                  const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(
                 horizontal: 15,
               ),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF3155B7)
-                    : Colors.white,
-                borderRadius:
-                    BorderRadius.circular(18),
+                    : const Color(0xFFE8EEFC),
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black
-                        .withOpacity(0.04),
+                    color: Colors.black.withOpacity(0.04),
                     blurRadius: 3,
                     offset: const Offset(0, 1),
                   ),
@@ -1430,11 +1408,9 @@ class _CustomerDashboardScreenState
                 style: TextStyle(
                   color: isSelected
                       ? Colors.white
-                      : const Color(0xFF777777),
+                      : const Color(0xFF3155B7),
                   fontSize: 10,
-                  fontWeight: isSelected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),
@@ -1468,8 +1444,7 @@ class _CustomerDashboardScreenState
       (_) {
         if (!mounted) return;
 
-        final targetContext =
-            _productsSectionKey.currentContext;
+        final targetContext = _productsSectionKey.currentContext;
 
         if (targetContext == null) {
           return;
@@ -1477,8 +1452,7 @@ class _CustomerDashboardScreenState
 
         Scrollable.ensureVisible(
           targetContext,
-          duration:
-              const Duration(milliseconds: 450),
+          duration: const Duration(milliseconds: 450),
           curve: Curves.easeInOut,
           alignment: 0.05,
         );
@@ -1488,8 +1462,7 @@ class _CustomerDashboardScreenState
 
   Widget _buildHomeSections() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildKlasrumSection(),
         const SizedBox(height: 22),
@@ -1520,18 +1493,11 @@ class _CustomerDashboardScreenState
         provider,
         child,
       ) {
-        final featured =
-            provider.featuredContent;
+        final featured = provider.featuredContent;
 
-        final title =
-            featured?['title']
-                ?.toString()
-                .trim();
+        final title = featured?['title']?.toString().trim();
 
-        final description =
-            featured?['description']
-                ?.toString()
-                .trim();
+        final description = featured?['description']?.toString().trim();
 
         final coverUrl = _getImageUrl(
           featured,
@@ -1545,38 +1511,30 @@ class _CustomerDashboardScreenState
           ],
         );
 
-        final displayTitle =
-            title != null && title.isNotEmpty
-                ? title
-                : 'Your First Gamefowl: A Complete Beginner\'s Guide';
+        final displayTitle = title != null && title.isNotEmpty
+            ? title
+            : 'Your First Gamefowl: A Complete Beginner\'s Guide';
 
-        final displayDescription =
-            description != null &&
-                    description.isNotEmpty
-                ? description
-                : 'Everything you need before raising your first rooster — housing, feeding, and health checks.';
+        final displayDescription = description != null && description.isNotEmpty
+            ? description
+            : 'Everything you need before raising your first rooster — housing, feeding, and health checks.';
 
         return Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionTitle(
               title: 'Learn with Klasmeyt',
-              iconPath:
-                  'assets/icons/klasrum-icon.svg',
-              iconColor:
-                  const Color(0xFF334FA1),
+              iconPath: 'assets/icons/klasrum-icon.svg',
+              iconColor: const Color(0xFF334FA1),
             ),
             const SizedBox(height: 10),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 14,
               ),
               child: _buildKlasrumCard(
                 title: displayTitle,
-                description:
-                    displayDescription,
+                description: displayDescription,
                 coverUrl: coverUrl,
               ),
             ),
@@ -1604,8 +1562,7 @@ class _CustomerDashboardScreenState
         height: 172,
         width: double.infinity,
         decoration: BoxDecoration(
-          borderRadius:
-              BorderRadius.circular(17),
+          borderRadius: BorderRadius.circular(17),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.16),
@@ -1615,30 +1572,24 @@ class _CustomerDashboardScreenState
           ],
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(17),
+          borderRadius: BorderRadius.circular(17),
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildNetworkOrAssetImage(
                 coverUrl,
-                fallback:
-                    'assets/images/manok.png',
+                fallback: 'assets/images/manok.png',
               ),
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin:
-                          Alignment.topCenter,
-                      end:
-                          Alignment.bottomCenter,
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black
-                            .withOpacity(0.12),
-                        Colors.black
-                            .withOpacity(0.82),
+                        Colors.black.withOpacity(0.12),
+                        Colors.black.withOpacity(0.82),
                       ],
                     ),
                   ),
@@ -1651,14 +1602,12 @@ class _CustomerDashboardScreenState
                 child: Text(
                   title,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
                     height: 1.05,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -1669,11 +1618,9 @@ class _CustomerDashboardScreenState
                 child: Text(
                   description,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white
-                        .withOpacity(0.90),
+                    color: Colors.white.withOpacity(0.90),
                     fontSize: 8.5,
                     height: 1.1,
                   ),
@@ -1684,39 +1631,31 @@ class _CustomerDashboardScreenState
                 bottom: 8,
                 child: Container(
                   height: 31,
-                  padding:
-                      const EdgeInsets.only(
+                  padding: const EdgeInsets.only(
                     left: 11,
                     right: 4,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        const Color(0xFFFFC107),
-                    borderRadius:
-                        BorderRadius.circular(18),
+                    color: const Color(0xFFFFC107),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Row(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
                         'Learn More',
                         style: TextStyle(
-                          color:
-                              Color(0xFF684F00),
+                          color: Color(0xFF684F00),
                           fontSize: 9,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         width: 23,
                         height: 23,
-                        decoration:
-                            const BoxDecoration(
-                          color:
-                              Color(0xFFFFB900),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFB900),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -1742,8 +1681,7 @@ class _CustomerDashboardScreenState
     required Color iconColor,
   }) {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 16,
       ),
       child: Row(
@@ -1753,8 +1691,7 @@ class _CustomerDashboardScreenState
             width: 19,
             height: 19,
             fit: BoxFit.contain,
-            colorFilter:
-                ColorFilter.mode(
+            colorFilter: ColorFilter.mode(
               iconColor,
               BlendMode.srcIn,
             ),
@@ -1775,15 +1712,12 @@ class _CustomerDashboardScreenState
 
   Widget _buildStoresSection() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle(
           title: 'Stores Near You',
-          iconPath:
-              'assets/icons/near-stores.svg',
-          iconColor:
-              const Color(0xFF4D9D45),
+          iconPath: 'assets/icons/near-stores.svg',
+          iconColor: const Color(0xFF4D9D45),
         ),
         const SizedBox(height: 10),
         if (_isLoadingStores)
@@ -1794,8 +1728,7 @@ class _CustomerDashboardScreenState
           Column(
             children: [
               _buildStoreCarousel(
-                controller:
-                    _storesPageController,
+                controller: _storesPageController,
                 onPageChanged: (index) {
                   if (!mounted) {
                     return;
@@ -1808,8 +1741,7 @@ class _CustomerDashboardScreenState
               ),
               const SizedBox(height: 8),
               _buildCarouselIndicator(
-                currentIndex:
-                    _currentStorePage,
+                currentIndex: _currentStorePage,
               ),
             ],
           ),
@@ -1822,86 +1754,251 @@ class _CustomerDashboardScreenState
   // ============================================================
 
   Widget _buildLocalFarmsSection() {
-    const localFarmNames = [
-      'Golden Crest Game Farm',
-      'Elite Rooster Breeding Farm',
-      'Blue Feather Game Farm',
-      'Red Crown Game Farm',
-      'Champion Rooster Farm',
-      'Prime Bloodline Game Farm',
-    ];
-    const localFarmImages = [
-      'assets/images/manok.png',
-      'assets/images/cover.png',
-      'assets/images/store_sample.png',
-      'assets/images/manok.png',
-      'assets/images/cover.png',
-      'assets/images/store_sample.png',
-    ];
-
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle(
           title: 'Local Farms',
-          iconPath:
-              'assets/icons/near-stores.svg',
-          iconColor:
-              const Color(0xFF4D9D45),
+          iconPath: 'assets/icons/near-stores.svg',
+          iconColor: const Color(0xFF4D9D45),
         ),
         const SizedBox(height: 10),
-        Column(
+        if (_isLoadingFarms && _farms.isEmpty)
+          _buildStoreLoading()
+        else if (_farms.isEmpty)
+          _buildFarmEmptyState()
+        else
+          Column(
             children: [
               SizedBox(
                 height: 184,
                 child: PageView.builder(
-                  controller:
-                      _farmsPageController,
+                  controller: _farmsPageController,
                   padEnds: false,
-                  itemCount:
-                      localFarmNames.length,
+                  itemCount: _farms.length,
                   onPageChanged: (index) {
-                    if (!mounted) {
-                      return;
-                    }
-
-                    setState(() {
-                      _currentFarmPage =
-                          index;
-                    });
+                    if (!mounted) return;
+                    setState(() => _currentFarmPage = index);
                   },
-                  itemBuilder: (
-                    context,
-                    index,
-                  ) {
-                    return Padding(
-                      padding:
-                          const EdgeInsets.only(
-                        left: 16,
-                        right: 16,
-                      ),
-                      child: _buildStoreCard(
-                        const {},
-                        comingSoon: true,
-                        overrideName: localFarmNames[index],
-                        overrideImage: localFarmImages[index],
-                      ),
-                    );
-                  },
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildFarmCard(_farms[index]),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               _buildLocalFarmCarouselIndicator(
-                currentIndex:
-                    _currentFarmPage,
-                itemCount:
-                    localFarmNames.length,
+                currentIndex: _currentFarmPage,
+                itemCount: _farms.length,
               ),
             ],
           ),
       ],
     );
+  }
+
+  Widget _buildFarmEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 140,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          _farmError == null ? 'No farms available' : 'Failed to load farms',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFarmCard(Map<String, dynamic> farm) {
+    final farmId = farm['id'];
+    final name = farm['name']?.toString().trim();
+    final city = farm['city']?.toString().trim() ?? '';
+    final province = farm['province']?.toString().trim() ?? '';
+    final location =
+        [city, province].where((part) => part.isNotEmpty).join(', ');
+    final address = farm['address']?.toString().trim() ?? '';
+    final imageUrl = _getImageUrl(farm, [
+      'cover_url',
+      'banner_url',
+      'logo_url',
+    ]);
+
+    return GestureDetector(
+      onTap: farmId == null
+          ? null
+          : () => Navigator.push(
+                context,
+                _createFadeRoute(FarmDetailsScreen(
+                  farmId: farmId,
+                  farmName: name,
+                )),
+              ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.14),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildNetworkOrAssetImage(
+                imageUrl,
+                fallback: 'assets/images/farmer_image.png',
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.10),
+                      Colors.black.withOpacity(0.80),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                right: 70,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name == null || name.isEmpty ? 'Unnamed Farm' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (location.isNotEmpty || address.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on,
+                              color: Colors.white, size: 10),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(
+                              location.isNotEmpty ? location : address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: GestureDetector(
+                  onTap: farmId == null || _openingFarmChatId != null
+                      ? null
+                      : () => _onAuthenticatedTap(
+                            () => _openFarmConversation(
+                              farmId,
+                              name == null || name.isEmpty ? 'Farm' : name,
+                            ),
+                          ),
+                  child: Container(
+                    height: 31,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3155C5),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_openingFarmChatId == farmId?.toString())
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        else
+                          SvgPicture.asset(
+                            'assets/icons/chat.svg',
+                            width: 14,
+                            height: 14,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                        const SizedBox(width: 5),
+                        const Text(
+                          'Chat',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFarmConversation(dynamic farmId, String farmName) async {
+    if (_openingFarmChatId != null) return;
+    setState(() => _openingFarmChatId = farmId.toString());
+    final provider = Provider.of<MessageProvider>(context, listen: false);
+    final success = await provider.startOrResumeFarmConversation(
+      farmId: farmId,
+      farmName: farmName,
+    );
+    if (!mounted) return;
+    final conversationId = provider.activeThread?.conversation.id;
+    if (!success || conversationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(provider.error ?? 'Failed to start farm chat'),
+      ));
+      setState(() => _openingFarmChatId = null);
+      return;
+    }
+    await Navigator.push(
+      context,
+      _createFadeRoute(ConversationScreen(
+        conversationId: conversationId,
+        farmId: farmId,
+        shopName: farmName,
+      )),
+    );
+    if (mounted) setState(() => _openingFarmChatId = null);
   }
 
   Widget _buildLocalFarmCarouselIndicator({
@@ -1915,35 +2012,24 @@ class _CustomerDashboardScreenState
     }
 
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
-      children:
-          List.generate(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
         itemCount,
         (index) {
-          final active =
-              currentIndex == index;
+          final active = currentIndex == index;
 
           return AnimatedContainer(
-            duration:
-                const Duration(
+            duration: const Duration(
               milliseconds: 220,
             ),
-            margin:
-                const EdgeInsets.symmetric(
+            margin: const EdgeInsets.symmetric(
               horizontal: 2,
             ),
-            width:
-                active ? 25 : 6,
+            width: active ? 25 : 6,
             height: 5,
-            decoration:
-                BoxDecoration(
-              color:
-                  active
-                      ? const Color(0xFF496BC1)
-                      : const Color(0xFFD1D4DC),
-              borderRadius:
-                  BorderRadius.circular(5),
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF496BC1) : const Color(0xFFD1D4DC),
+              borderRadius: BorderRadius.circular(5),
             ),
           );
         },
@@ -1953,25 +2039,21 @@ class _CustomerDashboardScreenState
 
   Widget _buildStoreCarousel({
     required PageController controller,
-    required ValueChanged<int>
-        onPageChanged,
+    required ValueChanged<int> onPageChanged,
   }) {
     return SizedBox(
       height: 180,
       child: PageView.builder(
         controller: controller,
         padEnds: false,
-        itemCount:
-            _suggestedStores.length,
-        onPageChanged:
-            onPageChanged,
+        itemCount: _suggestedStores.length,
+        onPageChanged: onPageChanged,
         itemBuilder: (
           context,
           index,
         ) {
           return Padding(
-            padding:
-                const EdgeInsets.only(
+            padding: const EdgeInsets.only(
               left: 16,
               right: 16,
             ),
@@ -1984,68 +2066,48 @@ class _CustomerDashboardScreenState
     );
   }
 
-  Widget _buildStoreCard(
-    Map<String, dynamic> store, {
-    bool comingSoon = false,
-    String? overrideName,
-    String? overrideImage,
-  }) {
-    final bannerUrl =
-        overrideImage ??
-        _getImageUrl(
-          store,
-          [
-            'rooster_photo',
-            'roster_photo',
-            'rooster_image',
-            'roster_image',
-            'rooster_photo_url',
-            'roster_image_url',
-            'roster',
-            'rooster',
-            'shop_banner',
-            'cover_photo',
-            'cover_image',
-            'banner_url',
-            'banner',
-            'farm_image',
-            'shop_image',
-            'image_url',
-            'image',
-            'shop_logo',
-          ],
-        );
+  Widget _buildStoreCard(Map<String, dynamic> store) {
+    final bannerUrl = _getImageUrl(
+      store,
+      [
+        'rooster_photo',
+        'roster_photo',
+        'rooster_image',
+        'roster_image',
+        'rooster_photo_url',
+        'roster_image_url',
+        'roster',
+        'rooster',
+        'shop_banner',
+        'cover_photo',
+        'cover_image',
+        'banner_url',
+        'banner',
+        'farm_image',
+        'shop_image',
+        'image_url',
+        'image',
+        'shop_logo',
+      ],
+    );
 
-    final shopName =
-        overrideName ??
-        (store['shop_name'] ??
-                store['farm_name'] ??
-                store['name'] ??
-                'Unknown Store')
-            .toString();
+    final shopName = (store['shop_name'] ??
+            store['farm_name'] ??
+            store['name'] ??
+            'Unknown Store')
+        .toString();
 
-    final rating =
-        _formatRating(
-      store['shop_rating'] ??
-          store['rating'],
+    final rating = _formatRating(
+      store['shop_rating'] ?? store['rating'],
     );
 
     final distance =
-        (store['distance'] ??
-                store['distance_km'] ??
-                '2.1')
-            .toString();
+        (store['distance'] ?? store['distance_km'] ?? '2.1').toString();
 
-    final shopId =
-        store['id'] ??
-            store['shop_id'];
+    final shopId = store['id'] ?? store['shop_id'];
 
     return GestureDetector(
       onTap: () {
-        if (comingSoon) {
-          SnackbarHelper.showInfo(context, 'Product available soon');
-          return;
-        }
         if (shopId == null) {
           return;
         }
@@ -2063,51 +2125,40 @@ class _CustomerDashboardScreenState
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color:
-                  Colors.black.withOpacity(0.14),
+              color: Colors.black.withOpacity(0.14),
               blurRadius: 8,
-              offset:
-                  const Offset(0, 3),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildNetworkOrAssetImage(
                 bannerUrl,
-                fallback:
-                    'assets/images/store_sample.png',
+                fallback: 'assets/images/store_sample.png',
               ),
               Positioned.fill(
                 child: DecoratedBox(
-                  decoration:
-                      BoxDecoration(
-                    gradient:
-                        LinearGradient(
-                      begin:
-                          Alignment.topCenter,
-                      end:
-                          Alignment.bottomCenter,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black
-                            .withOpacity(0.10),
-                        Colors.black
-                            .withOpacity(0.80),
+                        Colors.black.withOpacity(0.10),
+                        Colors.black.withOpacity(0.80),
                       ],
                     ),
                   ),
                 ),
               ),
-              if (!comingSoon) const Positioned(
+              const Positioned(
                 top: 8,
                 right: 9,
                 child: Icon(
@@ -2118,32 +2169,23 @@ class _CustomerDashboardScreenState
               ),
               Positioned(
                 left: 12,
-                right: comingSoon ? 12 : 70,
+                right: 70,
                 bottom: 12,
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       shopName,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
-                    if (comingSoon)
-                      const Text(
-                        'Product available soon',
-                        style: TextStyle(color: Colors.white, fontSize: 9),
-                      )
-                    else Row(
+                    Row(
                       children: [
                         const Icon(
                           Icons.location_on,
@@ -2153,8 +2195,7 @@ class _CustomerDashboardScreenState
                         const SizedBox(width: 2),
                         Text(
                           '$distance km away',
-                          style:
-                              const TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 8,
                           ),
@@ -2168,8 +2209,7 @@ class _CustomerDashboardScreenState
                         const SizedBox(width: 2),
                         Text(
                           rating,
-                          style:
-                              const TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 8,
                           ),
@@ -2179,7 +2219,7 @@ class _CustomerDashboardScreenState
                   ],
                 ),
               ),
-              if (!comingSoon) Positioned(
+              Positioned(
                 right: 10,
                 bottom: 10,
                 child: GestureDetector(
@@ -2204,27 +2244,21 @@ class _CustomerDashboardScreenState
                   },
                   child: Container(
                     height: 31,
-                    padding:
-                        const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                     ),
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          const Color(0xFF3155C5),
-                      borderRadius:
-                          BorderRadius.circular(9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3155C5),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                     child: Row(
-                      mainAxisSize:
-                          MainAxisSize.min,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         SvgPicture.asset(
                           'assets/icons/chat.svg',
                           width: 14,
                           height: 14,
-                          colorFilter:
-                              const ColorFilter.mode(
+                          colorFilter: const ColorFilter.mode(
                             Colors.white,
                             BlendMode.srcIn,
                           ),
@@ -2232,12 +2266,10 @@ class _CustomerDashboardScreenState
                         const SizedBox(width: 5),
                         const Text(
                           'Chat',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
-                            fontWeight:
-                                FontWeight.w700,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -2259,20 +2291,17 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding:
-              EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
@@ -2300,20 +2329,17 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding:
-              EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
@@ -2341,27 +2367,22 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding:
-                EdgeInsets.symmetric(
+            padding: EdgeInsets.symmetric(
               horizontal: 16,
             ),
             child: Text(
               'Products',
               style: TextStyle(
                 fontSize: 17,
-                fontWeight:
-                    FontWeight.w800,
-                color:
-                    Color(0xFF242424),
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF242424),
               ),
             ),
           ),
@@ -2370,8 +2391,7 @@ class _CustomerDashboardScreenState
             child: Text(
               'No products found for $_selectedCategory.',
               style: TextStyle(
-                color:
-                    Colors.grey.shade600,
+                color: Colors.grey.shade600,
                 fontSize: 11,
               ),
             ),
@@ -2381,12 +2401,10 @@ class _CustomerDashboardScreenState
     }
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
@@ -2395,10 +2413,8 @@ class _CustomerDashboardScreenState
                 : '$_selectedCategory Products',
             style: const TextStyle(
               fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-              color:
-                  Color(0xFF242424),
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF242424),
             ),
           ),
         ),
@@ -2419,10 +2435,8 @@ class _CustomerDashboardScreenState
       height: 250,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        physics:
-            const BouncingScrollPhysics(),
-        padding:
-            const EdgeInsets.symmetric(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(
           horizontal: 16,
         ),
         itemCount: products.length,
@@ -2430,19 +2444,16 @@ class _CustomerDashboardScreenState
           context,
           index,
         ) {
-          final cardKey =
-              _getFavoriteCardKey(
+          final cardKey = _getFavoriteCardKey(
             sectionKey,
             index,
           );
 
           return Padding(
-            padding:
-                const EdgeInsets.only(
+            padding: const EdgeInsets.only(
               right: 12,
             ),
-            child:
-                _buildProductCard(
+            child: _buildProductCard(
               products[index],
               favoriteCardKey: cardKey,
             ),
@@ -2459,32 +2470,27 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final gamefowl =
-        _products
-            .where(
-              _isGamefowlProduct,
-            )
-            .take(6)
-            .toList();
+    final gamefowl = _products
+        .where(
+          _isGamefowlProduct,
+        )
+        .take(6)
+        .toList();
     if (gamefowl.isEmpty) return const SizedBox.shrink();
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding:
-              EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
             'Available Gamefowl',
             style: TextStyle(
               fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-              color:
-                  Color(0xFF242424),
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF242424),
             ),
           ),
         ),
@@ -2513,32 +2519,28 @@ class _CustomerDashboardScreenState
       );
     }
 
-    final products =
-        _getFilteredProducts();
+    final products = _getFilteredProducts();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final buyAgain =
-        products
-            .skip(
-              products.length > 6 ? 6 : 0,
-            )
-            .take(6)
-            .toList();
+    final buyAgain = products
+        .skip(
+          products.length > 6 ? 6 : 0,
+        )
+        .take(6)
+        .toList();
 
     if (buyAgain.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding:
-              EdgeInsets.symmetric(
+          padding: EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
@@ -2563,21 +2565,18 @@ class _CustomerDashboardScreenState
     Map<String, dynamic> product, {
     String? favoriteCardKey,
   }) {
-    final name =
-        (product['item_name'] ??
-                product['name'] ??
-                product['product_name'] ??
-                'Product')
-            .toString();
+    final name = (product['item_name'] ??
+            product['name'] ??
+            product['product_name'] ??
+            'Product')
+        .toString();
 
-    final price =
-        product['item_price'] ??
-            product['price'] ??
-            product['selling_price'] ??
-            0;
+    final price = product['item_price'] ??
+        product['price'] ??
+        product['selling_price'] ??
+        0;
 
-    final image =
-        _getImageUrl(
+    final image = _getImageUrl(
       product,
       [
         'item_images',
@@ -2588,16 +2587,13 @@ class _CustomerDashboardScreenState
       ],
     );
 
-    final productId =
-        product['id'] ??
-            product['item_id'];
+    final productId = product['id'] ?? product['item_id'];
 
-    final isFavorite =
-        favoriteCardKey != null
-            ? _favoriteCardKeys.contains(
-                favoriteCardKey,
-              )
-            : _isProductFavorite(productId);
+    final isFavorite = favoriteCardKey != null
+        ? _favoriteCardKeys.contains(
+            favoriteCardKey,
+          )
+        : _isProductFavorite(productId);
 
     return SizedBox(
       width: 165,
@@ -2618,33 +2614,28 @@ class _CustomerDashboardScreenState
                       shopId: product['shop_id'],
                       shopName: product['shop_name']?.toString(),
                     )
-                  : ProductDetailScreen(productId: productId, productData: product),
+                  : ProductDetailScreen(
+                      productId: productId, productData: product),
             ),
           );
         },
         child: Container(
-          decoration:
-              BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(13),
             boxShadow: [
               BoxShadow(
-                color:
-                    Colors.black.withOpacity(0.08),
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 7,
-                offset:
-                    const Offset(0, 2),
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(
+                borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(13),
                 ),
                 child: SizedBox(
@@ -2658,33 +2649,26 @@ class _CustomerDashboardScreenState
                         top: 8,
                         right: 8,
                         child: GestureDetector(
-                          behavior:
-                              HitTestBehavior.opaque,
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             _toggleProductFavorite(
                               product,
-                              favoriteCardKey:
-                                  favoriteCardKey,
+                              favoriteCardKey: favoriteCardKey,
                             );
                           },
                           child: Container(
                             width: 34,
                             height: 34,
-                            decoration:
-                                BoxDecoration(
-                              color: Colors.white
-                                  .withOpacity(0.95),
-                              shape:
-                                  BoxShape.circle,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withOpacity(
+                                  color: Colors.black.withOpacity(
                                     0.15,
                                   ),
                                   blurRadius: 5,
-                                  offset:
-                                      const Offset(
+                                  offset: const Offset(
                                     0,
                                     2,
                                   ),
@@ -2716,56 +2700,43 @@ class _CustomerDashboardScreenState
                     8,
                   ),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         name,
                         maxLines: 2,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style:
-                            const TextStyle(
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           fontSize: 11,
-                          fontWeight:
-                              FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _formatPrice(price),
-                        style:
-                            const TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
-                          fontWeight:
-                              FontWeight.w800,
-                          color:
-                              Color(0xFF3155B7),
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF3155B7),
                         ),
                       ),
                       const Spacer(),
                       Container(
                         height: 28,
                         width: double.infinity,
-                        alignment:
-                            Alignment.center,
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              const Color(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(
                             0xFF3155B7,
                           ),
-                          borderRadius:
-                              BorderRadius.circular(7),
+                          borderRadius: BorderRadius.circular(7),
                         ),
                         child: const Text(
                           'View Product',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 9,
-                            fontWeight:
-                                FontWeight.w700,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -2802,27 +2773,23 @@ class _CustomerDashboardScreenState
 
   Widget _productPlaceholder() {
     return Container(
-      color:
-          const Color(0xFFF0F1F4),
+      color: const Color(0xFFF0F1F4),
       child: const Center(
         child: Icon(
           Icons.shopping_bag_outlined,
-          color:
-              Color(0xFFB0B4BD),
+          color: Color(0xFFB0B4BD),
           size: 40,
         ),
       ),
     );
   }
 
-  List<Map<String, dynamic>>
-      _getFilteredProducts() {
+  List<Map<String, dynamic>> _getFilteredProducts() {
     final categories = context.read<CategoryProvider>().categories;
     if (categories.isEmpty) return [];
     final provider = context.read<ItemsProvider>();
-    final source = _selectedCategoryId == null
-        ? _products
-        : provider.categoryItems;
+    final source =
+        _selectedCategoryId == null ? _products : provider.categoryItems;
     return source
         .where((item) => !isGamefowlItem(item, categories: categories))
         .toList();
@@ -2849,29 +2816,22 @@ class _CustomerDashboardScreenState
         continue;
       }
 
-      if (value is String &&
-          value.trim().isNotEmpty) {
+      if (value is String && value.trim().isNotEmpty) {
         return value.trim();
       }
 
-      if (value is List &&
-          value.isNotEmpty) {
+      if (value is List && value.isNotEmpty) {
         final first = value.first;
 
-        if (first != null &&
-            first.toString().trim().isNotEmpty) {
+        if (first != null && first.toString().trim().isNotEmpty) {
           return first.toString().trim();
         }
       }
 
       if (value is Map) {
-        final nested =
-            value['url'] ??
-                value['path'] ??
-                value['image_url'];
+        final nested = value['url'] ?? value['path'] ?? value['image_url'];
 
-        if (nested != null &&
-            nested.toString().trim().isNotEmpty) {
+        if (nested != null && nested.toString().trim().isNotEmpty) {
           return nested.toString().trim();
         }
       }
@@ -2884,8 +2844,7 @@ class _CustomerDashboardScreenState
     String? imageUrl, {
     required String fallback,
   }) {
-    if (imageUrl != null &&
-        imageUrl.isNotEmpty) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
       return Image.network(
         imageUrl,
         fit: BoxFit.cover,
@@ -2903,8 +2862,7 @@ class _CustomerDashboardScreenState
               stackTrace,
             ) {
               return Container(
-                color:
-                    const Color(0xFFCCCCCC),
+                color: const Color(0xFFCCCCCC),
               );
             },
           );
@@ -2921,8 +2879,7 @@ class _CustomerDashboardScreenState
         stackTrace,
       ) {
         return Container(
-          color:
-              const Color(0xFFCCCCCC),
+          color: const Color(0xFFCCCCCC),
           child: const Center(
             child: Icon(
               Icons.image_outlined,
@@ -2946,14 +2903,11 @@ class _CustomerDashboardScreenState
       return rating.toStringAsFixed(1);
     }
 
-    final parsed =
-        double.tryParse(
+    final parsed = double.tryParse(
       rating.toString(),
     );
 
-    return parsed != null
-        ? parsed.toStringAsFixed(1)
-        : '0.0';
+    return parsed != null ? parsed.toStringAsFixed(1) : '0.0';
   }
 
   String _formatPrice(
@@ -2963,8 +2917,7 @@ class _CustomerDashboardScreenState
       return '₱${value.toStringAsFixed(2)}';
     }
 
-    final parsed =
-        double.tryParse(
+    final parsed = double.tryParse(
       value.toString(),
     );
 
@@ -2979,22 +2932,18 @@ class _CustomerDashboardScreenState
     String title,
   ) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 16,
           ),
           child: Text(
             title,
             style: const TextStyle(
               fontSize: 17,
-              fontWeight:
-                  FontWeight.w800,
-              color:
-                  Color(0xFF242424),
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF242424),
             ),
           ),
         ),
@@ -3002,12 +2951,9 @@ class _CustomerDashboardScreenState
         SizedBox(
           height: 250,
           child: ListView.builder(
-            scrollDirection:
-                Axis.horizontal,
-            physics:
-                const NeverScrollableScrollPhysics(),
-            padding:
-                const EdgeInsets.symmetric(
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(
               horizontal: 16,
             ),
             itemCount: 3,
@@ -3018,15 +2964,12 @@ class _CustomerDashboardScreenState
               return Container(
                 width: 165,
                 height: 250,
-                margin:
-                    const EdgeInsets.only(
+                margin: const EdgeInsets.only(
                   right: 12,
                 ),
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(13),
                 ),
               );
             },
@@ -3038,18 +2981,14 @@ class _CustomerDashboardScreenState
 
   Widget _buildStoreLoading() {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 16,
       ),
       child: Container(
         height: 180,
-        decoration:
-            BoxDecoration(
-          color:
-              const Color(0xFFE0E0E0),
-          borderRadius:
-              BorderRadius.circular(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE0E0E0),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );
@@ -3057,17 +2996,14 @@ class _CustomerDashboardScreenState
 
   Widget _buildEmptyStoreState() {
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 16,
       ),
       child: Container(
         height: 140,
-        decoration:
-            BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Center(
           child: Text(
@@ -3075,8 +3011,7 @@ class _CustomerDashboardScreenState
                 ? 'Failed to load stores'
                 : 'No stores available',
             style: TextStyle(
-              color:
-                  Colors.grey.shade600,
+              color: Colors.grey.shade600,
               fontSize: 12,
             ),
           ),
@@ -3095,35 +3030,24 @@ class _CustomerDashboardScreenState
     }
 
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
-      children:
-          List.generate(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
         _suggestedStores.length,
         (index) {
-          final active =
-              currentIndex == index;
+          final active = currentIndex == index;
 
           return AnimatedContainer(
-            duration:
-                const Duration(
+            duration: const Duration(
               milliseconds: 220,
             ),
-            margin:
-                const EdgeInsets.symmetric(
+            margin: const EdgeInsets.symmetric(
               horizontal: 2,
             ),
-            width:
-                active ? 25 : 6,
+            width: active ? 25 : 6,
             height: 5,
-            decoration:
-                BoxDecoration(
-              color:
-                  active
-                      ? const Color(0xFF496BC1)
-                      : const Color(0xFFD1D4DC),
-              borderRadius:
-                  BorderRadius.circular(5),
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF496BC1) : const Color(0xFFD1D4DC),
+              borderRadius: BorderRadius.circular(5),
             ),
           );
         },
@@ -3158,25 +3082,19 @@ class _CustomerDashboardScreenState
 
           return Material(
             elevation: 8,
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             color: Colors.white,
             child: Container(
-              constraints:
-                  const BoxConstraints(
+              constraints: const BoxConstraints(
                 maxHeight: 350,
               ),
-              decoration:
-                  BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child:
-                  ListView.separated(
+              child: ListView.separated(
                 shrinkWrap: true,
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   vertical: 6,
                 ),
                 itemCount: results.length,
@@ -3191,23 +3109,17 @@ class _CustomerDashboardScreenState
                   context,
                   index,
                 ) {
-                  final product =
-                      results[index];
+                  final product = results[index];
 
                   return ListTile(
                     dense: true,
                     title: Text(
-                      product['item_name']
-                              ?.toString() ??
-                          'Unknown Product',
+                      product['item_name']?.toString() ?? 'Unknown Product',
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     onTap: _clearSearch,
@@ -3224,11 +3136,9 @@ class _CustomerDashboardScreenState
   Widget _buildBottomNavigationBar() {
     return buildCustomerBottomNavigationBar(
       context: context,
-      currentIndex:
-          CustomerNavIndex.home,
+      currentIndex: CustomerNavIndex.home,
       isGuest: _isGuest,
-      onLoginSuccess:
-          _refreshAfterLogin,
+      onLoginSuccess: _refreshAfterLogin,
     );
   }
 
@@ -3250,8 +3160,7 @@ class _CustomerDashboardScreenState
   }
 }
 
-class _RoosterCoverHeaderDelegate
-    extends SliverPersistentHeaderDelegate {
+class _RoosterCoverHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget searchWidget;
   final Widget categoriesWidget;
   final Widget cover;
@@ -3278,46 +3187,31 @@ class _RoosterCoverHeaderDelegate
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final collapseRange =
-        maxExtent - minExtent;
+    final collapseRange = maxExtent - minExtent;
 
-    final progress =
-        collapseRange <= 0
-            ? 1.0
-            : (shrinkOffset /
-                    collapseRange)
-                .clamp(0.0, 1.0);
+    final progress = collapseRange <= 0
+        ? 1.0
+        : (shrinkOffset / collapseRange).clamp(0.0, 1.0);
 
     const coverHeight = 280.0;
     const searchHeight = 40.0;
     const categoryHeight = 36.0;
     const spacing = 8.0;
 
-    final expandedSearchTop =
-        coverHeight -
-            searchHeight -
-            10.0;
+    final expandedSearchTop = coverHeight - searchHeight - 10.0;
 
-    final expandedCategoryTop =
-        coverHeight + spacing;
+    final expandedCategoryTop = coverHeight + spacing;
 
     const collapsedSearchTop = 12.0;
     const collapsedCategoryTop = 60.0;
 
-    final searchTop =
-        expandedSearchTop -
-            ((expandedSearchTop -
-                    collapsedSearchTop) *
-                progress);
+    final searchTop = expandedSearchTop -
+        ((expandedSearchTop - collapsedSearchTop) * progress);
 
-    final categoryTop =
-        expandedCategoryTop -
-            ((expandedCategoryTop -
-                    collapsedCategoryTop) *
-                progress);
+    final categoryTop = expandedCategoryTop -
+        ((expandedCategoryTop - collapsedCategoryTop) * progress);
 
-    final backgroundColor =
-        Color.lerp(
+    final backgroundColor = Color.lerp(
       Colors.transparent,
       const Color(0xFFF7F7F7),
       progress,
@@ -3325,8 +3219,7 @@ class _RoosterCoverHeaderDelegate
 
     return Material(
       color: Colors.transparent,
-      elevation:
-          progress >= 0.98 ? 3 : 0,
+      elevation: progress >= 0.98 ? 3 : 0,
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
@@ -3352,8 +3245,7 @@ class _RoosterCoverHeaderDelegate
             top: searchTop,
             height: searchHeight,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 32,
               ),
               child: searchWidget,
@@ -3373,16 +3265,12 @@ class _RoosterCoverHeaderDelegate
 
   @override
   bool shouldRebuild(
-    covariant _RoosterCoverHeaderDelegate
-        oldDelegate,
+    covariant _RoosterCoverHeaderDelegate oldDelegate,
   ) {
-    return oldDelegate.searchWidget !=
-            searchWidget ||
-        oldDelegate.categoriesWidget !=
-            categoriesWidget ||
+    return oldDelegate.searchWidget != searchWidget ||
+        oldDelegate.categoriesWidget != categoriesWidget ||
         oldDelegate.cover != cover ||
         oldDelegate.maxHeight != maxHeight ||
         oldDelegate.minHeight != minHeight;
   }
 }
-
