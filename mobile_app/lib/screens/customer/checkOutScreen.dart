@@ -1,7 +1,5 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../../constants/constants.dart';
 import '../../models/addressModel.dart';
 import '../../provider/address_provider.dart';
@@ -20,6 +18,7 @@ import '../common/editAddressScreen.dart';
 
 class CheckOutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedCartItems;
+
   /// Actual parent cart ID returned by the cart API, when available.
   final int? cartId;
   final OrderService? orderService;
@@ -105,8 +104,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   // Payment methods from API.
   List<Map<String, dynamic>> _paymentMethods = [];
 
-  bool get _hasGamefowlItems =>
-      widget.selectedCartItems.any(
+  bool get _hasGamefowlItems => widget.selectedCartItems.any(
         (item) => isGamefowlItem(
           item,
           categories: context.read<CategoryProvider?>()?.categories ?? const [],
@@ -205,9 +203,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       final nestedCart = cartItem['cart'];
       if (nestedCart is Map) {
         final nestedId = _parseId(
-          nestedCart['id'] ??
-              nestedCart['cart_id'] ??
-              nestedCart['cartId'],
+          nestedCart['id'] ?? nestedCart['cart_id'] ?? nestedCart['cartId'],
         );
         if (nestedId != null) return nestedId;
       }
@@ -233,8 +229,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   /// Normal cart items include their real cart-row ID.
   List<Map<String, dynamic>> _buildOrderItemsPayload() {
     return widget.selectedCartItems.map((cartItem) {
-      final isDirectGamefowl =
-          cartItem['is_direct_gamefowl_order'] == true;
+      final isDirectGamefowl = cartItem['is_direct_gamefowl_order'] == true;
       final rawRequest = cartItem['gamefowl_request'];
       final gamefowlRequest = rawRequest is Map
           ? Map<String, dynamic>.from(rawRequest)
@@ -380,8 +375,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
               return <String, dynamic>{
                 'id': id,
-                'description':
-                    method['description']?.toString() ?? '',
+                'description': method['description']?.toString() ?? '',
                 'info': method['info']?.toString() ?? '',
               };
             })
@@ -427,8 +421,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   'name': method['name']?.toString() ?? '',
                 })
             .where(
-              (method) =>
-                  method['name']?.toString().isNotEmpty == true,
+              (method) => method['name']?.toString().isNotEmpty == true,
             )
             .toList();
 
@@ -541,8 +534,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       final coverageSucceeded = result['success'] == true;
 
-      final allInsideZone = coverageSucceeded &&
-          result['all_inside_zone'] == true;
+      final allInsideZone =
+          coverageSucceeded && result['all_inside_zone'] == true;
 
       final eligibleMethods = allInsideZone
           ? List<Map<String, dynamic>>.from(_allDeliveryMethods)
@@ -568,24 +561,21 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             : 'Delivery coverage could not be verified. Pickup from Store is the only available option.';
 
         if (eligibleMethods.isEmpty) {
-          message =
-              '$message Pickup from Store is currently unavailable.';
+          message = '$message Pickup from Store is currently unavailable.';
         }
       }
 
       setState(() {
         _deliveryMethods = eligibleMethods;
 
-        _selectedDeliveryMethodId =
-            selectedMethod?['id'] as int?;
+        _selectedDeliveryMethodId = selectedMethod?['id'] as int?;
 
         _preferredDeliveryMethodId = _selectedDeliveryMethodId;
 
         _selectedDeliveryMethodDescription =
             selectedMethod?['description']?.toString();
 
-        _selectedDeliveryMethodInfo =
-            selectedMethod?['info']?.toString();
+        _selectedDeliveryMethodInfo = selectedMethod?['info']?.toString();
 
         _coverageMessage = message;
         _coverageBlocksCheckout = eligibleMethods.isEmpty;
@@ -612,8 +602,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         _selectedDeliveryMethodDescription =
             selectedMethod?['description']?.toString();
 
-        _selectedDeliveryMethodInfo =
-            selectedMethod?['info']?.toString();
+        _selectedDeliveryMethodInfo = selectedMethod?['info']?.toString();
 
         _coverageMessage =
             'Delivery coverage could not be verified. Pickup from Store is the only available option.'
@@ -628,7 +617,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   Future<void> _maybeRecalculateOrder() async {
-    if (!_categoriesReady || _selectedAddress == null ||
+    if (!_categoriesReady ||
+        _selectedAddress == null ||
         _selectedDeliveryMethodId == null ||
         _isCheckingZoneCoverage ||
         _coverageBlocksCheckout) {
@@ -682,39 +672,30 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           return int.tryParse(value?.toString() ?? '') ?? 0;
         }
 
-        final feeDiscount =
-            numberValue(result['voucher_discount_amount']);
+        final feeDiscount = numberValue(result['voucher_discount_amount']);
 
         setState(() {
           _subtotal = numberValue(result['subtotal']);
 
-          _deliveryBaseFee =
-              numberValue(result['delivery_base_fee']);
+          _deliveryBaseFee = numberValue(result['delivery_base_fee']);
 
-          _deliveryKmFee =
-              numberValue(result['delivery_km_fee']);
+          _deliveryKmFee = numberValue(result['delivery_km_fee']);
 
-          _deliveryDistanceKm =
-              numberValue(result['delivery_distance_km']);
+          _deliveryDistanceKm = numberValue(result['delivery_distance_km']);
 
           _isReducedBase = result['is_reduced_base'] == true;
 
           _shippingFee = numberValue(result['shipping_fee']);
 
-          _heavySurcharge =
-              numberValue(result['heavy_surcharge']);
+          _heavySurcharge = numberValue(result['heavy_surcharge']);
 
-          _heavySurchargeUnits =
-              intValue(result['heavy_surcharge_units']);
+          _heavySurchargeUnits = intValue(result['heavy_surcharge_units']);
 
-          _totalWeightKg =
-              numberValue(result['total_weight_kg']);
+          _totalWeightKg = numberValue(result['total_weight_kg']);
 
-          _multiStoreFee =
-              numberValue(result['multi_store_fee']);
+          _multiStoreFee = numberValue(result['multi_store_fee']);
 
-          _movPenaltyFee =
-              numberValue(result['mov_penalty_fee']);
+          _movPenaltyFee = numberValue(result['mov_penalty_fee']);
 
           _totalFees = numberValue(result['total_fees']);
 
@@ -741,8 +722,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
         SnackbarHelper.showError(
           context,
-          result['message']?.toString() ??
-              'Failed to calculate order fees',
+          result['message']?.toString() ?? 'Failed to calculate order fees',
         );
       }
     } catch (e) {
@@ -774,10 +754,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return map.entries.map((entry) {
       final items = entry.value;
 
-      final shopName =
-          items.isNotEmpty && items.first['shop_name'] != null
-              ? items.first['shop_name'].toString()
-              : 'Shop ${entry.key}';
+      final shopName = items.isNotEmpty && items.first['shop_name'] != null
+          ? items.first['shop_name'].toString()
+          : 'Shop ${entry.key}';
 
       return {
         'shop_id': entry.key,
@@ -787,17 +766,18 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     }).toList();
   }
 
-  
   Future<void> _placeOrder() async {
     if (_isLoading) return;
 
     if (!_categoriesReady) {
-      SnackbarHelper.showError(context, 'Item categories could not be verified. Please retry.');
+      SnackbarHelper.showError(
+          context, 'Item categories could not be verified. Please retry.');
       return;
     }
 
     if (_hasGamefowlItems) {
-      SnackbarHelper.showError(context, 'Gamefowl is view only and cannot be checked out.');
+      SnackbarHelper.showError(
+          context, 'Gamefowl is view only and cannot be checked out.');
       return;
     }
 
@@ -838,8 +818,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     if (_coverageBlocksCheckout) {
       SnackbarHelper.showError(
         context,
-        _coverageMessage ??
-            'No eligible delivery method is available.',
+        _coverageMessage ?? 'No eligible delivery method is available.',
       );
       return;
     }
@@ -900,10 +879,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
         totalAmount: _displayTotal,
         shippingAddress: _selectedAddress!.fullAddress,
         shippingAddressId: _selectedAddress!.id,
-        orderInstruction:
-            _orderInstructionController.text.trim().isEmpty
-                ? null
-                : _orderInstructionController.text.trim(),
+        orderInstruction: _orderInstructionController.text.trim().isEmpty
+            ? null
+            : _orderInstructionController.text.trim(),
         deliveryMethodId: _selectedDeliveryMethodId!,
         paymentMethod: null,
         voucherCode: _appliedVoucherCode,
@@ -920,17 +898,14 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
         SnackbarHelper.showError(
           context,
-          result['message']?.toString() ??
-              'Failed to place order.',
+          result['message']?.toString() ?? 'Failed to place order.',
         );
         return;
       }
 
       // Read the order ID from common response structures.
       final responseData = result['data'];
-      final nestedOrder = responseData is Map
-          ? responseData['order']
-          : null;
+      final nestedOrder = responseData is Map ? responseData['order'] : null;
 
       final rawOrderId = result['order_id'] ??
           result['id'] ??
@@ -959,12 +934,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       String? checkoutUrl;
 
       final rawCheckoutUrl = result['checkout_url'] ??
-          (responseData is Map
-              ? responseData['checkout_url']
-              : null) ??
-          (nestedOrder is Map
-              ? nestedOrder['checkout_url']
-              : null);
+          (responseData is Map ? responseData['checkout_url'] : null) ??
+          (nestedOrder is Map ? nestedOrder['checkout_url'] : null);
 
       if (rawCheckoutUrl != null &&
           rawCheckoutUrl.toString().trim().isNotEmpty) {
@@ -976,8 +947,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           'Preparing secure payment...',
         );
 
-        final paymentResponse =
-            await _paymentService.initiateCheckout(
+        final paymentResponse = await _paymentService.initiateCheckout(
           orderId: orderId,
         );
 
@@ -1010,8 +980,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       final parsedUrl = Uri.tryParse(checkoutUrl);
 
       if (parsedUrl == null ||
-          (parsedUrl.scheme != 'https' &&
-              parsedUrl.scheme != 'http') ||
+          (parsedUrl.scheme != 'https' && parsedUrl.scheme != 'http') ||
           parsedUrl.host.isEmpty) {
         setState(() {
           _isLoading = false;
@@ -1025,8 +994,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       }
 
       // Open the payment page and wait for its result.
-      final paymentResult =
-          await Navigator.push<PaymentWebViewResult>(
+      final paymentResult = await Navigator.push<PaymentWebViewResult>(
         context,
         MaterialPageRoute(
           builder: (context) => PaymentWebViewScreen(
@@ -1038,15 +1006,13 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       if (!mounted) return;
 
-      final paymentMessage =
-          paymentResult?.response?['message']?.toString();
+      final paymentMessage = paymentResult?.response?['message']?.toString();
 
       switch (paymentResult?.result) {
         case PaymentResult.success:
           SnackbarHelper.showSuccess(
             context,
-            paymentMessage ??
-                'Payment completed successfully!',
+            paymentMessage ?? 'Payment completed successfully!',
             duration: const Duration(seconds: 3),
           );
 
@@ -1232,19 +1198,16 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
             final shopName = group['shop_name'] as String;
 
-            final items =
-                group['items'] as List<Map<String, dynamic>>;
+            final items = group['items'] as List<Map<String, dynamic>>;
 
             final isLastGroup = groupIndex == groups.length - 1;
 
             return [
               _buildShopHeader(shopName),
               ...items.asMap().entries.map((entry) {
-                final isLastItemInGroup =
-                    entry.key == items.length - 1;
+                final isLastItemInGroup = entry.key == items.length - 1;
 
-                final isLastOverall =
-                    isLastGroup && isLastItemInGroup;
+                final isLastOverall = isLastGroup && isLastItemInGroup;
 
                 return _buildOrderItem(
                   entry.value,
@@ -1446,9 +1409,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     gamefowlRequest['feet_color'],
                   ),
                   if (gamefowlRequest['media_name'] != null &&
-                      gamefowlRequest['media_name']
-                          .toString()
-                          .isNotEmpty)
+                      gamefowlRequest['media_name'].toString().isNotEmpty)
                     _buildGamefowlDetail(
                       'Selected File',
                       gamefowlRequest['media_name'],
@@ -1543,8 +1504,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               !_isLoadingDeliveryMethods &&
               !_isCheckingZoneCoverage) ...[
             _buildCoverageMessage(),
-            if (_deliveryMethods.isNotEmpty)
-              const SizedBox(height: 12),
+            if (_deliveryMethods.isNotEmpty) const SizedBox(height: 12),
           ],
           if (_isLoadingDeliveryMethods || _isCheckingZoneCoverage)
             Center(
@@ -1562,8 +1522,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 ),
               ),
             )
-          else if (_deliveryMethods.isEmpty &&
-              _coverageMessage == null)
+          else if (_deliveryMethods.isEmpty && _coverageMessage == null)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1629,8 +1588,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                     color: Colors.grey[600],
                   ),
                   items: _deliveryMethods.map((method) {
-                    final description =
-                        method['description'] as String;
+                    final description = method['description'] as String;
 
                     return DropdownMenuItem<int>(
                       value: method['id'] as int,
@@ -1662,8 +1620,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                       _selectedDeliveryMethodId = newValue;
                       _preferredDeliveryMethodId = newValue;
 
-                      final selectedMethod =
-                          _deliveryMethods.firstWhere(
+                      final selectedMethod = _deliveryMethods.firstWhere(
                         (method) => method['id'] == newValue,
                       );
 
@@ -1754,14 +1711,11 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   IconData _getDeliveryMethodIcon(String description) {
     final lowerDesc = description.toLowerCase();
 
-    if (lowerDesc.contains('contact') ||
-        lowerDesc.contains('no contact')) {
+    if (lowerDesc.contains('contact') || lowerDesc.contains('no contact')) {
       return Icons.contactless_outlined;
-    } else if (lowerDesc.contains('express') ||
-        lowerDesc.contains('fast')) {
+    } else if (lowerDesc.contains('express') || lowerDesc.contains('fast')) {
       return Icons.flash_on_outlined;
-    } else if (lowerDesc.contains('pickup') ||
-        lowerDesc.contains('pick up')) {
+    } else if (lowerDesc.contains('pickup') || lowerDesc.contains('pick up')) {
       return Icons.store_outlined;
     }
 
@@ -1816,9 +1770,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _addresses.isEmpty
-              ? _buildNoAddressState()
-              : _buildAddressDropdown(),
+          _addresses.isEmpty ? _buildNoAddressState() : _buildAddressDropdown(),
         ],
       ),
     );
@@ -2243,9 +2195,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                 : AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected
-                  ? AppColors.brandPrimary
-                  : Colors.grey[300]!,
+              color: isSelected ? AppColors.brandPrimary : Colors.grey[300]!,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -2267,9 +2217,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   methodName,
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: Colors.grey[900],
                   ),
                 ),
@@ -2286,11 +2235,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       return false;
     }
 
-    final lowerDesc =
-        _selectedDeliveryMethodDescription!.toLowerCase();
+    final lowerDesc = _selectedDeliveryMethodDescription!.toLowerCase();
 
-    return lowerDesc.contains('contact') ||
-        lowerDesc.contains('no contact');
+    return lowerDesc.contains('contact') || lowerDesc.contains('no contact');
   }
 
   Future<void> _applyVoucher() async {
@@ -2298,8 +2245,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
     if (code.isEmpty || _isValidatingVoucher) return;
 
-    if (_selectedAddress == null ||
-        _selectedDeliveryMethodId == null) {
+    if (_selectedAddress == null || _selectedDeliveryMethodId == null) {
       setState(() {
         _voucherErrorMessage =
             'Select a shipping address and delivery method before applying a voucher.';
@@ -2342,12 +2288,9 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       if (result['success'] == true) {
         final discount =
-            (result['voucher_discount_amount'] as num?)
-                    ?.toDouble() ??
-                0.0;
+            (result['voucher_discount_amount'] as num?)?.toDouble() ?? 0.0;
 
-        final appliedCode =
-            (result['voucher_code']?.toString() ?? code).trim();
+        final appliedCode = (result['voucher_code']?.toString() ?? code).trim();
 
         final name = result['name']?.toString();
 
@@ -2355,8 +2298,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           _appliedVoucherCode = appliedCode;
           _voucherDiscount = discount;
 
-          final validatedTotal =
-              (result['total_amount'] as num?)?.toDouble();
+          final validatedTotal = (result['total_amount'] as num?)?.toDouble();
 
           if (validatedTotal != null && validatedTotal > 0) {
             _total = validatedTotal;
@@ -2383,8 +2325,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           _voucherSuccessMessage = null;
 
           _voucherErrorMessage =
-              result['message']?.toString() ??
-                  'Invalid voucher code.';
+              result['message']?.toString() ?? 'Invalid voucher code.';
 
           _isValidatingVoucher = false;
         });
@@ -2541,8 +2482,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(
+                            valueColor: AlwaysStoppedAnimation<Color>(
                               Colors.white,
                             ),
                           ),
@@ -2772,8 +2712,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           ..._itemsGroupedByShop.expand((group) {
             final shopName = group['shop_name'] as String;
 
-            final items =
-                group['items'] as List<Map<String, dynamic>>;
+            final items = group['items'] as List<Map<String, dynamic>>;
 
             return [
               Padding(
@@ -2920,9 +2859,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       addFeeRow(
         'Delivery Fee',
         _shippingFee,
-        subtitle: deliveryParts.isNotEmpty
-            ? deliveryParts.join(' · ')
-            : null,
+        subtitle: deliveryParts.isNotEmpty ? deliveryParts.join(' · ') : null,
       );
     }
 
@@ -2937,9 +2874,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     addFeeRow(
       'Multi-Store Fee',
       _multiStoreFee,
-      subtitle: _multiStoreFee > 0 && _storeCount > 1
-          ? '$_storeCount stores'
-          : null,
+      subtitle:
+          _multiStoreFee > 0 && _storeCount > 1 ? '$_storeCount stores' : null,
     );
 
     addFeeRow(
@@ -3027,8 +2963,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           label,
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
-            fontWeight:
-                isTotal ? FontWeight.bold : FontWeight.w500,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
             color: Colors.grey[isTotal ? 900 : 700],
           ),
         ),
@@ -3036,11 +2971,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           value,
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
-            fontWeight:
-                isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal
-                ? AppColors.brandPrimary
-                : Colors.grey[900],
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+            color: isTotal ? AppColors.brandPrimary : Colors.grey[900],
           ),
         ),
       ],
@@ -3094,10 +3026,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                             ? 'Checking item categories...'
                             : 'Retry item check'
                         : _isCheckingZoneCoverage
-                    ? 'Checking delivery coverage...'
-                    : _isLoadingCalculation
-                        ? 'Calculating...'
-                        : 'Place Order - ₱${_displayTotal.toStringAsFixed(2)}',
+                            ? 'Checking delivery coverage...'
+                            : _isLoadingCalculation
+                                ? 'Calculating...'
+                                : 'Place Order - ₱${_displayTotal.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
