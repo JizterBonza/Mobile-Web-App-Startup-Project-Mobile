@@ -1,5 +1,6 @@
 import '../utils/url.dart';
 import '../utils/manila_time.dart';
+import '../utils/media_url.dart';
 
 String _readString(Map json, List<String> keys, [String fallback = '']) {
   for (final key in keys) {
@@ -48,7 +49,9 @@ String? _parseLastMessageSide(Map json) {
 class ConversationModel {
   final dynamic id;
   final dynamic shopId;
+  final dynamic farmId;
   final String shopName;
+  final String? avatarUrl;
   final String lastMessage;
   final DateTime? lastMessageAt;
   final bool unread;
@@ -58,7 +61,9 @@ class ConversationModel {
   ConversationModel({
     required this.id,
     required this.shopId,
+    this.farmId,
     required this.shopName,
+    this.avatarUrl,
     required this.lastMessage,
     this.lastMessageAt,
     this.unread = false,
@@ -74,10 +79,20 @@ class ConversationModel {
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
     final unread = _parseBool(json['unread']);
+    final farm = _asMap(json['farm']);
+    final shop = _asMap(json['shop']);
+    final conversation = _asMap(json['conversation']);
+    final farmName = _readString(json, ['farm_name']);
     return ConversationModel(
       id: json['id'],
       shopId: json['shop_id'],
-      shopName: _readString(json, ['shop_name']),
+      farmId: json['farm_id'] ?? farm['id'],
+      shopName: _readString(json, ['shop_name'],
+          farmName.isNotEmpty ? farmName : _readString(farm, ['name'])),
+      avatarUrl: resolveShopMediaUrl(json['avatar_url'] ??
+          conversation['avatar_url'] ??
+          farm['avatar_url'] ??
+          shop['avatar_url']),
       lastMessage: _readString(json, ['last_message']),
       lastMessageAt: _parseDate(json['last_message_at']),
       unread: unread,
@@ -89,7 +104,9 @@ class ConversationModel {
   ConversationModel copyWith({
     dynamic id,
     dynamic shopId,
+    dynamic farmId,
     String? shopName,
+    String? avatarUrl,
     String? lastMessage,
     DateTime? lastMessageAt,
     bool? unread,
@@ -99,7 +116,9 @@ class ConversationModel {
     return ConversationModel(
       id: id ?? this.id,
       shopId: shopId ?? this.shopId,
+      farmId: farmId ?? this.farmId,
       shopName: shopName ?? this.shopName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       unread: unread ?? this.unread,
@@ -124,13 +143,10 @@ class ConversationHeader {
   });
 
   factory ConversationHeader.fromJson(Map<String, dynamic> json) {
-    final avatar = json['avatar_url'];
     return ConversationHeader(
       id: json['id'],
       name: _readString(json, ['name']),
-      avatarUrl: avatar == null || avatar.toString() == 'null'
-          ? null
-          : avatar.toString(),
+      avatarUrl: resolveShopMediaUrl(json['avatar_url']),
       lastSeen: _readString(json, ['last_seen']),
     );
   }
@@ -140,13 +156,15 @@ class ConversationHeader {
 class MessageShopInfo {
   final dynamic id;
   final String shopName;
+  final String? avatarUrl;
 
-  MessageShopInfo({required this.id, required this.shopName});
+  MessageShopInfo({required this.id, required this.shopName, this.avatarUrl});
 
   factory MessageShopInfo.fromJson(Map<String, dynamic> json) {
     return MessageShopInfo(
       id: json['id'],
       shopName: _readString(json, ['shop_name', 'name']),
+      avatarUrl: resolveShopMediaUrl(json['avatar_url']),
     );
   }
 }
@@ -294,7 +312,9 @@ class MessageProductVariation {
 /// Compact product from the picker API or a thread `type: product` snapshot.
 class MessageProductSnapshot {
   final dynamic id;
+  final dynamic listingId;
   final String name;
+  final num? price;
   final String? imageUrl;
   final String? priceLabel;
   final String? originalPriceLabel;
@@ -303,7 +323,9 @@ class MessageProductSnapshot {
 
   MessageProductSnapshot({
     required this.id,
+    this.listingId,
     required this.name,
+    this.price,
     this.imageUrl,
     this.priceLabel,
     this.originalPriceLabel,
@@ -322,10 +344,14 @@ class MessageProductSnapshot {
         : json['item'] is Map
             ? _asMap(json['item'])
             : json;
-    final name = _readString(nested, ['item_name', 'name', 'title']);
-    final price = _formatPeso(
-      nested['effective_price'] ?? nested['item_price'] ?? nested['price'],
-    );
+    final name =
+        _readString(nested, ['item_name', 'product_name', 'name', 'title']);
+    final rawPrice =
+        nested['effective_price'] ?? nested['item_price'] ?? nested['price'];
+    final price = _formatPeso(rawPrice);
+    final numericPrice = rawPrice is num
+        ? rawPrice
+        : num.tryParse(rawPrice?.toString().replaceAll(',', '') ?? '');
     final original = _formatPeso(
       nested['original_price'] ??
           nested['compare_at_price'] ??
@@ -344,8 +370,15 @@ class MessageProductSnapshot {
       }
     }
     return MessageProductSnapshot(
-      id: nested['item_id'] ?? nested['id'] ?? json['item_id'] ?? json['id'],
+      id: nested['item_id'] ??
+          nested['listing_id'] ??
+          nested['id'] ??
+          json['item_id'] ??
+          json['listing_id'] ??
+          json['id'],
+      listingId: nested['listing_id'] ?? json['listing_id'],
       name: name.isEmpty ? 'Product' : name,
+      price: numericPrice,
       imageUrl: _firstImageUrl(nested) ?? _firstImageUrl(json),
       priceLabel: price.isEmpty ? null : price,
       originalPriceLabel:
@@ -396,7 +429,11 @@ List<MessageProductSnapshot> parseMessageProductList(dynamic json) {
 
 MessageProductSnapshot? _parseProductSnapshot(Map<String, dynamic> json) {
   final type = _readString(json, ['type'], 'text').toLowerCase();
-  final raw = json['product'] ?? json['item'] ?? json['snapshot'];
+  final raw = json['product'] ??
+      json['item'] ??
+      json['listing'] ??
+      json['farm_gamefowl_listing'] ??
+      json['snapshot'];
   if (raw is Map) {
     return MessageProductSnapshot.fromJson(Map<String, dynamic>.from(raw));
   }
@@ -538,24 +575,31 @@ class ConversationThread {
   final ConversationHeader conversation;
   final List<MessageModel> messages;
   final MessageShopInfo? shop;
+  final MessageShopInfo? farm;
 
   ConversationThread({
     required this.conversation,
     required this.messages,
     this.shop,
+    this.farm,
   });
 
   String get shopName => shop?.shopName ?? '';
+  String get displayName => farm?.shopName ?? shopName;
+  String? get avatarUrl =>
+      farm?.avatarUrl ?? shop?.avatarUrl ?? conversation.avatarUrl;
 
   ConversationThread copyWith({
     ConversationHeader? conversation,
     List<MessageModel>? messages,
     MessageShopInfo? shop,
+    MessageShopInfo? farm,
   }) {
     return ConversationThread(
       conversation: conversation ?? this.conversation,
       messages: messages ?? this.messages,
       shop: shop ?? this.shop,
+      farm: farm ?? this.farm,
     );
   }
 
@@ -571,6 +615,19 @@ class ConversationThread {
     if (data['shop'] is Map) {
       shop = MessageShopInfo.fromJson(_asMap(data['shop']));
     }
+    MessageShopInfo? farm;
+    final farmData = data['farm'] is Map
+        ? _asMap(data['farm'])
+        : _asMap(_asMap(data['conversation'])['farm']);
+    if (farmData.isNotEmpty) {
+      farm = MessageShopInfo.fromJson(farmData);
+    } else {
+      final name = _readString(data, ['farm_name']);
+      final farmId = data['farm_id'] ?? _asMap(data['conversation'])['farm_id'];
+      if (name.isNotEmpty || farmId != null) {
+        farm = MessageShopInfo(id: farmId, shopName: name);
+      }
+    }
 
     final rawMessages =
         data['messages'] is List ? data['messages'] as List : const <dynamic>[];
@@ -583,6 +640,7 @@ class ConversationThread {
       conversation: conversation,
       messages: messages,
       shop: shop,
+      farm: farm,
     );
   }
 }

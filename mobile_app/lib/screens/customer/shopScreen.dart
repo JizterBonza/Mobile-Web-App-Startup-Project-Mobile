@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../constants/constants.dart';
@@ -824,7 +825,13 @@ class _ShopScreenState extends State<ShopScreen> {
                     Expanded(
                       child: _buildActionButton(
                         label: 'Chat',
-                        icon: Icons.chat_bubble_outline,
+                        iconWidget: SvgPicture.asset(
+                          'assets/icons/chat.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: const ColorFilter.mode(
+                              Colors.white, BlendMode.srcIn),
+                        ),
                         filled: true,
                         onTap: () async {
                           if (!await requireAuth(context)) return;
@@ -1009,10 +1016,12 @@ class _ShopScreenState extends State<ShopScreen> {
 
   Widget _buildActionButton({
     required String label,
-    required IconData icon,
+    IconData? icon,
+    Widget? iconWidget,
     required bool filled,
     required VoidCallback onTap,
   }) {
+    assert(icon != null || iconWidget != null);
     return Material(
       color: filled ? AppColors.brandPrimary : Colors.grey[100],
       borderRadius: BorderRadius.circular(12),
@@ -1025,11 +1034,12 @@ class _ShopScreenState extends State<ShopScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 20,
-                color: filled ? Colors.white : Colors.grey[700],
-              ),
+              iconWidget ??
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: filled ? Colors.white : Colors.grey[700],
+                  ),
               SizedBox(width: 8),
               Text(
                 label,

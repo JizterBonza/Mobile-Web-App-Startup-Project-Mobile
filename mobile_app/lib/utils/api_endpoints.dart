@@ -85,6 +85,13 @@ class ApiEndpoints {
   static String get checkZoneCoverage =>
       '$baseUrl/api/shops/check-zone-coverage';
 
+  // Farm endpoints
+  static String get getFarms => '$baseUrl/api/farms';
+  static String get getFarmById => '$baseUrl/api/farms/{id}';
+  static String get getFarmListings => '$baseUrl/api/farms/{id}/listings';
+  static String get getFarmGamefowlListing =>
+      '$baseUrl/api/farm-gamefowl-listings/{id}';
+
   // Review endpoints
   static String get submitReview => '$baseUrl/api/shops/{id}/reviews';
 
@@ -111,6 +118,8 @@ class ApiEndpoints {
       '$baseUrl/api/messages/unread-count';
   static String get startShopConversation =>
       '$baseUrl/api/shops/{shopId}/messages';
+  static String get startFarmConversation =>
+      '$baseUrl/api/farms/{farmId}/messages';
   static String get getConversation => '$baseUrl/api/messages/{conversationId}';
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
   static String get getShopMessageProducts =>

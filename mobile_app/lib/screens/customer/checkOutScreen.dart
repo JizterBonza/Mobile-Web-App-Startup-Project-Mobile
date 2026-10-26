@@ -38,11 +38,6 @@ class CheckOutScreen extends StatefulWidget {
 }
 
 class _CheckOutScreenState extends State<CheckOutScreen> {
-  bool get _isDirectGamefowlOrder {
-  return widget.selectedCartItems.any(
-    (item) => item['is_direct_gamefowl_order'] == true,
-  );
-}
   final _formKey = GlobalKey<FormState>();
   final _orderInstructionController = TextEditingController();
   final _voucherController = TextEditingController();
