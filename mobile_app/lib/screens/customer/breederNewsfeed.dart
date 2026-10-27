@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../constants/constants.dart';
-import 'breeder/breederViewProfile.dart';
 import 'breeder/breederSearchInterface.dart';
 
 /// Newsfeed content displayed below the shared Klasrum header and tabs.
@@ -95,8 +94,6 @@ class _BreederNewsfeedState extends State<BreederNewsfeed> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildProfileButton(context),
                 ],
               ),
               const SizedBox(height: 2),
@@ -210,40 +207,6 @@ class _BreederNewsfeedState extends State<BreederNewsfeed> {
     );
   }
 
-  Widget _buildProfileButton(BuildContext context) {
-    return Material(
-      color: const Color(0xE6FFFFFF),
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => BreederViewProfile(posts: widget.posts),
-          ),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.person, size: 14, color: Color(0xFF4056A1)),
-              SizedBox(width: 5),
-              Text(
-                'View Profile',
-                style: TextStyle(
-                  color: Color(0xFF4056A1),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(width: 5),
-              Icon(Icons.chevron_right, size: 15, color: Color(0xFF4056A1)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _NewsfeedPostCard extends StatelessWidget {

@@ -69,7 +69,7 @@ class _BreederViewProfileState extends State<BreederViewProfile> {
       backgroundColor: const Color(0xFFF1F1F3),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 18),
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
           children: [
             Stack(
               clipBehavior: Clip.none,

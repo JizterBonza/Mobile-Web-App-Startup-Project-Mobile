@@ -191,15 +191,19 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
     return null;
   }
 
-  /// Resolve the parent cart ID only from fields that explicitly represent
-  /// a cart. Never treat a product ID or cart-row ID as the parent cart ID.
+  /// Resolve an optional parent cart ID from unambiguous parent-cart fields.
+  /// `cart_id` on a selected item is the cart-row ID used in the order items,
+  /// so it must not be promoted to the top-level parent cart ID.
   int? _resolveCheckoutCartId() {
     final explicitId = _parseId(widget.cartId);
     if (explicitId != null) return explicitId;
 
     for (final cartItem in widget.selectedCartItems) {
       final directId = _parseId(
-        cartItem['cart_id'] ?? cartItem['cartId'],
+        cartItem['parent_cart_id'] ??
+            cartItem['parentCartId'] ??
+            cartItem['shopping_cart_id'] ??
+            cartItem['shoppingCartId'],
       );
       if (directId != null) return directId;
 
@@ -876,23 +880,6 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       debugPrint('CHECKOUT CART ID: $checkoutCartId');
       debugPrint('CHECKOUT ORDER ITEMS: $orderItems');
-
-      // Normal cart orders require a real parent cart ID. A direct Gamefowl
-      // order may omit it; the Order API must support that request type.
-      if (checkoutCartId == null && !_isDirectGamefowlOrder) {
-        SnackbarHelper.hide(context);
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          SnackbarHelper.showError(
-            context,
-            'Cart ID is missing. Return to your cart and try again. '
-            'The cart screen must pass the actual cart ID to checkout.',
-          );
-        }
-        return;
-      }
 
       final result = await _orderService.createOrder(
         cartId: checkoutCartId,

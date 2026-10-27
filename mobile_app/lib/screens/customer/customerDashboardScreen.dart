@@ -1436,13 +1436,13 @@ class _CustomerDashboardScreenState
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF3155B7)
-                    : const Color(0xFFFFF3C4),
+                    : const Color(0xFFE0E6F4),
                 borderRadius:
                     BorderRadius.circular(18),
                 border: Border.all(
                   color: isSelected
                       ? const Color(0xFF3155B7)
-                      : const Color(0xFFE5B72E),
+                      : const Color(0xFFB9C7E8),
                   width: 1.2,
                 ),
                 boxShadow: [
@@ -1459,7 +1459,7 @@ class _CustomerDashboardScreenState
                 style: TextStyle(
                   color: isSelected
                       ? Colors.white
-                      : const Color(0xFF4A3B11),
+                      : const Color(0xFF214766),
                   fontSize: 12,
                   fontWeight: isSelected
                       ? FontWeight.w700
@@ -1676,7 +1676,7 @@ class _CustomerDashboardScreenState
               Positioned(
                 left: 14,
                 right: 95,
-                bottom: 47,
+                bottom: 92,
                 child: Text(
                   title,
                   maxLines: 2,
@@ -1694,7 +1694,7 @@ class _CustomerDashboardScreenState
               Positioned(
                 left: 14,
                 right: 85,
-                bottom: 25,
+                bottom: 55,
                 child: Text(
                   description,
                   maxLines: 2,

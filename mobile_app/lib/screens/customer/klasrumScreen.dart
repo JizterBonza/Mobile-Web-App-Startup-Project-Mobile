@@ -266,14 +266,9 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildGreenHeader(topInset),
-                      _buildContentTabs(),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                        child: _buildSearchField(),
-                      ),
-                      _buildSectionHeader(),
                       if (_selectedClassroomTab == 0) ...[
                         _buildFeaturedHero(provider),
+                        _buildSectionHeader(),
                         _buildCategoryChips(provider),
                         const Padding(
                           padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -286,6 +281,11 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                               color: Color(0xFF6B7280),
                             ),
                           ),
+                        ),
+                      ] else ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _buildContentTabs(),
                         ),
                       ],
                     ],
@@ -314,7 +314,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
   Widget _buildGreenHeader(double topInset) {
     return Container(
       width: double.infinity,
-      color: AppColors.brandPrimary,
+      color: const Color(0xFF263F91),
       padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 16),
       child: Row(
         children: [
@@ -504,7 +504,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
         bottomRight: Radius.circular(28),
       ),
       child: SizedBox(
-        height: 320,
+        height: 340,
         width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
@@ -518,6 +518,8 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                       ? Image.network(
                           coverUrl,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null ? child : _coverFallback(),
                           errorBuilder: (_, __, ___) => _coverFallback(),
                         )
                       : _coverFallback(),
@@ -555,12 +557,14 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 72),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 68,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Spacer(),
                         Row(
                           children: [
                             _buildHeroBadge(
@@ -600,7 +604,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                         const SizedBox(height: 10),
                         Text(
                           title.isNotEmpty ? title : 'Learn with Klasmeyt',
-                          maxLines: 3,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 20,
@@ -610,15 +614,15 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                           ),
                         ),
                         if (description.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 5),
                           Text(
                             description,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.88),
-                              height: 1.35,
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.92),
+                              height: 1.2,
                             ),
                           ),
                         ],
@@ -627,6 +631,18 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                   ),
                 ],
               ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildContentTabs(),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 12,
+              child: _buildSearchField(),
             ),
           ],
         ),
@@ -659,7 +675,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
 
   Widget _buildSearchField() {
     return SizedBox(
-      height: 40,
+      height: 44,
       child: Material(
         color: Colors.white,
         elevation: 0,
@@ -715,7 +731,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
 
   Widget _buildSectionHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -724,14 +740,14 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             children: [
               SvgPicture.asset(
                 'assets/icons/klasrum-icon.svg',
-                height: 18,
+                height: 23,
                 fit: BoxFit.contain,
               ),
               const SizedBox(width: 8),
               Text(
                 'KLASRUM',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   height: 1.1,
                   color: Colors.grey[900],
@@ -744,7 +760,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           Text(
             'Learn with Klasmeyt',
             style: TextStyle(
-              fontSize: 13,
+            fontSize: 15,
               height: 1.2,
               color: Colors.grey[600],
             ),
@@ -783,19 +799,10 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
       child: GestureDetector(
         onTap: () => setState(() => _selectedClassroomTab = index),
         child: Container(
-          height: 34,
+          height: 38,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color(0xFF263F91),
-                      Color(0xFF20377F),
-                    ],
-                  )
-                : null,
+            color: isSelected ? const Color(0xFF263F91) : null,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -839,7 +846,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             )
           : ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
                 _buildCategoryChip(
                   label: 'All',
@@ -877,7 +884,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(24),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               border: Border.all(

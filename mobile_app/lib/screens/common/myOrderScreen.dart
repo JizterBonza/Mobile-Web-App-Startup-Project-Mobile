@@ -30,6 +30,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   final OrderService _orderService = OrderService();
   final ShopsService _shopsService = ShopsService();
   bool _isCancelling = false;
+  final Set<String> _completingOrderIds = <String>{};
   bool _isGuest = true;
   Map<String, String> _paymentMethodNames = {};
 
@@ -62,6 +63,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     {
       'label': 'Delivered',
       'status': 'delivered',
+      'icon': 'assets/icons/Delivered.svg',
+    },
+    {
+      'label': 'Completed',
+      'status': 'completed',
       'icon': 'assets/icons/Delivered.svg',
     },
     {
@@ -374,6 +380,91 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
     if (result == true) {
       _loadOrders(useCache: false);
+    }
+  }
+
+  Future<void> _markPickupCompleted(
+    Map<String, dynamic> order, {
+    required String shopId,
+  }) async {
+    final orderId =
+        order['id']?.toString() ?? order['order_id']?.toString() ?? '';
+    if (orderId.isEmpty || _completingOrderIds.contains(orderId)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm pickup'),
+        content: const Text(
+          'Confirm that you received this order? It will be marked Completed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not yet'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.brandPrimary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm pickup'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final statusProvider =
+        Provider.of<OrderStatusProvider>(context, listen: false);
+    final completedStatusId =
+        statusProvider.getOrderStatusIdByDescription('completed') ??
+            statusProvider.getOrderStatusIdByDescription('complete');
+    if (completedStatusId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Completed status is unavailable. Please try again.')),
+      );
+      return;
+    }
+
+    setState(() => _completingOrderIds.add(orderId));
+    try {
+      final result = await _orderService.updateOrderStatus(
+        orderId: orderId,
+        status: completedStatusId.toString(),
+        shopId: shopId.isEmpty ? null : shopId,
+      );
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pickup confirmed. Order marked Completed.')),
+        );
+        await _loadOrders(useCache: false);
+        final completedTabIndex = _statusTabs.indexWhere(
+          (tab) => tab['status'] == 'completed',
+        );
+        if (mounted && completedTabIndex >= 0) {
+          _tabController.animateTo(completedTabIndex);
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result['message']?.toString() ?? 'Could not complete this order.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not complete this order: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _completingOrderIds.remove(orderId));
     }
   }
 
@@ -787,7 +878,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
         itemBuilder: (context, index) {
-          return _buildOrderCard(orders[index]);
+          return _buildOrderCard(orders[index], isPickup: isPickup);
         },
       ),
     );
@@ -875,7 +966,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
   }
 
-  Widget _buildOrderCard(Map<String, dynamic> order) {
+  Widget _buildOrderCard(Map<String, dynamic> order, {bool isPickup = false}) {
     return Consumer<OrderStatusProvider>(
       builder: (context, orderStatusProvider, child) {
         final orderCode = order['order_code']?.toString() ?? 'N/A';
@@ -948,6 +1039,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
         final canCancel = orderStatus.toLowerCase() == 'pending';
         final isDelivered = orderStatus.toLowerCase() == 'delivered';
+        final canConfirmPickup = isPickup && _isReadyForPickup(order);
+        final isCompleting = _completingOrderIds.contains(orderId);
         final zoneTitle = _resolveZoneTitle(order);
         final itemsSubtotal = orderItems.fold<double>(0, (sum, raw) {
           if (raw is! Map) return sum;
@@ -1147,8 +1240,42 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (canConfirmPickup) const Spacer(),
+                    if (canConfirmPickup)
+                      OutlinedButton(
+                        onPressed: isCompleting
+                            ? null
+                            : () => _markPickupCompleted(order, shopId: shopId),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF3157A4),
+                          side: const BorderSide(color: Color(0xFFB7CCF3)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: isCompleting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF3157A4),
+                                ),
+                              )
+                            : const Text(
+                                'Done',
+                                style: TextStyle(
+                                  color: Color(0xFF3157A4),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    if (canConfirmPickup) const SizedBox(width: 8),
                     if (canCancel)
                       TextButton(
                         onPressed:
