@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
 class EmptyStateWidget extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String message;
   final String? subtitle;
   final Widget? action;
 
   const EmptyStateWidget({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.message,
     this.subtitle,
     this.action,
-  });
+  }) : assert(icon != null || iconWidget != null);
 
   @override
   Widget build(BuildContext context) {
@@ -20,11 +22,12 @@ class EmptyStateWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 64,
-            color: Colors.grey[400],
-          ),
+          iconWidget ??
+              Icon(
+                icon,
+                size: 64,
+                color: Colors.grey[400],
+              ),
           SizedBox(height: 16),
           Text(
             message,

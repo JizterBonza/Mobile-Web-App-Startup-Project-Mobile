@@ -15,6 +15,9 @@ import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'gamefowlListing.dart';
+import 'checkOutScreen.dart';
+import 'gamefowlOrderReq.dart';
+import 'InquiryChat.dart';
 
 class gamefowlProdDetail extends StatefulWidget {
   final dynamic productId;
@@ -590,8 +593,10 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
           product?['product_price'] ??
           product?['amount'],
     );
-
-    final productStock = _parseStock(product?['item_quantity']);
+    final productStock = int.tryParse(
+          (product?['item_quantity'] ?? product?['stock'] ?? 0).toString(),
+        ) ??
+        0;
 
     final productDescription = (product?['item_description'] ??
             product?['description'] ??

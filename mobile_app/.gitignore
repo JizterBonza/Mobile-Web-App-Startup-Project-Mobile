@@ -41,6 +41,13 @@ migrate_working_dir/
 !/test/klasrum_content_test.dart
 !/test/klasrum_media_carousel_test.dart
 !/test/klasrum_rich_body_test.dart
+!/test/farms_service_test.dart
+!/test/farm_details_screen_test.dart
+!/test/farm_messaging_test.dart
+!/test/farm_chat_navigation_test.dart
+!/test/farm_message_card_test.dart
+!/test/farm_message_picker_test.dart
+!/test/conversation_avatar_test.dart
 
 # Symbolication related
 app.*.symbols
@@ -52,3 +59,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# FVM Version Cache
+.fvm/
