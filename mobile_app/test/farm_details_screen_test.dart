@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:agriconnect/screens/customer/farmDetailsScreen.dart';
+import 'package:agriconnect/screens/customer/gamefowlOrderReq.dart';
+import 'package:agriconnect/screens/customer/gamefowlCheckoutScreen.dart';
 import 'package:agriconnect/services/farms_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -260,6 +262,31 @@ void main() {
     expect(find.text('Add to Crate'), findsOneWidget);
     expect(find.text('Order Request'), findsOneWidget);
     expect(find.text('Inquire'), findsOneWidget);
+    await tester.tap(find.text('Order Request'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ready to Order?'), findsOneWidget);
+    expect(find.byType(GamefowlOrderReq), findsNothing);
+    await tester.tap(find.text('Yes'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GamefowlOrderReq), findsOneWidget);
+    expect(find.text('Golden Boy Sweater | Adult | Male'), findsOneWidget);
+    expect(find.text('₱2500.00'), findsOneWidget);
+    expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'Sample Gamefowl Rooster');
+    expect(service.detailCalls, 1);
+    await tester.tap(find.text('Proceed to Checkout'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GamefowlCheckoutScreen), findsOneWidget);
+    expect(
+        find.text('Chosen Gamefowl: Sample Gamefowl Rooster'), findsOneWidget);
+    expect(find.text('Place Order • ₱2500.00'), findsOneWidget);
+    expect(service.detailCalls, 1);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sample Gamefowl Rooster'), findsOneWidget);
   });
 
   testWidgets('listing detail retries after a failed request', (tester) async {

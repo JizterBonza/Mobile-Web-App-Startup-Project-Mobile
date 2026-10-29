@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../../provider/message_provider.dart';
 import '../../services/farms_service.dart';
+import '../../widgets/order_request_confirmation_dialog.dart';
 import 'InquiryChat.dart';
+import 'gamefowlOrderReq.dart';
 
 class FarmGamefowlListingDetailScreen extends StatefulWidget {
   const FarmGamefowlListingDetailScreen({
@@ -30,6 +32,7 @@ class _FarmGamefowlListingDetailScreenState
   String? _error;
   bool _isLoading = true;
   bool _isOpeningInquiry = false;
+  bool _isConfirmingOrder = false;
   int _imageIndex = 0;
 
   @override
@@ -160,6 +163,29 @@ class _FarmGamefowlListingDetailScreenState
     if (mounted) setState(() => _isOpeningInquiry = false);
   }
 
+  Future<void> _openOrderRequest() async {
+    if (_isConfirmingOrder || _isOpeningInquiry || _listing == null) return;
+    final listing = _listing!;
+    _isConfirmingOrder = true;
+    try {
+      final confirmed = await OrderRequestConfirmationDialog.show(context);
+      if (!mounted || !confirmed) return;
+      final farm = _nested(listing, 'farm');
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => GamefowlOrderReq(
+            productData: listing,
+            shopName: _value(farm['name']),
+            shopId: listing['farm_id'] ?? farm['id'],
+          ),
+        ),
+      );
+    } finally {
+      _isConfirmingOrder = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final listing = _listing;
@@ -178,7 +204,7 @@ class _FarmGamefowlListingDetailScreenState
               child: Row(
                 children: [
                   _bottomAction('Add to Crate', light: true),
-                  _bottomAction('Order Request'),
+                  _bottomAction('Order Request', onTap: _openOrderRequest),
                 ],
               ),
             )
@@ -452,17 +478,33 @@ class _FarmGamefowlListingDetailScreenState
     );
   }
 
-  Widget _bottomAction(String label, {bool light = false}) => Expanded(
+  Widget _bottomAction(String label,
+          {bool light = false, VoidCallback? onTap}) =>
+      Expanded(
         child: Semantics(
           button: true,
-          enabled: false,
-          label: '$label unavailable',
-          child: Container(
-            height: 52,
-            color: light ? const Color(0xFF657BBB) : const Color(0xFF566CA9),
-            alignment: Alignment.center,
-            child: Text(label,
-                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          enabled: onTap != null,
+          onTap: onTap,
+          label: onTap == null ? '$label unavailable' : label,
+          excludeSemantics: true,
+          child: Material(
+            color: light
+                ? const Color(0xFF657BBB)
+                : onTap == null
+                    ? const Color(0xFF566CA9)
+                    : _blue,
+            child: InkWell(
+              onTap: onTap,
+              child: SizedBox(
+                height: 52,
+                child: Center(
+                  child: Text(label,
+                      style: TextStyle(
+                          color: onTap == null ? Colors.white70 : Colors.white,
+                          fontSize: 13)),
+                ),
+              ),
+            ),
           ),
         ),
       );
