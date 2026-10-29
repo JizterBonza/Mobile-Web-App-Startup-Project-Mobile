@@ -14,10 +14,8 @@ import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/order_request_confirmation_dialog.dart';
 import 'gamefowlListing.dart';
-import 'checkOutScreen.dart';
-import 'gamefowlOrderReq.dart';
-import 'InquiryChat.dart';
 
 class gamefowlProdDetail extends StatefulWidget {
   final dynamic productId;
@@ -42,6 +40,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   int _quantity = 1;
   bool _isAddingToCart = false;
   bool _isBuyingNow = false;
+  bool _isConfirmingOrder = false;
   bool _showAllReviews = false;
   final ShopsService _shopsService = ShopsService();
 
@@ -2018,203 +2017,34 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   }
 
   Future<void> _showOrderRequestConfirmation(dynamic shopId) async {
-    if (_isAddingToCart || _isBuyingNow) return;
-
-    final choice = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                heightFactor: 0.65,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  icon: const Icon(Icons.close),
-                  color: Colors.white,
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFD6D6D6),
-                    fixedSize: const Size(30, 30),
-                  ),
-                ),
-              ),
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF9AA9D7)),
-                ),
-                child: const Icon(
-                  Icons.receipt_long,
-                  color: Color(0xFF9AA9D7),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Ready to Order?',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Have you already inquired with the seller and confirmed the details of your chosen gamefowl?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFF444444)),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(dialogContext, false),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE0E0E0),
-                          foregroundColor: const Color(0xFF777777),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('No'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(dialogContext, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4C66B3),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text('Yes'),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (!mounted || choice == null) return;
-    if (choice) {
+    if (_isAddingToCart || _isBuyingNow || _isConfirmingOrder) return;
+    _isConfirmingOrder = true;
+    try {
+      final confirmed = await OrderRequestConfirmationDialog.show(context);
+      if (!mounted || !confirmed) return;
       await _handleOrderRequest(shopId);
-    } else {
-      await _handleInquiry(shopId);
+    } finally {
+      _isConfirmingOrder = false;
     }
   }
 
   Future<void> _handleOrderRequest(dynamic shopId) async {
     if (_isAddingToCart || _isBuyingNow) return;
-    if (!await requireAuth(context)) return;
 
     final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
     final requestProduct =
         widget.productData ?? itemsProvider.getItemById(widget.productId);
-    final itemId = _getCartItemId();
-    final price = _parsePrice(
-      requestProduct?['item_price'] ??
-          requestProduct?['price'] ??
-          requestProduct?['selling_price'] ??
-          requestProduct?['product_price'],
-    );
-    final resolvedShopId = shopId ?? _resolveShopId(requestProduct);
 
-    if (requestProduct == null || itemId == null) {
-      _showInvalidItemIdMessage();
-      return;
-    }
-    if (resolvedShopId == null || resolvedShopId.toString().trim().isEmpty) {
-      SnackbarHelper.showError(context, 'This gamefowl has no valid shop ID.');
-      return;
-    }
-    if (price <= 0) {
-      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
-      return;
-    }
-
-    setState(() => _isBuyingNow = true);
-    try {
-      final userId = await ApiService.getUserId();
-      if (userId == null || userId.isEmpty) {
-        if (mounted) {
-          SnackbarHelper.showError(context, 'Please login again to continue.');
-        }
-        return;
-      }
-
-      final cartService = CartService();
-      var cartLine = await _findCartLine(cartService, userId, itemId);
-      if (cartLine == null) {
-        final addResult = await cartService.addToCart(
-          userId: userId,
-          itemId: itemId.toString(),
-          price: price,
-          quantity: _quantity,
-        );
-        if (addResult['success'] != true) {
-          if (mounted) {
-            SnackbarHelper.showError(
-              context,
-              addResult['message']?.toString() ??
-                  'Could not add gamefowl to crate.',
-            );
-          }
-          return;
-        }
-        cartLine = await _findCartLine(cartService, userId, itemId);
-      }
-      if (cartLine == null) {
-        if (mounted) {
-          SnackbarHelper.showError(
-            context,
-            'The gamefowl was added, but could not be found in your crate. Please refresh and try again.',
-          );
-        }
-        return;
-      }
-
-      if (!mounted) return;
-      context.read<BadgeProvider>().fetchBadges();
-      final normalizedProduct = Map<String, dynamic>.from(requestProduct)
-        ..['item_id'] = itemId
-        ..['shop_id'] = resolvedShopId
-        ..putIfAbsent('item_price', () => price);
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => GamefowlOrderReq(
-            productData: normalizedProduct,
-            shopName: _getShopDisplayName(),
-            shopId: resolvedShopId,
-          ),
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => GamefowlOrderReq(
+          productData: requestProduct,
+          shopName: _getShopDisplayName(),
+          shopId: shopId ?? _resolveShopId(requestProduct),
         ),
-      );
-    } catch (e) {
-      if (mounted) {
-        SnackbarHelper.showError(context, 'Unable to open order request: $e');
-      }
-    } finally {
-      if (mounted) setState(() => _isBuyingNow = false);
-    }
+      ),
+    );
   }
 
   Future<void> _handleInquiry(dynamic shopId) async {
