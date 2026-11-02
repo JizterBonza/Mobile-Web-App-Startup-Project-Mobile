@@ -7,3 +7,5 @@ mobile_app/README.md
 /mobile_app/docs
 /mobile_app/test
 mobile_app/test/farm_details_screen_test.dart
+mobile_app/FARM_ORDERS_MERGE_PLAN.md
+mobile_app/GAMEFOWL_CHECKOUT_PROGRESS.md
