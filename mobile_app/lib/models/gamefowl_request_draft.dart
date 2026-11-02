@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../utils/media_url.dart';
+import 'farm_checkout.dart';
 
 /// Display data shared by the request form and its local checkout preview.
 @immutable
@@ -9,6 +10,9 @@ class GamefowlProductSummary {
     this.productName,
     this.title = 'Gamefowl',
     this.traits = '',
+    this.bloodline,
+    this.age,
+    this.sex,
     this.price,
     this.imageUrl,
   });
@@ -16,6 +20,9 @@ class GamefowlProductSummary {
   final String? productName;
   final String title;
   final String traits;
+  final String? bloodline;
+  final String? age;
+  final String? sex;
   final double? price;
   final String? imageUrl;
 
@@ -73,6 +80,9 @@ class GamefowlProductSummary {
       productName: name,
       title: title,
       traits: [bloodline, age, sex].whereType<String>().join(' | '),
+      bloodline: bloodline,
+      age: age,
+      sex: sex,
       price: price != null && price.isFinite ? price : null,
       imageUrl: _readImageUrl(product, gamefowl),
     );
@@ -128,22 +138,31 @@ class GamefowlProductSummary {
   }
 }
 
-/// A snapshot of a single request; contains no cart IDs or submission behavior.
+/// Listing selection and an immutable snapshot of each requested bird's details.
 @immutable
 class GamefowlRequestDraft {
   const GamefowlRequestDraft({
-    required this.product,
-    this.chosenGamefowl = '',
-    this.wingbandNo = '',
-    this.featherColor = '',
-    this.feetColor = '',
-    this.mediaName,
+    required this.farmId,
+    required this.items,
   });
 
+  final int farmId;
+  final List<GamefowlRequestItem> items;
+}
+
+@immutable
+class GamefowlRequestItem {
+  const GamefowlRequestItem({
+    required this.listingId,
+    required this.product,
+    this.quantity = 1,
+    this.sellingUnit = '',
+    this.birds = const [],
+  });
+
+  final int listingId;
   final GamefowlProductSummary product;
-  final String chosenGamefowl;
-  final String wingbandNo;
-  final String featherColor;
-  final String feetColor;
-  final String? mediaName;
+  final int quantity;
+  final String sellingUnit;
+  final List<FarmBirdDetails> birds;
 }

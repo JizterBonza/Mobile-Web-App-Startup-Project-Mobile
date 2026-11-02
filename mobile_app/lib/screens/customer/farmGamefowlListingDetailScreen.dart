@@ -203,7 +203,6 @@ class _FarmGamefowlListingDetailScreenState
               top: false,
               child: Row(
                 children: [
-                  _bottomAction('Add to Crate', light: true),
                   _bottomAction('Order Request', onTap: _openOrderRequest),
                 ],
               ),
@@ -382,15 +381,8 @@ class _FarmGamefowlListingDetailScreenState
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 8,
                 right: 14,
-                child: Row(
-                  children: [
-                    _unavailableGalleryIcon(
-                        Icons.shopping_bag_outlined, 'Crate unavailable'),
-                    const SizedBox(width: 6),
-                    _unavailableGalleryIcon(
-                        Icons.share_outlined, 'Share unavailable'),
-                  ],
-                ),
+                child: _unavailableGalleryIcon(
+                    Icons.share_outlined, 'Share unavailable'),
               ),
             ],
           ),
@@ -478,9 +470,7 @@ class _FarmGamefowlListingDetailScreenState
     );
   }
 
-  Widget _bottomAction(String label,
-          {bool light = false, VoidCallback? onTap}) =>
-      Expanded(
+  Widget _bottomAction(String label, {VoidCallback? onTap}) => Expanded(
         child: Semantics(
           button: true,
           enabled: onTap != null,
@@ -488,11 +478,7 @@ class _FarmGamefowlListingDetailScreenState
           label: onTap == null ? '$label unavailable' : label,
           excludeSemantics: true,
           child: Material(
-            color: light
-                ? const Color(0xFF657BBB)
-                : onTap == null
-                    ? const Color(0xFF566CA9)
-                    : _blue,
+            color: onTap == null ? const Color(0xFF566CA9) : _blue,
             child: InkWell(
               onTap: onTap,
               child: SizedBox(
