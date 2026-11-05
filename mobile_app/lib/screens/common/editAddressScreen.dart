@@ -516,12 +516,14 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                'Contact Information',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
+              Expanded(
+                child: Text(
+                  'Contact Information',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
                 ),
               ),
             ],
@@ -832,12 +834,14 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                'Additional Details',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[900],
+              Expanded(
+                child: Text(
+                  'Additional Details',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
                 ),
               ),
             ],

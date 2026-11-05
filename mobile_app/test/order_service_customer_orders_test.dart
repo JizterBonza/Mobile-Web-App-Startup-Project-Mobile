@@ -42,7 +42,13 @@ void main() {
         'delivery_method_id': null,
         'order_detail': {'delivery_method_id': 3},
       },
-      {'id': 54, 'order_status': 3},
+      {
+        'id': 54,
+        'order_status': 3,
+        'order_type': 'farm',
+        'farm_order_id': 800,
+        'farm_id': 12
+      },
     ];
     final client = MockClient((request) async {
       expect(request.method, 'GET');
@@ -62,6 +68,9 @@ void main() {
     expect(orders.map((order) => order['order_status']),
         ['3', '3', '3', '3', '3']);
     expect(result['count'], 5);
+    expect(orders.last['order_type'], 'farm');
+    expect(orders.last['farm_order_id'], 800);
+    expect(orders.last['farm_id'], 12);
   });
 
   test('order creation sends cart row IDs only on items', () async {

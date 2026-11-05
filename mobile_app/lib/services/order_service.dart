@@ -447,6 +447,7 @@ final body = <String, dynamic>{
             detailRaw is Map ? Map<String, dynamic>.from(detailRaw) : null;
 
         return <String, dynamic>{
+          ...order,
           'id': order['id'],
           'user_id': order['user_id'],
           'order_detail_id': order['order_detail_id'],
