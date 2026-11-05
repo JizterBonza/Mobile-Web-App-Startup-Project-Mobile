@@ -53,6 +53,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   bool _isLoadingProducts = true;
   List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _onSaleProducts = [];
+  bool _isLoadingOnSaleProducts = true;
   List<Map<String, dynamic>> _categories = [];
 
   final PageController _storesPageController =
@@ -69,6 +71,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   final FocusNode _searchFocus = FocusNode();
 
   Timer? _debounceTimer;
+  Timer? _saleCountdownTimer;
 
   bool _showSearchResults = false;
 
@@ -104,6 +107,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     _searchController.addListener(_onSearchChanged);
 
+    // Refresh countdown labels only for products with a timed sale.
+    _saleCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && [..._products, ..._onSaleProducts].any(_hasActiveTimedSale)) {
+        setState(() {});
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeDashboard();
     });
@@ -116,6 +126,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       _loadFarms(),
       _loadKlasrumFeatured(),
       _loadProducts(),
+      _loadOnSaleProducts(),
       _loadCategories(),
       _loadFavoriteState(),
     ]);
@@ -352,7 +363,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     registerSection(
       'best_offers',
-      filteredProducts.take(6).toList(),
+      _onSaleProducts.where(_hasActiveDiscount).take(6).toList(),
     );
 
     registerSection(
@@ -762,6 +773,24 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
   }
 
+  Future<void> _loadOnSaleProducts() async {
+    if (!mounted) return;
+    setState(() => _isLoadingOnSaleProducts = true);
+    try {
+      final provider = context.read<ItemsProvider>();
+      await provider.fetchItemsOnSale();
+      if (!mounted) return;
+      setState(() {
+        _onSaleProducts = List<Map<String, dynamic>>.from(provider.onSaleItems);
+        _isLoadingOnSaleProducts = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingOnSaleProducts = false);
+      debugPrint('Error loading on-sale products: $e');
+    }
+  }
+
   Future<void> _loadCategories() async {
     final provider = context.read<CategoryProvider>();
     await provider.fetchCategories();
@@ -946,6 +975,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       _loadProducts(
         useCache: false,
       ),
+      _loadOnSaleProducts(),
       _loadCategories(),
       _loadFavoriteState(),
     ]);
@@ -1419,13 +1449,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF3155B7)
-                    : const Color(0xFFE0E6F4),
+                    : const Color(0xFFFFF6D8),
                 borderRadius:
                     BorderRadius.circular(18),
                 border: Border.all(
                   color: isSelected
                       ? const Color(0xFF3155B7)
-                      : const Color(0xFFB9C7E8),
+                      : const Color(0xFFEAD37A),
                   width: 1.2,
                 ),
                 boxShadow: [
@@ -1507,16 +1537,16 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         _buildLocalFarmsSection(),
         const SizedBox(height: 22),
         _buildBestOffersSection(),
-        const SizedBox(height: 22),
+        const SizedBox(height: 14),
         _buildFeaturedProductsSection(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
         Container(
           key: _productsSectionKey,
           child: _buildProductsSection(),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
         _buildAvailableGamefowlSection(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 14),
         _buildBuyAgainSection(),
       ],
     );
@@ -2321,13 +2351,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildBestOffersSection() {
-    if (_isLoadingDisplayedProducts) {
+    if (_isLoadingOnSaleProducts) {
       return _buildProductLoading(
         'Best Offers',
       );
     }
 
-    final products = _getFilteredProducts();
+    final products = _onSaleProducts
+        .where(_hasActiveDiscount)
+        .toList();
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
@@ -2353,6 +2385,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         _buildHorizontalProducts(
           products.take(6).toList(),
           sectionKey: 'best_offers',
+          showOfferCountdown: true,
         ),
       ],
     );
@@ -2473,9 +2506,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Widget _buildHorizontalProducts(
     List<Map<String, dynamic>> products, {
     required String sectionKey,
+    bool showOfferCountdown = false,
   }) {
     return SizedBox(
-      height: 250,
+      height: showOfferCountdown ? 294 : 268,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -2494,11 +2528,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
           return Padding(
             padding: const EdgeInsets.only(
-              right: 12,
+              right: 8,
             ),
             child: _buildProductCard(
               products[index],
               favoriteCardKey: cardKey,
+              showOfferCountdown: showOfferCountdown,
             ),
           );
         },
@@ -2604,9 +2639,209 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     );
   }
 
+  // Read only values that are included in the product/shop/category response.
+  String? _cardText(dynamic value) {
+    if (value is Map) {
+      for (final key in ['name', 'shop_name', 'category_name', 'title']) {
+        final text = _cardText(value[key]);
+        if (text != null) return text;
+      }
+      return null;
+    }
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty || text.toLowerCase() == 'null'
+        ? null
+        : text;
+  }
+
+  String? _productCategoryName(Map<String, dynamic> product) {
+    // API responses can use `category` for either an ID or a name.
+    // Resolve numeric IDs against the categories fetched from the API.
+    final categoryValue = product['category'];
+    final categoryMap = categoryValue is Map ? categoryValue : null;
+    final categoryId = product['category_id'] ??
+        product['item_category_id'] ??
+        categoryMap?['id'] ??
+        categoryMap?['category_id'] ??
+        categoryValue;
+
+    final knownCategories = context.read<CategoryProvider>().categories;
+    if (categoryId != null) {
+      for (final category in knownCategories) {
+        if (category['id']?.toString() == categoryId.toString()) {
+          return _cardText(category['name']);
+        }
+      }
+    }
+
+    // Some endpoints provide the actual category label directly.
+    for (final value in [
+      product['category_name'],
+      product['item_category_name'],
+      product['categoryName'],
+      categoryMap?['name'],
+      categoryMap?['category_name'],
+      categoryValue,
+    ]) {
+      final label = _cardText(value);
+      if (label != null && num.tryParse(label) == null) return label;
+    }
+
+    // Do not display database IDs as if they were category names.
+    return null;
+  }
+
+  String? _productShopName(Map<String, dynamic> product) {
+    for (final key in ['shop_name', 'store_name', 'seller_name', 'shop', 'store']) {
+      final value = _cardText(product[key]);
+      if (value != null) return value;
+    }
+    final id = product['shop_id'] ?? product['store_id'];
+    if (id != null) {
+      for (final store in _suggestedStores) {
+        if ((store['id'] ?? store['shop_id'])?.toString() == id.toString()) {
+          return _cardText(store['shop_name'] ?? store['name']);
+        }
+      }
+    }
+    return null;
+  }
+
+  double? _cardAmount(dynamic value) {
+    if (value is num) return value.toDouble();
+    final cleaned = value?.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+    return cleaned == null ? null : double.tryParse(cleaned);
+  }
+
+  DateTime? _cardDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is num) {
+      final n = value.toInt();
+      return DateTime.fromMillisecondsSinceEpoch(n < 100000000000 ? n * 1000 : n);
+    }
+    final text = value.toString().trim();
+    final numeric = int.tryParse(text);
+    if (numeric != null) return _cardDate(numeric);
+    return DateTime.tryParse(text);
+  }
+
+  DateTime? _saleEnd(Map<String, dynamic> product) {
+    final sale = product['sale'];
+    final discount = product['discount'];
+    for (final map in [product, if (sale is Map) sale, if (discount is Map) discount]) {
+      for (final key in [
+        'discount_expires_at', 'sale_end_at', 'sale_ends_at', 'sale_end_date', 'sale_end',
+        'discount_end_at', 'discount_end_date', 'discount_end',
+        'end_date', 'ends_at', 'end_at', 'end_time',
+      ]) {
+        final date = _cardDate(map[key]);
+        if (date != null) return date;
+      }
+    }
+    return null;
+  }
+
+  double? _salePrice(Map<String, dynamic> product) {
+    for (final key in ['effective_price', 'discounted_price', 'discount_price', 'sale_price', 'promo_price']) {
+      final amount = _cardAmount(product[key]);
+      if (amount != null) return amount;
+    }
+    final sale = product['sale'];
+    if (sale is Map) {
+      for (final key in ['discounted_price', 'discount_price', 'sale_price', 'price']) {
+        final amount = _cardAmount(sale[key]);
+        if (amount != null) return amount;
+      }
+    }
+    return null;
+  }
+
+  // Only products with a current, real price reduction belong in Best Offers.
+  bool _hasActiveDiscount(Map<String, dynamic> product) {
+    final regular = _cardAmount(
+      product['item_price'] ?? product['price'] ?? product['selling_price'],
+    );
+    final discounted = _salePrice(product);
+    final end = _saleEnd(product);
+    return regular != null &&
+        discounted != null &&
+        discounted >= 0 &&
+        discounted < regular &&
+        (end == null || end.isAfter(DateTime.now()));
+  }
+
+  bool _hasActiveTimedSale(Map<String, dynamic> product) {
+    final end = _saleEnd(product);
+    if (end == null || !end.isAfter(DateTime.now())) return false;
+    return _hasActiveDiscount(product);
+  }
+
+  String _saleTimeRemaining(DateTime end) {
+    final remaining = end.difference(DateTime.now());
+    if (remaining <= Duration.zero) return 'Sale ended';
+    final days = remaining.inDays;
+    final hours = remaining.inHours.remainder(24).toString().padLeft(2, '0');
+    final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return days > 0 ? '${days}d $hours:$minutes:$seconds' : '$hours:$minutes:$seconds';
+  }
+
+  // Best Offers countdown: uses the end time returned by the discount API.
+  Widget _buildBestOfferCountdown(DateTime end) {
+    final remaining = end.difference(DateTime.now());
+    if (remaining <= Duration.zero) return const SizedBox.shrink();
+
+    final days = remaining.inDays;
+    final hours = (remaining.inHours % 24).toString().padLeft(2, '0');
+    final minutes = (remaining.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (remaining.inSeconds % 60).toString().padLeft(2, '0');
+
+    Widget digit(String value) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFD32F2F),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+        );
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Ends in:', style: TextStyle(
+          color: Color(0xFFD32F2F), fontSize: 10, fontWeight: FontWeight.w700,
+        )),
+        const SizedBox(width: 4),
+        if (days > 0) ...[
+          digit('${days}d'),
+          const SizedBox(width: 2),
+        ],
+        digit(hours),
+        const Text(' : ', style: TextStyle(color: Color(0xFFD32F2F), fontSize: 10)),
+        digit(minutes),
+        const Text(' : ', style: TextStyle(color: Color(0xFFD32F2F), fontSize: 10)),
+        digit(seconds),
+      ],
+      ),
+    );
+  }
+
   Widget _buildProductCard(
     Map<String, dynamic> product, {
     String? favoriteCardKey,
+    bool showOfferCountdown = false,
   }) {
     final name = (product['item_name'] ??
             product['name'] ??
@@ -2630,7 +2865,15 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       ],
     );
 
-    final productId = product['id'] ?? product['item_id'];
+    final categoryName = _productCategoryName(product);
+  final shopName = _productShopName(product);
+  final regularPrice = _cardAmount(price) ?? 0;
+  final discountPrice = _salePrice(product);
+  final saleEnd = _saleEnd(product);
+  final isOnSale = _hasActiveDiscount(product);
+  final showCountdown = isOnSale && saleEnd != null;
+
+  final productId = product['id'] ?? product['item_id'];
 
     final isFavorite = favoriteCardKey != null
         ? _favoriteCardKeys.contains(
@@ -2640,7 +2883,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     return SizedBox(
       width: 165,
-      height: 250,
+      height: showOfferCountdown ? 294 : 268,
       child: GestureDetector(
         onTap: () {
           if (productId == null) {
@@ -2745,44 +2988,84 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                    if (categoryName != null) ...[
                       Text(
-                        name,
-                        maxLines: 2,
+                        categoryName,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
+                          color: Color(0xFF388E3C),
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (shopName != null) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        _formatPrice(price),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF3155B7),
+                        shopName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
                         ),
                       ),
-                      const Spacer(),
-                      Container(
-                        height: 28,
-                        width: double.infinity,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF3155B7,
+                    ],
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Text(
+                          _formatPrice(isOnSale ? discountPrice! : price),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF3155B7),
                           ),
-                          borderRadius: BorderRadius.circular(7),
                         ),
-                        child: const Text(
-                          'View Product',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
+                        if (isOnSale) ...[
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _formatPrice(price),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 11,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (showCountdown) ...[
+                      const SizedBox(height: 4),
+                      if (showOfferCountdown)
+                        _buildBestOfferCountdown(saleEnd!)
+                      else
+                        Text(
+                          'Ends in: ${_saleTimeRemaining(saleEnd!)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFD32F2F),
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
+                    ],
                     ],
                   ),
                 ),
@@ -3151,6 +3434,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _saleCountdownTimer?.cancel();
 
     _searchController.removeListener(
       _onSearchChanged,
@@ -3280,3 +3564,10 @@ class _RoosterCoverHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.minHeight != minHeight;
   }
 }
+
+
+
+
+
+
+

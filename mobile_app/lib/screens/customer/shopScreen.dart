@@ -620,31 +620,6 @@ class _ShopScreenState extends State<ShopScreen> {
     final shopName = _shopDetails?['shop_name'] ?? widget.shopName ?? 'Shop';
     final shopAddress = _shopDetails?['shop_address']?.toString() ?? '';
     final contactNumber = _shopDetails?['contact_number']?.toString() ?? '';
-    final breederName = (_shopDetails?['breeder_name'] ??
-            _shopDetails?['breeders_name'] ??
-            _shopDetails?['owner_name'])
-        ?.toString()
-        .trim() ??
-        '';
-    final username = (_shopDetails?['username'] ??
-            _shopDetails?['shop_username'])
-        ?.toString()
-        .trim();
-    final breederDetails = [
-      if (breederName.isNotEmpty) breederName,
-      if (username != null && username.isNotEmpty)
-        username.startsWith('@') ? username : '@$username',
-    ].join(' / ');
-    final breederDisplay = breederDetails.isNotEmpty
-        ? breederDetails
-        : 'Breeders Name / Username';
-    final email = (_shopDetails?['email'] ?? _shopDetails?['shop_email'])
-            ?.toString()
-            .trim() ??
-        '';
-    final contactDetails = [email, contactNumber]
-        .where((value) => value.trim().isNotEmpty)
-        .join(' / ');
     final farmAddress = (_shopDetails?['farm_address'] ?? shopAddress)
         .toString()
         .trim();
@@ -786,18 +761,12 @@ class _ShopScreenState extends State<ShopScreen> {
                 ),
                 SizedBox(height: 26),
 
-                // Breeder, contact, and farm details.
-                _buildInfoRow(
-                  Icons.location_on_outlined,
-                  breederDisplay,
-                ),
-                if (contactDetails.isNotEmpty)
+                // Contact number and farm address.
+                if (contactNumber.isNotEmpty)
                   _buildInfoRow(
                     Icons.location_on_outlined,
-                    contactDetails,
-                    onTap: contactNumber.isNotEmpty
-                        ? () => _launchPhoneDialer(contactNumber)
-                        : null,
+                    contactNumber,
+                    onTap: () => _launchPhoneDialer(contactNumber),
                   ),
                 if (farmAddress.isNotEmpty)
                   _buildInfoRow(
