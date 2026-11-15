@@ -149,8 +149,8 @@ void main() {
     await tester.pump();
     expect(find.text('First Farm'), findsOneWidget);
     expect(find.text('First Rooster'), findsOneWidget);
-    expect(find.text('₱2500.00'), findsOneWidget);
-    expect(find.text('/per head'), findsOneWidget);
+    expect(find.text('₱2,500'), findsOneWidget);
+    expect(find.text('/per bird'), findsOneWidget);
 
     await tester.drag(find.byType(ListView).first, const Offset(0, 350));
     await tester.pump();
@@ -253,8 +253,8 @@ void main() {
     });
     await tester.pump();
     expect(find.text('Sample Gamefowl Rooster'), findsOneWidget);
-    expect(find.text('₱2500.00'), findsOneWidget);
-    expect(find.text(' /per head'), findsOneWidget);
+    expect(find.text('₱2,500'), findsOneWidget);
+    expect(find.text(' /per bird'), findsOneWidget);
     expect(find.text('Golden Boy Sweater | Adult | Male'), findsOneWidget);
     expect(find.text('Hatch Date: —'), findsOneWidget);
     expect(find.text('Class: Gamefowl'), findsOneWidget);
@@ -270,7 +270,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GamefowlOrderReq), findsOneWidget);
     expect(find.text('Golden Boy Sweater | Adult | Male'), findsOneWidget);
-    expect(find.text('₱2500.00'), findsOneWidget);
+    expect(find.text('₱2,500'), findsOneWidget);
     expect(
         tester.widget<TextField>(find.byType(TextField).first).controller!.text,
         'Sample Gamefowl Rooster');
@@ -280,7 +280,7 @@ void main() {
     expect(find.byType(GamefowlCheckoutScreen), findsOneWidget);
     expect(
         find.text('Chosen Gamefowl: Sample Gamefowl Rooster'), findsOneWidget);
-    expect(find.text('Place Order • ₱2500.00'), findsOneWidget);
+    expect(find.text('Place Order • ₱2,500'), findsOneWidget);
     expect(service.detailCalls, 1);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();

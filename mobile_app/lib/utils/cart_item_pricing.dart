@@ -1,52 +1,45 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import 'price_format.dart';
 
-/// Resolves cart line pricing from snapshot, live item price, and discount fields.
+/// Resolves cart line pricing from the server's payable unit price, the
+/// marked-up list price, and the price snapshot taken when the item was added.
 class CartItemPricing {
   CartItemPricing({
     required this.priceSnapshot,
-    required this.itemPrice,
-    this.discountedPrice,
+    required this.unitPrice,
+    double? originalPrice,
     this.discountStatus,
     this.discountPercent,
-  });
+  }) : originalPrice = originalPrice ?? unitPrice;
 
   final double priceSnapshot;
-  final double itemPrice;
-  final double? discountedPrice;
+
+  /// Payable unit price; checkout rejects any other `price_at_purchase`.
+  final double unitPrice;
+
+  /// Marked-up list price before any discount.
+  final double originalPrice;
   final String? discountStatus;
   final double? discountPercent;
 
   bool get hasActiveDiscount =>
-      discountStatus?.toLowerCase() == 'active' &&
-      discountedPrice != null &&
-      discountedPrice! < itemPrice;
+      discountStatus?.toLowerCase() == 'active' && unitPrice < originalPrice;
+
+  bool get _snapshotDiffers => priceSnapshot > 0 && priceSnapshot != unitPrice;
 
   /// Price used for line totals, subtotals, and checkout `price_at_purchase`.
-  double get effectivePrice {
-    if (hasActiveDiscount) {
-      return discountedPrice!;
-    }
-    if (priceSnapshot != itemPrice) {
-      return itemPrice;
-    }
-    return itemPrice;
-  }
+  double get effectivePrice => unitPrice;
 
   /// Bold primary price shown to the user.
-  double get displayPrimaryPrice {
-    if (hasActiveDiscount) {
-      return discountedPrice!;
-    }
-    return itemPrice;
-  }
+  double get displayPrimaryPrice => unitPrice;
 
   /// Struck-through secondary price, or null when only one price applies.
   double? get displayStrikethroughPrice {
     if (hasActiveDiscount) {
-      return itemPrice;
+      return originalPrice;
     }
-    if (priceSnapshot != itemPrice) {
+    if (_snapshotDiffers) {
       return priceSnapshot;
     }
     return null;
@@ -57,7 +50,7 @@ class CartItemPricing {
     if (hasActiveDiscount) {
       return null;
     }
-    if (priceSnapshot != itemPrice) {
+    if (_snapshotDiffers) {
       return 'Price added';
     }
     return null;
@@ -73,47 +66,52 @@ class CartItemPricing {
   /// from both the live and discounted prices.
   bool get showSnapshotNote =>
       hasActiveDiscount &&
-      priceSnapshot != itemPrice &&
-      priceSnapshot != discountedPrice;
+      priceSnapshot > 0 &&
+      priceSnapshot != originalPrice &&
+      priceSnapshot != unitPrice;
 
   static double parseDouble(dynamic value, [double fallback = 0.0]) {
-    if (value == null) return fallback;
-    if (value is num) return value.toDouble();
-    return double.tryParse(value.toString()) ?? fallback;
+    return _amount(value) ?? fallback;
   }
 
-  static CartItemPricing fromCartMap(Map<String, dynamic> item) {
-    final priceSnapshot = parseDouble(item['price_snapshot']);
-    final itemPrice = parseDouble(item['item_price']);
+  static double? _amount(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
 
-    double? discountedPrice;
-    if (item['discounted_price'] != null) {
-      discountedPrice = parseDouble(item['discounted_price']);
-    }
+  /// Reads a GET cart entry, or a flattened checkout line built from one.
+  ///
+  /// `discounted_price` is always the payable unit price, whatever
+  /// `discount_status` says.
+  static CartItemPricing fromCartMap(Map<String, dynamic> cartLine) {
+    final rawItem = cartLine['item'];
+    final item = rawItem is Map ? rawItem : const {};
+    final rawDetails = cartLine['discount_details'];
+    final details = rawDetails is Map ? rawDetails : const {};
 
-    final discountDetails = item['discount_details'];
-    if (discountedPrice == null && discountDetails is Map) {
-      final nested = discountDetails['discounted_price'];
-      if (nested != null) {
-        discountedPrice = parseDouble(nested);
-      }
-    }
-
-    double? discountPercent;
-    if (discountDetails is Map && discountDetails['discount_percent'] != null) {
-      discountPercent = parseDouble(discountDetails['discount_percent']);
-    }
+    final unitPrice = _amount(cartLine['discounted_price']) ??
+        _amount(details['discounted_price']) ??
+        _amount(item['effective_price']) ??
+        _amount(cartLine['effective_price']) ??
+        _amount(item['item_price']) ??
+        _amount(cartLine['item_price']) ??
+        0.0;
+    final originalPrice = _amount(details['original_price']) ??
+        _amount(item['list_price']) ??
+        _amount(cartLine['list_price']) ??
+        unitPrice;
 
     return CartItemPricing(
-      priceSnapshot: priceSnapshot,
-      itemPrice: itemPrice,
-      discountedPrice: discountedPrice,
-      discountStatus: item['discount_status']?.toString(),
-      discountPercent: discountPercent,
+      priceSnapshot: parseDouble(cartLine['price_snapshot']),
+      unitPrice: unitPrice,
+      originalPrice: originalPrice,
+      discountStatus: cartLine['discount_status']?.toString(),
+      discountPercent: _amount(details['discount_percent']),
     );
   }
 
-  static String formatPrice(double price) => '₱${price.toStringAsFixed(2)}';
+  static String formatPrice(double price) => formatPeso(price);
 }
 
 /// Shared cart/checkout price row with optional strikethrough and snapshot note.

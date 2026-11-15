@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import '../models/messageModel.dart';
 import 'gamefowl_icon.dart';
+import '../utils/price_format.dart';
 
 /// Farm listing messages use their own card; shop product cards are unchanged.
 class FarmGamefowlMessageCard extends StatelessWidget {
@@ -51,7 +52,7 @@ class FarmGamefowlMessageCard extends StatelessWidget {
                 : num.tryParse(rawPrice?.toString() ?? ''));
         final priceText = price == null
             ? (product.priceLabel ?? 'Price unavailable')
-            : '₱${price.toStringAsFixed(2)}';
+            : formatPeso(price);
         final image = _text(product.imageUrl) ?? _text(listing['image']);
 
         return Semantics(

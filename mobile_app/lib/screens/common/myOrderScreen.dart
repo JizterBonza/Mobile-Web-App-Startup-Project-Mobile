@@ -22,6 +22,7 @@ import '../../widgets/order/farm_order_widgets.dart';
 import '../customer/gamefowlCheckoutScreen.dart';
 import 'farmOrderDetailsScreen.dart';
 import 'orderDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class MyOrderScreen extends StatefulWidget {
   final bool showCustomerBottomNav;
@@ -259,21 +260,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     return dateString;
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0';
-    try {
-      final parsed =
-          price is num ? price.toDouble() : double.tryParse(price.toString());
-      if (parsed == null) return '₱0';
-      if (parsed == parsed.roundToDouble()) {
-        return '₱${parsed.toStringAsFixed(0)}';
-      }
-      return '₱${parsed.toStringAsFixed(2)}';
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0';
-  }
+  String _formatPrice(dynamic price) => formatPeso(price);
 
   /// Reads zone title from order_shops[].shop.zone.name
   String _resolveZoneTitle(Map<String, dynamic> order) {
@@ -832,6 +819,10 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   }
 
   String _farmStatus(CustomerOrderEntry entry) {
+    // Farm fulfillment can advance independently of the shared order status.
+    final status = farmText(entry.farm?.data['status']);
+    if (status.isNotEmpty) return status.replaceAll('_', ' ');
+
     final raw = entry.basic?['order_status'];
     final statusId = int.tryParse(raw?.toString() ?? '');
     final resolved = statusId == null
@@ -843,8 +834,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     if (raw != null && statusId == null && raw.toString().trim().isNotEmpty) {
       return raw.toString();
     }
-    final status = farmText(entry.farm?.data['status']);
-    return status.isEmpty ? 'Status unavailable' : status.replaceAll('_', ' ');
+    return 'Status unavailable';
   }
 
   List<CustomerOrderEntry> _filterFeed(
@@ -1116,10 +1106,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final itemsSubtotal = orderItems.fold<double>(0, (sum, raw) {
           if (raw is! Map) return sum;
           final nestedItem = raw['item'] as Map<String, dynamic>?;
-          final price = raw['price'] ??
+          final price = raw['price_at_purchase'] ??
+              raw['price'] ??
+              nestedItem?['effective_price'] ??
               raw['item_price'] ??
               nestedItem?['item_price'] ??
-              raw['price_at_purchase'] ??
               0;
           final qty = int.tryParse(raw['quantity']?.toString() ?? '1') ?? 1;
           final unit = price is num
@@ -1176,10 +1167,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   final groupCount = items.length;
                   final groupSubtotal = items.fold<double>(0, (sum, raw) {
                     final nestedItem = raw['item'] as Map<String, dynamic>?;
-                    final price = raw['price'] ??
+                    final price = raw['price_at_purchase'] ??
+                        raw['price'] ??
+                        nestedItem?['effective_price'] ??
                         raw['item_price'] ??
                         nestedItem?['item_price'] ??
-                        raw['price_at_purchase'] ??
                         0;
                     final qty =
                         int.tryParse(raw['quantity']?.toString() ?? '1') ?? 1;
@@ -1407,10 +1399,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         item['name']?.toString() ??
         'Unknown Item';
     final quantity = item['quantity']?.toString() ?? '1';
-    final price = item['price'] ??
+    final price = item['price_at_purchase'] ??
+        item['price'] ??
+        nestedItem?['effective_price'] ??
         item['item_price'] ??
         nestedItem?['item_price'] ??
-        item['price_at_purchase'] ??
         0;
     final variant = _itemVariantLabel(item);
     final imageUrl = _itemImageUrl(item);

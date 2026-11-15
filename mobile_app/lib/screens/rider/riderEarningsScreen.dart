@@ -7,6 +7,7 @@ import '../../provider/provider.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/rider_nav.dart';
 import '../../widgets/empty_state_widget.dart';
+import '../../utils/price_format.dart';
 
 class RiderEarningsScreen extends StatefulWidget {
   const RiderEarningsScreen({super.key});
@@ -74,28 +75,8 @@ class _RiderEarningsScreenState extends State<RiderEarningsScreen> {
   }
 
   String _formatCurrency(double amount, {bool showPositiveSign = false}) {
-    final absoluteAmount = amount.abs();
-    final fixed = absoluteAmount == absoluteAmount.truncateToDouble()
-        ? absoluteAmount.toStringAsFixed(0)
-        : absoluteAmount.toStringAsFixed(2);
-    final parts = fixed.split('.');
-    final digits = parts.first;
-    final grouped = StringBuffer();
-
-    for (var index = 0; index < digits.length; index++) {
-      if (index > 0 && (digits.length - index) % 3 == 0) {
-        grouped.write(',');
-      }
-      grouped.write(digits[index]);
-    }
-
-    final decimals = parts.length == 2 ? '.${parts.last}' : '';
-    final sign = amount < 0
-        ? '-'
-        : showPositiveSign
-            ? '+'
-            : '';
-    return '$sign₱$grouped$decimals';
+    final sign = showPositiveSign && amount >= 0 ? '+' : '';
+    return '$sign${formatPeso(amount)}';
   }
 
   String _formatOrderDate(dynamic value) {

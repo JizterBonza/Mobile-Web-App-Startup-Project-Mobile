@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/manila_time.dart';
+import '../utils/price_format.dart';
 
 class ActiveDeliveriesSection extends StatelessWidget {
   const ActiveDeliveriesSection({
@@ -60,10 +61,7 @@ class ActiveDeliveriesSection extends StatelessWidget {
         ? value.toDouble()
         : double.tryParse(value.toString().trim());
     if (amount == null || !amount.isFinite) return null;
-    final text = amount == amount.roundToDouble()
-        ? amount.toStringAsFixed(0)
-        : amount.toStringAsFixed(2);
-    return '₱$text';
+    return formatPeso(amount);
   }
 }
 

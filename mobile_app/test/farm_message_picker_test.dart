@@ -192,7 +192,7 @@ void main() {
     expect(find.text('Kelso'), findsOneWidget);
     expect(find.text('Plain bird'), findsOneWidget);
     expect(find.text('Gamefowl | Adult | Male'), findsOneWidget);
-    expect(find.text('\u20B11500.00'), findsOneWidget);
+    expect(find.text('\u20B11,500'), findsOneWidget);
     expect(find.text('Price unavailable'), findsOneWidget);
     expect(find.text('3 in stock'), findsOneWidget);
     expect(find.byType(GamefowlIcon), findsNWidgets(2));

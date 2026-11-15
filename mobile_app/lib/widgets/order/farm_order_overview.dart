@@ -33,57 +33,50 @@ class FarmOrderOverview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.brandPrimary.withOpacity(0.07),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.agriculture_outlined,
-                  color: AppColors.brandPrimary, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          const Text('Farm info',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          LayoutBuilder(builder: (context, constraints) {
+            return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text('Farm info',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text(view.farmName.isEmpty ? 'Farm order' : view.farmName,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          height: 1.3,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary)),
-                ],
-              ),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                status.isEmpty
-                    ? 'Status unavailable'
-                    : '${status[0].toUpperCase()}${status.substring(1)}',
-                style: TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+                  Expanded(
+                    child: Text(
+                        view.farmName.isEmpty ? 'Farm order' : view.farmName,
+                        style: const TextStyle(
+                            fontSize: 18,
+                            height: 1.3,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                  ),
+                  const SizedBox(width: 12),
+                  // Let the badge fit its text while leaving room for long names.
+                  ConstrainedBox(
+                    constraints:
+                        BoxConstraints(maxWidth: constraints.maxWidth * 0.45),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status.isEmpty
+                            ? 'Status unavailable'
+                            : '${status[0].toUpperCase()}${status.substring(1)}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor),
+                      ),
+                    ),
+                  ),
+                ]);
+          }),
+          const Divider(height: 32, color: AppColors.borderDefault),
           const Text('Order number',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 4),

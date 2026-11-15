@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 import 'order_helpers.dart';
+import '../../utils/price_format.dart';
 
 class PaymentSummaryWidget extends StatelessWidget {
   final Map<String, dynamic> order;
@@ -158,8 +159,8 @@ class PaymentSummaryWidget extends StatelessWidget {
       final deliveryParts = <String>[];
       if (deliveryBaseFee > 0 || deliveryKmFee > 0) {
         deliveryParts.add(
-          '₱${deliveryBaseFee.toStringAsFixed(0)} base + '
-          '₱${deliveryKmFee.toStringAsFixed(0)}/km',
+          '${formatPeso(deliveryBaseFee)} base + '
+          '${formatPeso(deliveryKmFee)}/km',
         );
       }
       if (deliveryDistanceKm > 0) {

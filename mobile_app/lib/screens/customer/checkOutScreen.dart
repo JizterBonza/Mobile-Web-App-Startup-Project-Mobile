@@ -15,6 +15,7 @@ import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerDashboardScreen.dart';
 import 'paymentWebViewScreen.dart';
 import '../common/editAddressScreen.dart';
+import '../../utils/price_format.dart';
 
 class CheckOutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> selectedCartItems;
@@ -450,8 +451,20 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
   }
 
   double _getEffectivePrice(Map<String, dynamic> item) {
-    return CartItemPricing.fromCartMap(item).effectivePrice;
+    return _roundToCents(CartItemPricing.fromCartMap(item).effectivePrice);
   }
+
+  static double _roundToCents(double value) =>
+      (value * 100).roundToDouble() / 100;
+
+  /// orders/create requires subtotal == sum(price_at_purchase * quantity).
+  double _payloadSubtotal(List<Map<String, dynamic>> orderItems) =>
+      _roundToCents(orderItems.fold<double>(
+          0,
+          (sum, item) =>
+              sum +
+              (item['price_at_purchase'] as double) *
+                  (item['quantity'] as int)));
 
   List<int> get _checkoutShopIds {
     final ids = <int>{};
@@ -861,7 +874,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       final result = await _orderService.createOrder(
         items: orderItems,
-        subtotal: _subtotal,
+        subtotal: _payloadSubtotal(orderItems),
         shippingFee: _totalFees,
         totalAmount: _displayTotal,
         shippingAddress: _selectedAddress!.fullAddress,
@@ -1344,7 +1357,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '₱${itemTotal.toStringAsFixed(2)}',
+                formatPeso(itemTotal),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1394,6 +1407,10 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                   _buildGamefowlDetail(
                     'Feet Color',
                     gamefowlRequest['feet_color'],
+                  ),
+                  _buildGamefowlDetail(
+                    'Nose and Feet Markings',
+                    gamefowlRequest['nose_feet_markings'],
                   ),
                   if (gamefowlRequest['media_name'] != null &&
                       gamefowlRequest['media_name'].toString().isNotEmpty)
@@ -2736,7 +2753,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '₱${itemTotal.toStringAsFixed(2)}',
+                        formatPeso(itemTotal),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -2785,7 +2802,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
           else ...[
             _buildSummaryRow(
               'Subtotal',
-              '₱${_subtotal.toStringAsFixed(2)}',
+              formatPeso(_subtotal),
             ),
             ..._buildFeeBreakdownRows(),
             const SizedBox(height: 8),
@@ -2793,7 +2810,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
             const SizedBox(height: 12),
             _buildSummaryRow(
               'Total',
-              '₱${_displayTotal.toStringAsFixed(2)}',
+              formatPeso(_displayTotal),
               isTotal: true,
             ),
           ],
@@ -2817,7 +2834,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       rows.add(
         _buildSummaryRow(
           label,
-          '₱${amount.toStringAsFixed(2)}',
+          formatPeso(amount),
           subtitle: subtitle,
         ),
       );
@@ -2828,8 +2845,8 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
 
       if (_deliveryBaseFee > 0 || _deliveryKmFee > 0) {
         deliveryParts.add(
-          '₱${_deliveryBaseFee.toStringAsFixed(0)} base + '
-          '₱${_deliveryKmFee.toStringAsFixed(0)}/km',
+          '${formatPeso(_deliveryBaseFee)} base + '
+          '${formatPeso(_deliveryKmFee)}/km',
         );
       }
 
@@ -2876,7 +2893,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       rows.add(
         _buildSummaryRow(
           'Fees',
-          '₱${_totalFees.toStringAsFixed(2)}',
+          formatPeso(_totalFees),
         ),
       );
     }
@@ -2887,7 +2904,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
       rows.add(
         _buildSummaryRow(
           'Voucher discount',
-          '-₱${_voucherDiscount.toStringAsFixed(2)}',
+          '-${formatPeso(_voucherDiscount)}',
           subtitle: _appliedVoucherCode,
         ),
       );
@@ -3016,7 +3033,7 @@ class _CheckOutScreenState extends State<CheckOutScreen> {
                             ? 'Checking delivery coverage...'
                             : _isLoadingCalculation
                                 ? 'Calculating...'
-                                : 'Place Order - ₱${_displayTotal.toStringAsFixed(2)}',
+                                : 'Place Order - ${formatPeso(_displayTotal)}',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

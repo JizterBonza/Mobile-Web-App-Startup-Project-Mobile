@@ -32,7 +32,7 @@ class ApiEndpoints {
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
   static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
-  static String get getSearchItem => '$baseUrl/api/items/search';
+  static String get getSearchItem => '$baseUrl/api/search';
   static String get getItemsByCategory => '$baseUrl/api/items';
   static String get getItemsOnSale => '$baseUrl/api/items/on-sale';
   

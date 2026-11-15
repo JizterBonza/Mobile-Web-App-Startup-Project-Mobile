@@ -15,6 +15,7 @@ import '../../provider/message_provider.dart';
 import '../../services/message_service.dart';
 import '../../services/farms_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/item_display_price.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
@@ -25,6 +26,7 @@ import 'messageProductPickerScreen.dart';
 import 'farmGamefowlMessagePickerScreen.dart';
 import 'productDetailScreen.dart';
 import 'farmGamefowlListingDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class InquiryChat extends StatefulWidget {
   final dynamic conversationId;
@@ -206,7 +208,7 @@ class _InquiryChatState extends State<InquiryChat> {
     final type = (product['type'] ?? '').toString();
     final age = (product['age'] ?? '').toString();
     final sex = (product['sex'] ?? '').toString();
-    final price = (product['price'] ?? '₱0.00').toString();
+    final price = formatPeso(product['price']);
     final image = (product['image'] ?? '').toString().trim();
 
     final variation = [
@@ -392,8 +394,7 @@ class _InquiryChatState extends State<InquiryChat> {
   }
 
   String _productPrice(Map<String, dynamic> product) {
-    final raw = product['item_price'] ??
-        product['price'] ??
+    final raw = ItemDisplayPrice.fromItem(product).price ??
         product['selling_price'] ??
         product['product_price'] ??
         product['amount'] ??
@@ -532,7 +533,7 @@ class _InquiryChatState extends State<InquiryChat> {
     final type = _productType(product);
     final age = _productAge(product);
     final sex = _productSex(product);
-    final price = _productPrice(product);
+    final price = formatPeso(_productPrice(product));
 
     final variation = [
       if (type.isNotEmpty) type,

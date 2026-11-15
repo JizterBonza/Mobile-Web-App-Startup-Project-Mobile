@@ -118,7 +118,7 @@ class _FarmBirdRequestPickerState extends State<FarmBirdRequestPicker> {
   Widget _listingCard(Map<String, dynamic> entry) {
     final product = GamefowlProductSummary.fromProduct(entry);
     final id = (entry['listing_id'] ?? entry['id']).toString();
-    final unit = entry['selling_unit']?.toString().trim() ?? '';
+    final unit = farmUnitLabel(entry['selling_unit']);
     return Material(
       color: Colors.white,
       shape: RoundedRectangleBorder(

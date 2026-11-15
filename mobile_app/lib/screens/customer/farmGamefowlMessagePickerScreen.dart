@@ -8,6 +8,7 @@ import '../../services/farms_service.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/gamefowl_icon.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../utils/price_format.dart';
 
 class FarmGamefowlMessagePickerScreen extends StatefulWidget {
   const FarmGamefowlMessagePickerScreen({
@@ -210,7 +211,7 @@ class _FarmGamefowlMessagePickerScreenState
                 Text(
                   price == null
                       ? 'Price unavailable'
-                      : '\u20B1${price.toStringAsFixed(2)}',
+                      : formatPeso(price),
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w800),
                 ),

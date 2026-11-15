@@ -191,7 +191,7 @@ void main() {
       ),
     ));
     expect(find.text('Kelso'), findsOneWidget);
-    expect(find.text('\u20B11500.00'), findsOneWidget);
+    expect(find.text('\u20B11,500'), findsOneWidget);
     expect(find.text('Is this bird available?'), findsOneWidget);
     expect(find.text('Gamefowl | Adult | Male'), findsNothing);
 
@@ -206,7 +206,7 @@ void main() {
     });
     await tester.pump();
     expect(find.text('Kelso'), findsOneWidget);
-    expect(find.text('\u20B11500.00'), findsOneWidget);
+    expect(find.text('\u20B11,500'), findsOneWidget);
     expect(find.text('Gamefowl | Adult | Male'), findsOneWidget);
   });
 
@@ -226,7 +226,7 @@ void main() {
     expect(find.byType(FarmGamefowlMessageCard), findsNWidgets(2));
     expect(find.text('Kelso'), findsNWidgets(2));
     expect(find.text('Gamefowl | Adult | Male'), findsNWidgets(2));
-    expect(find.text('\u20B11500.00'), findsNWidgets(2));
+    expect(find.text('\u20B11,500'), findsNWidgets(2));
     expect(find.text('Is this bird available?'), findsNWidgets(2));
     expect(find.text('Buy'), findsNothing);
     expect(listings.calls, 1);
@@ -268,7 +268,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Kelso'), findsOneWidget);
-    expect(find.text('\u20B11500.00'), findsOneWidget);
+    expect(find.text('\u20B11,500'), findsOneWidget);
     expect(find.text('Is this bird available?'), findsOneWidget);
     expect(find.byType(FarmGamefowlMessageCard), findsOneWidget);
     expect(find.text('Gamefowl | Adult | Male'), findsNothing);

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../utils/price_format.dart';
+
 int farmInt(dynamic value) => int.tryParse(value?.toString() ?? '') ?? 0;
 
 Map<String, dynamic> farmMap(dynamic value) =>
@@ -9,27 +11,40 @@ List<Map<String, dynamic>> farmMaps(dynamic value) => value is List
     ? value.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
     : [];
 
+/// Customers see "bird" wherever the server's selling unit says "head".
+String farmUnitLabel(dynamic unit) => (unit?.toString().trim() ?? '')
+    .replaceAllMapped(RegExp(r'\b([Hh])ead(s?)\b'),
+        (m) => '${m[1] == 'H' ? 'B' : 'b'}ird${m[2]}');
+
+String farmBirdCount(int count) => '$count ${count == 1 ? 'bird' : 'birds'}';
+
 /// Format server amounts without calculating charges or using binary doubles.
 String farmMoney(dynamic value) {
   if (value == null) return 'Not confirmed';
   final parts = value.toString().split('.');
   if (!RegExp(r'^\d+$').hasMatch(parts.first)) return 'Not confirmed';
-  return '₱${parts.first}.${(parts.length > 1 ? parts[1] : '').padRight(2, '0')}';
+  return formatPeso(value, fallback: 'Not confirmed');
 }
 
 @immutable
 class FarmBirdDetails {
   const FarmBirdDetails(
-      {this.wingband = '', this.feather = '', this.feet = ''});
+      {this.wingband = '',
+      this.feather = '',
+      this.feet = '',
+      this.markings = ''});
   final String wingband;
   final String feather;
   final String feet;
+  final String markings;
 
-  bool get isEmpty => [wingband, feather, feet].every((v) => v.trim().isEmpty);
+  bool get isEmpty =>
+      [wingband, feather, feet, markings].every((v) => v.trim().isEmpty);
   Map<String, String> toJson() => {
         if (wingband.trim().isNotEmpty) 'wingband_no': wingband.trim(),
         if (feather.trim().isNotEmpty) 'feather_color': feather.trim(),
         if (feet.trim().isNotEmpty) 'feet_color': feet.trim(),
+        if (markings.trim().isNotEmpty) 'nose_feet_markings': markings.trim(),
       };
 
   static Map<String, String> validate(List<FarmBirdDetails> birds) {

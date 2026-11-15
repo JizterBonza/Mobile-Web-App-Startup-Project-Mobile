@@ -1,6 +1,7 @@
 import '../utils/url.dart';
 import '../utils/manila_time.dart';
 import '../utils/media_url.dart';
+import '../utils/price_format.dart';
 
 String _readString(Map json, List<String> keys, [String fallback = '']) {
   for (final key in keys) {
@@ -243,8 +244,7 @@ String _formatPeso(dynamic value) {
       ? value.toDouble()
       : double.tryParse(raw.replaceAll(',', '').replaceAll('₱', ''));
   if (parsed == null) return raw.startsWith('₱') ? raw : '₱$raw';
-  if (parsed == parsed.roundToDouble()) return '₱${parsed.toInt()}';
-  return '₱${parsed.toStringAsFixed(2)}';
+  return formatPeso(value);
 }
 
 String? _firstImageUrl(Map json) {
@@ -294,7 +294,8 @@ class MessageProductVariation {
       json['effective_price'] ?? json['item_price'] ?? json['price'],
     );
     final original = _formatPeso(
-      json['original_price'] ??
+      json['list_price'] ??
+          json['original_price'] ??
           json['compare_at_price'] ??
           json['item_price_original'],
     );
@@ -353,7 +354,8 @@ class MessageProductSnapshot {
         ? rawPrice
         : num.tryParse(rawPrice?.toString().replaceAll(',', '') ?? '');
     final original = _formatPeso(
-      nested['original_price'] ??
+      nested['list_price'] ??
+          nested['original_price'] ??
           nested['compare_at_price'] ??
           nested['item_original_price'],
     );

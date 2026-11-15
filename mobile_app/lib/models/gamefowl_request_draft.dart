@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../utils/media_url.dart';
 import 'farm_checkout.dart';
+import '../utils/price_format.dart';
 
 /// Display data shared by the request form and its local checkout preview.
 @immutable
@@ -27,7 +28,7 @@ class GamefowlProductSummary {
   final String? imageUrl;
 
   String get formattedPrice =>
-      price == null ? '—' : '₱${price!.toStringAsFixed(2)}';
+      price == null ? '—' : formatPeso(price);
 
   factory GamefowlProductSummary.fromProduct(Map<String, dynamic>? source) {
     final product = source ?? const <String, dynamic>{};
@@ -68,6 +69,8 @@ class GamefowlProductSummary {
       product['gamefowl_gender'],
     ]);
     final rawPrice = _firstText([
+      product['effective_price'],
+      product['list_price'],
       product['item_price'],
       product['price'],
       product['selling_price'],

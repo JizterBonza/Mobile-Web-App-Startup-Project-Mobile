@@ -8,6 +8,7 @@ import '../../utils/auth_guard.dart';
 import '../../utils/gamefowl_item.dart';
 import '../../utils/manila_time.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/search_suggestions.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'conversationScreen.dart';
 import 'productDetailScreen.dart';
@@ -37,8 +38,12 @@ class _ShopScreenState extends State<ShopScreen> {
   dynamic _selectedCategoryId;
   final TextEditingController _shopSearchController = TextEditingController();
   String _shopSearchQuery = '';
+  final FocusNode _shopSearchFocus = FocusNode();
 
-  List<Map<String, dynamic>> get _filteredShopItems {
+  List<Map<String, dynamic>> get _filteredShopItems =>
+      _matchShopItems(_shopSearchQuery);
+
+  List<Map<String, dynamic>> _matchShopItems(String value) {
     final categories =
         Provider.of<CategoryProvider>(context, listen: false).categories;
     if (categories.isEmpty) return [];
@@ -61,8 +66,14 @@ class _ShopScreenState extends State<ShopScreen> {
       }
     }
 
-    final query = _shopSearchQuery.trim().toLowerCase();
+    final query = value.trim().toLowerCase();
     if (query.isEmpty) return filteredItems;
+
+    final nameMatches = filteredItems
+        .where((item) => ['item_name', 'product_name', 'name'].any((key) =>
+            item[key]?.toString().toLowerCase().contains(query) ?? false))
+        .toList();
+    if (nameMatches.isNotEmpty) return nameMatches;
 
     final matchingCategories = categories.where((category) {
       final name = category['name']?.toString().trim().toLowerCase() ?? '';
@@ -100,13 +111,35 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 
   void _onShopSearchChanged() {
-    setState(() => _shopSearchQuery = _shopSearchController.text);
+    setState(() {
+      if (_shopSearchController.text.trim().isEmpty) _shopSearchQuery = '';
+    });
+  }
+
+  void _submitShopSearch(String query) {
+    _shopSearchFocus.unfocus();
+    setState(() {
+      _shopSearchQuery = query.trim();
+      _selectedTab = 0;
+    });
+  }
+
+  void _openProduct(Map<String, dynamic> product) {
+    final id = product['id'] ?? product['item_id'];
+    if (id == null) return;
+    _shopSearchFocus.unfocus();
+    Navigator.push(
+        context,
+        _createFadeRoute(
+          ProductDetailScreen(productId: id, productData: product),
+        ));
   }
 
   @override
   void dispose() {
     _shopSearchController.removeListener(_onShopSearchChanged);
     _shopSearchController.dispose();
+    _shopSearchFocus.dispose();
     super.dispose();
   }
 
@@ -418,13 +451,13 @@ class _ShopScreenState extends State<ShopScreen> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.brandPrimary.withOpacity(0.08)
-                        : Colors.grey[100],
+                        ? const Color(0xFF3155B7)
+                        : const Color(0xFFFFF6D8),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.brandPrimary.withOpacity(0.4)
-                          : Colors.grey[300]!,
+                          ? const Color(0xFF3155B7)
+                          : const Color(0xFFEAD37A),
                     ),
                   ),
                   child: Text(
@@ -434,8 +467,8 @@ class _ShopScreenState extends State<ShopScreen> {
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected
-                          ? AppColors.brandPrimary
-                          : Colors.grey[700],
+                          ? Colors.white
+                          : const Color(0xFF214766),
                     ),
                   ),
                 ),
@@ -551,46 +584,60 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           SizedBox(width: 10),
           Expanded(
-            child: Container(
-              height: 44,
-              padding: EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, size: 20, color: Colors.grey[500]),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _shopSearchController,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: 'Search in store',
-                        hintStyle: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
+            child: SearchSuggestions(
+              controller: _shopSearchController,
+              focusNode: _shopSearchFocus,
+              suggestions: _matchShopItems(_shopSearchController.text)
+                  .where(
+                      (item) => item['id'] != null || item['item_id'] != null)
+                  .take(6)
+                  .map(SearchSuggestion.fromItem)
+                  .toList(),
+              onSelected: (suggestion) => _openProduct(suggestion.data),
+              child: Container(
+                height: 44,
+                padding: EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, size: 20, color: Colors.grey[500]),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _shopSearchController,
+                        focusNode: _shopSearchFocus,
+                        onSubmitted: _submitShopSearch,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search in store',
+                          hintStyle: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
+                        style: const TextStyle(fontSize: 14),
                       ),
-                      style: const TextStyle(fontSize: 14),
                     ),
-                  ),
-                  if (_shopSearchQuery.isNotEmpty)
-                    GestureDetector(
-                      onTap: _shopSearchController.clear,
-                      child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-                    ),
-                ],
+                    if (_shopSearchController.text.isNotEmpty)
+                      GestureDetector(
+                        onTap: _shopSearchController.clear,
+                        child: Icon(Icons.close,
+                            size: 18, color: Colors.grey[600]),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -764,7 +811,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 // Contact number and farm address.
                 if (contactNumber.isNotEmpty)
                   _buildInfoRow(
-                    Icons.location_on_outlined,
+                    Icons.phone_outlined,
                     contactNumber,
                     onTap: () => _launchPhoneDialer(contactNumber),
                   ),
@@ -1406,17 +1453,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 final product = displayItems[index];
                 return ProductCard(
                   product: product,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      _createFadeRoute(
-                        ProductDetailScreen(
-                          productId: product['id'],
-                          productData: product,
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: () => _openProduct(product),
                 );
               },
             ),

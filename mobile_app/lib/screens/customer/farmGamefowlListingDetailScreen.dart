@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/farm_checkout.dart';
 import '../../provider/message_provider.dart';
 import '../../services/farms_service.dart';
 import '../../widgets/order_request_confirmation_dialog.dart';
 import 'InquiryChat.dart';
 import 'gamefowlOrderReq.dart';
+import '../../utils/price_format.dart';
 
 class FarmGamefowlListingDetailScreen extends StatefulWidget {
   const FarmGamefowlListingDetailScreen({
@@ -115,10 +117,8 @@ class _FarmGamefowlListingDetailScreenState
     return images;
   }
 
-  String _price(dynamic value) {
-    final price = value is num ? value : num.tryParse(value?.toString() ?? '');
-    return price == null ? 'Price unavailable' : '₱${price.toStringAsFixed(2)}';
-  }
+  String _price(dynamic value) =>
+      formatPeso(value, fallback: 'Price unavailable');
 
   Future<void> _openInquiry() async {
     if (_isOpeningInquiry || _listing == null) return;
@@ -238,7 +238,7 @@ class _FarmGamefowlListingDetailScreenState
     final age = _value(_nested(gamefowl, 'age_type')['name']);
     final sex = _value(gamefowl['sex']);
     final traits = [bloodline, age, sex].whereType<String>().join(' | ');
-    final unit = _value(listing['selling_unit']);
+    final unit = _value(farmUnitLabel(listing['selling_unit']));
     final description = _value(gamefowl['description']);
 
     return ListView(

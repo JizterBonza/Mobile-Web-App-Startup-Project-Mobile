@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_endpoints.dart';
 import '../utils/item_discount_fields.dart';
+import '../utils/item_display_price.dart';
 import '../utils/media_url.dart';
 import '../services/api_service.dart';
 
@@ -39,10 +40,7 @@ class FavoriteService extends ApiService {
         for (var data in datas) {
           final item = data['item'] as Map<String, dynamic>;
 
-          // Parse price from string to double
-          final itemPrice = item['item_price'] is num
-              ? (item['item_price'] as num).toDouble()
-              : double.tryParse(item['item_price']?.toString() ?? '0') ?? 0.0;
+          final itemPrice = ItemDisplayPrice.fromItem(item).price ?? 0.0;
 
           // Parse rating from string to double
           final averageRating = item['average_rating'] is num

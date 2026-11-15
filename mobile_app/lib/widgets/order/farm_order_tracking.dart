@@ -21,7 +21,7 @@ class FarmOrderTracking extends StatelessWidget {
       .join(' ');
 
   dynamic _timestamp(Map<String, dynamic> event) =>
-      event['created_at'] ?? event['timestamp'];
+      event['created_at'] ?? event['timestamp'] ?? event['at'];
 
   @override
   Widget build(BuildContext context) {

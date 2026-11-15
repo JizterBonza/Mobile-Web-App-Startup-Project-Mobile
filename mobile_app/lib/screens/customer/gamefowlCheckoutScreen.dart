@@ -260,10 +260,7 @@ class _GamefowlCheckoutScreenState extends State<GamefowlCheckoutScreen>
                             fontSize: 12, color: AppColors.brandPrimary)),
                   ],
                   const SizedBox(height: 8),
-                  Text(
-                      '${item.quantity} x ${item.sellingUnit.isEmpty ? entry.sellingUnit : item.sellingUnit}'),
-                  Text(
-                      '${item.birdCount} ${item.birdCount == 1 ? 'head' : 'heads'}'),
+                  Text(farmBirdCount(item.birdCount)),
                 ])),
           ]),
           const SizedBox(height: 12),
@@ -384,6 +381,9 @@ class _GamefowlCheckoutScreenState extends State<GamefowlCheckoutScreen>
       Text('Feather Color: ${bird.feather.isEmpty ? '-' : bird.feather}'),
       const SizedBox(height: 8),
       Text('Feet Color: ${bird.feet.isEmpty ? '-' : bird.feet}'),
+      const SizedBox(height: 8),
+      Text(
+          'Nose and Feet Markings: ${bird.markings.isEmpty ? '-' : bird.markings}'),
       ..._checkout.errors.entries
           .where((entry) =>
               entry.key == prefix || entry.key.startsWith('$prefix.'))

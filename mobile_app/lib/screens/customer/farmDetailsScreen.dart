@@ -3,10 +3,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../constants/constants.dart';
+import '../../models/farm_checkout.dart';
 import '../../provider/message_provider.dart';
 import '../../services/farms_service.dart';
+import '../../widgets/search_suggestions.dart';
 import 'InquiryChat.dart';
 import 'farmGamefowlListingDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class FarmDetailsScreen extends StatefulWidget {
   const FarmDetailsScreen({
@@ -25,31 +28,58 @@ class FarmDetailsScreen extends StatefulWidget {
 }
 
 class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
-  static const _gamefowlTypes = [
-    'All',
-    'One way / Pure',
-    'Two-way cross',
-    'Three-way cross',
-    'Four-way cross',
-    'Multiple cross / Unknown',
-    'Bundles',
-  ];
-
+  static const bool _showAboutFarm = false;
   late final FarmsService _farmsService;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final FocusNode _searchFocus = FocusNode();
   Map<String, dynamic>? _farm;
   bool _isLoading = true;
   bool _isOpeningChat = false;
   String? _error;
   int _selectedTab = 0;
-  String _selectedGamefowlType = 'All';
 
   @override
   void initState() {
     super.initState();
     _farmsService = widget.farmsService ?? FarmsService();
+    _searchController.addListener(_onSearchChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadFarm();
     });
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      if (_searchController.text.trim().isEmpty) _searchQuery = '';
+    });
+  }
+
+  void _submitSearch(String query) {
+    _searchFocus.unfocus();
+    setState(() {
+      _searchQuery = query.trim();
+      _selectedTab = 0;
+    });
+  }
+
+  void _openListing(Map<String, dynamic> listing) {
+    if (listing['id'] == null) return;
+    _searchFocus.unfocus();
+    Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => FarmGamefowlListingDetailScreen(
+              listingId: listing['id'], farmsService: _farmsService),
+        ));
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFarm({bool refresh = false}) async {
@@ -135,6 +165,35 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   List<Map<String, dynamic>> get _listings =>
       (_farm?['listings'] as List? ?? const []).cast<Map<String, dynamic>>();
 
+  List<Map<String, dynamic>> get _filteredListings => _matchListings(_searchQuery);
+
+  List<Map<String, dynamic>> _matchListings(String value) {
+    final query = value.trim().toLowerCase();
+    if (query.isEmpty) return _listings;
+    final terms = query.split(RegExp(r'\s+'));
+
+    String text(dynamic value) =>
+        (value is Map ? value['name'] : value)?.toString() ?? '';
+
+    return _listings.where((listing) {
+      final gamefowl = listing['gamefowl'] is Map
+          ? listing['gamefowl'] as Map
+          : const <String, dynamic>{};
+      final searchableText = [
+        listing['name'],
+        listing['description'],
+        listing['selling_unit'],
+        gamefowl['name'],
+        gamefowl['description'],
+        gamefowl['bloodline'],
+        gamefowl['class'],
+        gamefowl['age_type'],
+        gamefowl['sex'],
+      ].map(text).join(' ').toLowerCase();
+      return terms.every(searchableText.contains);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,7 +218,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                   _selectedTab == 0
                       ? _buildGamefowlSection()
                       : _buildReviewsSection(),
-                  _buildAboutSection(),
+                  if (_showAboutFarm) _buildAboutSection(),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -194,29 +253,62 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, size: 20, color: Colors.grey.shade500),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Search in farm',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                  ),
-                ],
+            child: SearchSuggestions(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              suggestions: _matchListings(_searchController.text)
+                  .where((item) => item['id'] != null)
+                  .take(6)
+                  .map(SearchSuggestion.fromItem)
+                  .toList(),
+              onSelected: (suggestion) => _openListing(suggestion.data),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, size: 20, color: Colors.grey.shade500),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: _submitSearch,
+                        decoration: InputDecoration(
+                          hintText: 'Search in farm',
+                          hintStyle: TextStyle(
+                              fontSize: 14, color: Colors.grey.shade500),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: _searchController.clear,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                            width: 32, height: 40),
+                        icon: Icon(Icons.close,
+                            size: 18, color: Colors.grey.shade600),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -492,6 +584,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   Widget _buildGamefowlSection() {
+    final listings = _filteredListings;
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -499,75 +592,29 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 36,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _gamefowlTypes.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final type = _gamefowlTypes[index];
-                final selected = _selectedGamefowlType == type;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedGamefowlType = type),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.brandPrimary.withOpacity(0.08)
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: selected
-                            ? AppColors.brandPrimary.withOpacity(0.4)
-                            : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: Text(
-                      type,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
-                        color: selected
-                            ? AppColors.brandPrimary
-                            : Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                );
-              },
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${listings.length} ${listings.length == 1 ? 'item' : 'items'}',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
           ),
-          const SizedBox(height: 16),
-          const Row(
-            children: [
-              Icon(Icons.local_fire_department,
-                  size: 18, color: AppColors.brandPrimary),
-              SizedBox(width: 6),
-              Text(
-                'Best Seller',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF252525),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 12),
-          if (_listings.isEmpty)
+          if (listings.isEmpty)
             _buildGamefowlEmptyState()
           else
-            SizedBox(
-              height: 245,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _listings.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, index) => _buildListingCard(_listings[index]),
+            GridView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: 250,
               ),
+              itemCount: listings.length,
+              itemBuilder: (_, index) => _buildListingCard(listings[index]),
             ),
         ],
       ),
@@ -581,7 +628,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
         gamefowlClass is Map ? gamefowlClass['name']?.toString().trim() : null;
     final name = listing['name']?.toString().trim();
     final price = num.tryParse(listing['price']?.toString() ?? '');
-    final unit = listing['selling_unit']?.toString().trim();
+    final unit = farmUnitLabel(listing['selling_unit']);
     final images = listing['images'];
     final primaryIndex = listing['primary_image_index'];
     String? imageUrl = listing['image']?.toString();
@@ -605,63 +652,67 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
     return InkWell(
       onTap: listing['id'] == null
           ? null
-          : () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => FarmGamefowlListingDetailScreen(
-                    listingId: listing['id'],
-                    farmsService: _farmsService,
-                  ),
-                ),
-              ),
-      borderRadius: BorderRadius.circular(10),
+          : () => _openListing(listing),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        width: 145,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 120,
+              height: 130,
               width: double.infinity,
               child: _image(imageUrl),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(9, 9, 9, 0),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (className != null && className.isNotEmpty)
+                  if (className != null && className.isNotEmpty) ...[
                     Text(
                       className,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 10, color: Color(0xFF616161)),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.brandPrimary),
                     ),
+                    const SizedBox(height: 3),
+                  ],
                   Text(
                     name == null || name.isEmpty ? 'Gamefowl' : name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF3150A2)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        height: 1.25,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade900),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     price == null
                         ? 'Price unavailable'
-                        : '₱${price.toStringAsFixed(2)}',
+                        : formatPeso(price),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w700),
                   ),
-                  if (unit != null && unit.isNotEmpty)
+                  if (unit.isNotEmpty)
                     Text(
                       '/$unit',
                       maxLines: 1,
@@ -698,6 +749,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   Widget _buildGamefowlEmptyState() {
+    final isSearching = _searchQuery.trim().isNotEmpty;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(48),
@@ -711,14 +763,17 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           Icon(Icons.shopping_bag_outlined,
               size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
-          Text('No gamefowl available',
+          Text(isSearching ? 'No matching gamefowl' : 'No gamefowl available',
               textAlign: TextAlign.center,
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey.shade600)),
           const SizedBox(height: 4),
-          Text('Gamefowl listings will appear here',
+          Text(
+              isSearching
+                  ? 'Try another search term or clear the search'
+                  : 'Gamefowl listings will appear here',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
         ],

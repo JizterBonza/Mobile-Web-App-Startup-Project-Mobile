@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../utils/gamefowl_item.dart';
+import '../../utils/item_display_price.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/url.dart';
 import '../../utils/auth_guard.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'conversationScreen.dart';
 import 'gamefowlProdDetail.dart';
+import '../../utils/price_format.dart';
 
 class gamefowlListing extends StatefulWidget {
   final dynamic shopId;
@@ -1002,7 +1004,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
                     ),
 
                     Text(
-                      '₱$price',
+                      formatPeso(price),
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
@@ -1154,8 +1156,7 @@ class _gamefowlListingState extends State<gamefowlListing> {
     Map<String, dynamic> product,
   ) {
     final raw =
-        product['item_price'] ??
-        product['price'] ??
+        ItemDisplayPrice.fromItem(product).price ??
         product['selling_price'] ??
         product['product_price'] ??
         product['amount'] ??

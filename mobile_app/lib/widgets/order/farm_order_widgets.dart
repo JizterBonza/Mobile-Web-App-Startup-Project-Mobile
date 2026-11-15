@@ -5,6 +5,7 @@ import '../../models/customer_order_entry.dart';
 import '../../models/farm_checkout.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
+import '../../utils/status_utils.dart';
 
 String farmDate(dynamic value) {
   final text = farmText(value);
@@ -101,8 +102,6 @@ class FarmOrderItems extends StatelessWidget {
 
   Widget _item(FarmOrderItemView item) {
     final image = resolveMediaUrl(item.image);
-    final quantity =
-        item.quantity > 0 ? '${item.quantity} ${item.sellingUnit}'.trim() : '';
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         ClipRRect(
@@ -138,27 +137,17 @@ class FarmOrderItems extends StatelessWidget {
                         fontSize: 12,
                         height: 1.4,
                         color: AppColors.textSecondary))),
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Wrap(spacing: 8, runSpacing: 4, children: [
-              if (quantity.isNotEmpty &&
-                  !(item.headCount > 0 &&
-                      item.sellingUnit.trim().toLowerCase() == 'per head'))
-                Text(quantity,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: AppColors.textSecondary)),
-              if (item.headCount > 0)
-                Text(
-                    '${item.headCount} ${item.headCount == 1 ? 'head' : 'heads'}',
-                    style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.brandPrimary)),
-            ]),
-          ),
+          if (item.headCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                  farmBirdCount(item.headCount),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.brandPrimary)),
+            ),
         ])),
       ]),
       if (item.data['line_total'] != null)
@@ -207,7 +196,8 @@ class FarmOrderItems extends StatelessWidget {
                     for (final entry in const {
                       'wingband_no': 'Wingband No.',
                       'feather_color': 'Feather Color',
-                      'feet_color': 'Feet Color'
+                      'feet_color': 'Feet Color',
+                      'nose_feet_markings': 'Nose and Feet Markings'
                     }.entries)
                       if (farmText(item.birds[i][entry.key]).isNotEmpty)
                         Padding(
@@ -272,6 +262,13 @@ class _FarmOrderCardState extends State<FarmOrderCard> {
     final entry = widget.entry;
     final order = entry.farm;
     final view = order == null ? null : FarmOrderView(order);
+    final status = normalizeOrderStatus(widget.status);
+    final statusLabel = status.isEmpty
+        ? 'Status unavailable'
+        : OrderStatusColors.formatStatus(status);
+    final statusColor = status == 'preparing'
+        ? AppColors.statusProcessing
+        : getStatusColor(status);
     return Card(
         margin: const EdgeInsets.only(bottom: 16),
         color: Colors.white,
@@ -285,12 +282,15 @@ class _FarmOrderCardState extends State<FarmOrderCard> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Expanded(
+                          Expanded(
                             flex: 3,
-                            child: Text('Farm order',
-                                style: TextStyle(
+                            child: Text(
+                                view?.farmName.isNotEmpty == true
+                                    ? view!.farmName
+                                    : 'Farm order',
+                                style: const TextStyle(
                                     fontSize: 18,
                                     color: AppColors.textPrimary,
                                     fontWeight: FontWeight.w700)),
@@ -298,12 +298,26 @@ class _FarmOrderCardState extends State<FarmOrderCard> {
                           const SizedBox(width: 12),
                           Expanded(
                             flex: 2,
-                            child: Text(widget.status,
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.brandPrimary,
-                                    fontWeight: FontWeight.w600)),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.08),
+                                  border: Border.all(
+                                      color: statusColor.withOpacity(0.2)),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(statusLabel,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        color: statusColor,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ),
                           ),
                         ]),
                     const SizedBox(height: 8),

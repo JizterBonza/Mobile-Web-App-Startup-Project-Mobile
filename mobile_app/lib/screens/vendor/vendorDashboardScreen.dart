@@ -6,6 +6,7 @@ import '../../widgets/quick_action_button.dart';
 import '../../widgets/order_item_card.dart';
 import '../../widgets/product_inventory_item.dart';
 import '../../widgets/dashboard_header.dart';
+import '../../utils/price_format.dart';
 
 class VendorDashboardScreen extends StatefulWidget {
   const VendorDashboardScreen({super.key});
@@ -278,7 +279,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
         ),
         StatCard(
           title: 'Revenue',
-          value: '₱${_stats['revenue'].toStringAsFixed(2)}',
+          value: formatPeso(_stats['revenue']),
           icon: Icons.attach_money,
           color: AppColors.brandPrimary,
         ),
@@ -809,7 +810,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '₱${product['revenue'].toStringAsFixed(2)}',
+                          formatPeso(product['revenue']),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,

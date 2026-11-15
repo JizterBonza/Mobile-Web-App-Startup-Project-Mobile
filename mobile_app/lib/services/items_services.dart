@@ -6,12 +6,20 @@ import '../utils/url.dart';
 import '../utils/item_discount_fields.dart';
 import '../utils/gamefowl_item.dart';
 import '../services/api_service.dart';
+import '../models/catalog_search.dart';
 
 /// Service for managing items/products with API fetching
 class ItemsService extends ApiService {
+  ItemsService({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
+
+  Future<http.Response> _get(Uri uri, {required Map<String, String> headers}) =>
+      _httpClient?.get(uri, headers: headers) ?? http.get(uri, headers: headers);
+
   /// Fetch items from API with authentication
   Future<List<Map<String, dynamic>>> _fetchItemsFromAPI() async {
-    final response = await http.get(
+    final response = await _get(
       Uri.parse(ApiEndpoints.getItems),
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +75,7 @@ class ItemsService extends ApiService {
 
   /// Fetch item reviews from API with authentication
   Future<Map<String, dynamic>> _fetchItemReviewsFromAPI(String itemId) async {
-    final response = await http.get(
+    final response = await _get(
       Uri.parse(ApiEndpoints.getItemReviews.replaceAll('{id}', itemId)),
       headers: {
         'Content-Type': 'application/json',
@@ -115,6 +123,7 @@ class ItemsService extends ApiService {
         }
 
         return {
+          ...data,
           'id': data['id'],
           'shop_id': data['shop_id'],
           'item_name': data['item_name'],
@@ -158,7 +167,7 @@ class ItemsService extends ApiService {
       },
     );
 
-    final response = await http.get(
+    final response = await _get(
       uri,
       headers: {
         'Content-Type': 'application/json',
@@ -218,7 +227,7 @@ class ItemsService extends ApiService {
 
   /// Fetch on-sale items from API
   Future<List<Map<String, dynamic>>> fetchItemsOnSale() async {
-    final response = await http.get(
+    final response = await _get(
       Uri.parse(ApiEndpoints.getItemsOnSale),
       headers: {
         'Content-Type': 'application/json',
@@ -285,7 +294,7 @@ class ItemsService extends ApiService {
       throw Exception('User ID not found. Please login again.');
     }
 
-    final response = await http.get(
+    final response = await _get(
       Uri.parse(
         ApiEndpoints.getOrderedItemsByUserId.replaceAll('{user_id}', userId),
       ),
@@ -342,53 +351,26 @@ class ItemsService extends ApiService {
     return [];
   }
 
-  /// Search items from API with query
+  /// Compatibility wrapper for callers that only need product matches.
   Future<List<Map<String, dynamic>>> searchItems(String query,
+      {int limit = 20}) async =>
+      (await searchCatalog(query, limit: limit)).itemData;
+
+  Future<CatalogSearchResponse> searchCatalog(String query,
       {int limit = 20}) async {
     final uri = Uri.parse(ApiEndpoints.getSearchItem).replace(
-      queryParameters: {
-        'q': query.trim(),
-        'limit': limit.toString(),
-      },
+      queryParameters: {'q': query.trim(), 'limit': limit.toString()},
     );
-
-    final response = await http.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer ${await ApiService.getToken()}',
-      },
-    ).timeout(
-      Duration(seconds: 10),
-      onTimeout: () {
-        throw TimeoutException('Search request timed out after 10 seconds');
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      if (data['data'] != null) {
-        return (data['data'] as List).map((item) {
-          return {
-            "id": item['id'],
-            "shop_id": item['shop_id'],
-            "item_name": item['item_name'],
-            "item_description": item['item_description'],
-            "item_price": item['item_price'],
-            "item_quantity": item['item_quantity'],
-            "category": item['category'],
-            ...gamefowlFieldsFromItem(item),
-            "item_images": item['item_images'],
-            "item_status": item['item_status'],
-            "average_rating": item['average_rating'],
-            ...discountFieldsFromItem(item),
-          };
-        }).toList();
-      }
-    } else {
+    final response = await _get(uri, headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer ${await ApiService.getToken()}',
+    }).timeout(const Duration(seconds: 10), onTimeout: () {
+      throw TimeoutException('Search request timed out after 10 seconds');
+    });
+    if (response.statusCode != 200) {
       throw Exception('Search failed: ${response.statusCode}');
     }
-    return [];
+    return CatalogSearchResponse.fromJson(jsonDecode(response.body), query: query.trim());
   }
 }

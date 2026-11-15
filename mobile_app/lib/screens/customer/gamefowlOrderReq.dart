@@ -263,12 +263,10 @@ class _RequestItemFormState extends State<_RequestItemForm> {
     'Other'
   ];
   static const _feetColors = [
-    'Yellow',
-    'White',
-    'Black',
-    'Gray',
-    'Green',
-    'Pink',
+    'Yellow Legs',
+    'Green Legs',
+    'Blue Legs',
+    'Dirty White Legs',
     'Other'
   ];
 
@@ -420,7 +418,7 @@ class _RequestItemFormState extends State<_RequestItemForm> {
           _buildRequestFields(),
           const SizedBox(height: 12),
           Text(
-              'Selling unit: ${draft.sellingUnit.isEmpty ? 'per head' : draft.sellingUnit}'),
+              'Selling unit: ${draft.sellingUnit.isEmpty ? 'per bird' : farmUnitLabel(draft.sellingUnit)}'),
           Row(children: [
             IconButton(
                 tooltip: 'Decrease quantity',
@@ -438,7 +436,7 @@ class _RequestItemFormState extends State<_RequestItemForm> {
                     : () => _changeQuantity(_quantity + 1),
                 icon: const Icon(Icons.add)),
           ]),
-          Text('${_birds.length} ${_birds.length == 1 ? 'head' : 'heads'}'),
+          Text(farmBirdCount(_birds.length)),
           if (_errors['items.${widget.itemIndex}'] != null)
             Text(_errors['items.${widget.itemIndex}']!,
                 style: const TextStyle(color: Colors.red)),
@@ -539,6 +537,7 @@ class _RequestItemFormState extends State<_RequestItemForm> {
       wingband: field == 'wingband_no' ? value : bird.wingband,
       feather: field == 'feather_color' ? value : bird.feather,
       feet: field == 'feet_color' ? value : bird.feet,
+      markings: field == 'nose_feet_markings' ? value : bird.markings,
     );
     widget.onEdited();
   }
@@ -560,14 +559,14 @@ class _RequestItemFormState extends State<_RequestItemForm> {
         final caption = Text('$label:',
             style:
                 const TextStyle(fontSize: 12, color: AppColors.textSecondary));
-        if (constraints.maxWidth < 220 ||
+        if (constraints.maxWidth < 300 ||
             MediaQuery.textScalerOf(context).scale(12) > 18) {
           return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [caption, field]);
         }
         return Row(children: [
-          SizedBox(width: 104, child: caption),
+          SizedBox(width: 148, child: caption),
           Expanded(child: field)
         ]);
       });
@@ -686,6 +685,24 @@ class _RequestItemFormState extends State<_RequestItemForm> {
                         _featherColors, bird.feather),
                     _colorField(index, 'Feet Color', 'feet_color', _feetColors,
                         bird.feet),
+                    _detailRow(
+                        'Nose and Feet Markings',
+                        Semantics(
+                            label: 'Bird ${index + 1} Nose and Feet Markings',
+                            child: TextFormField(
+                              key: ValueKey('$prefix.nose_feet_markings'),
+                              initialValue: bird.markings,
+                              readOnly: _openingCheckout,
+                              maxLength: 100,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                  fontSize: 14, color: AppColors.textPrimary),
+                              decoration: _detailDecoration(
+                                  '$prefix.nose_feet_markings',
+                                  hint: '\u2014'),
+                              onChanged: (value) => setState(() => _updateBird(
+                                  index, 'nose_feet_markings', value)),
+                            ))),
                   ])),
         ]));
   }

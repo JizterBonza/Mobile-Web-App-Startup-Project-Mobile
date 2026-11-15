@@ -41,6 +41,7 @@ Future<void> _precacheNavIcons() async {
   const navIcons = [
     'assets/icons/home.svg',
     'assets/icons/favorite.svg',
+    'assets/icons/chicken.svg',
     'assets/icons/klasrum.svg',
     'assets/icons/orders.svg',
     'assets/icons/notif.svg',

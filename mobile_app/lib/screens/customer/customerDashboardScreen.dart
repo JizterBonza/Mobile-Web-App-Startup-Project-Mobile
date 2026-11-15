@@ -15,6 +15,9 @@ import '../../utils/customer_nav.dart';
 import '../../utils/gamefowl_item.dart';
 import '../../widgets/login_dialog.dart';
 import '../../widgets/user_profile_avatar.dart';
+import '../../widgets/search_suggestions.dart';
+import '../../models/catalog_search.dart';
+import 'farmGamefowlListingDetailScreen.dart';
 
 import 'messagesScreen.dart';
 import 'conversationScreen.dart';
@@ -25,9 +28,12 @@ import 'shopScreen.dart';
 import 'farmDetailsScreen.dart';
 import 'gamefowlProdDetail.dart';
 import 'productDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class CustomerDashboardScreen extends StatefulWidget {
-  const CustomerDashboardScreen({super.key});
+  const CustomerDashboardScreen({super.key, this.farmsService});
+
+  final FarmsService? farmsService;
 
   @override
   State<CustomerDashboardScreen> createState() =>
@@ -35,6 +41,9 @@ class CustomerDashboardScreen extends StatefulWidget {
 }
 
 class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
+  // Toggle to restore the category bar and its original header spacing.
+  static const bool _showDashboardCategories = false;
+
   String? _userName;
   String? _profileImageUrl;
   bool _isGuest = true;
@@ -45,7 +54,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   bool _isLoadingStores = true;
   String? _storeError;
 
-  final FarmsService _farmsService = FarmsService();
+  late final FarmsService _farmsService;
   List<Map<String, dynamic>> _farms = [];
   bool _isLoadingFarms = true;
   String? _farmError;
@@ -74,6 +83,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   Timer? _saleCountdownTimer;
 
   bool _showSearchResults = false;
+  late final ItemsProvider _searchItemsProvider;
+  int _searchGeneration = 0;
+  bool _committingSearch = false;
+  String _draftSearchQuery = '';
+  String _submittedSearchQuery = '';
+  String _suggestionQuery = '';
+  CatalogSearchResponse _suggestionApiResults = const CatalogSearchResponse();
+  CatalogSearchResponse _submittedApiResults = const CatalogSearchResponse();
+  bool _isLoadingSuggestions = false;
+  String? _suggestionError;
+  String? _submittedSearchError;
 
   String _selectedCategory = 'All';
   dynamic _selectedCategoryId;
@@ -94,6 +114,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _farmsService = widget.farmsService ?? FarmsService();
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -105,7 +126,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       ),
     );
 
+    _searchItemsProvider = context.read<ItemsProvider>();
     _searchController.addListener(_onSearchChanged);
+    _searchFocus.addListener(_onSearchFocusChanged);
 
     // Refresh countdown labels only for products with a timed sale.
     _saleCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -806,89 +829,159 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   void _onSearchChanged() {
     final query = _searchController.text.trim();
-
+    if (query == _draftSearchQuery) return;
+    _draftSearchQuery = query;
     _debounceTimer?.cancel();
-
-    if (query.isEmpty || query.length < 2) {
-      if (mounted) {
-        setState(() {
-          _showSearchResults = false;
-        });
+    ++_searchGeneration;
+    _committingSearch = false;
+    _searchItemsProvider.clearSearch();
+    setState(() {
+      _suggestionQuery = '';
+      _suggestionApiResults = const CatalogSearchResponse();
+      _suggestionError = null;
+      _isLoadingSuggestions = query.length >= 2;
+      if (query.isEmpty) {
+        _showSearchResults = false;
+        _submittedSearchQuery = '';
+        _submittedApiResults = const CatalogSearchResponse();
+        _submittedSearchError = null;
       }
-
-      Provider.of<ItemsProvider>(
-        context,
-        listen: false,
-      ).clearSearch();
-
-      return;
-    }
-
-    _debounceTimer = Timer(
-      const Duration(milliseconds: 500),
-      () {
-        _performSearch(query);
-      },
-    );
+    });
+    if (query.length < 2) return;
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (_searchFocus.hasFocus) _performSearch(query);
+    });
   }
 
-  Future<void> _performSearch(
-    String query,
-  ) async {
-    if (!mounted) return;
-
-    final normalizedQuery = query.trim().toLowerCase();
-    final categories = context.read<CategoryProvider>().categories;
-    final isCategorySearch = categories.any((category) {
-      final name = category['name']?.toString().trim().toLowerCase() ?? '';
-      return name.isNotEmpty && name.contains(normalizedQuery);
-    });
-
-    final itemsProvider = Provider.of<ItemsProvider>(
-      context,
-      listen: false,
-    );
-
-    if (isCategorySearch) {
-      itemsProvider.clearSearch();
-    } else {
-      await itemsProvider.searchItems(query);
+  void _onSearchFocusChanged() {
+    if (_searchFocus.hasFocus && _searchController.text.trim().length >= 2) {
+      final query = _searchController.text.trim();
+      if (_suggestionQuery != query) {
+        _debounceTimer?.cancel();
+        setState(() => _isLoadingSuggestions = true);
+        _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          _performSearch(query);
+        });
+      }
     }
+  }
 
-    if (!mounted) return;
-
-    setState(() {
-      _showSearchResults = query.length >= 2;
-    });
-
-    if (_showSearchResults) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final targetContext = _productsSectionKey.currentContext;
-        if (targetContext == null) return;
-        Scrollable.ensureVisible(
-          targetContext,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOut,
-          alignment: 0.05,
-        );
+  void _dismissSuggestionSearch() {
+    if (_committingSearch) return;
+    _debounceTimer?.cancel();
+    ++_searchGeneration;
+    _searchItemsProvider.clearSearch();
+    if (mounted) {
+      setState(() {
+        _isLoadingSuggestions = false;
+        _suggestionQuery = '';
+        _suggestionApiResults = const CatalogSearchResponse();
+        _suggestionError = null;
       });
     }
   }
 
+  Future<void> _performSearch(String query, {bool submit = false}) async {
+    if (!mounted) return;
+    final generation = ++_searchGeneration;
+    final categoryId = _selectedCategoryId;
+    // Even category-like queries may match product names outside the loaded catalog.
+    final results = await _searchItemsProvider.searchCatalog(query);
+    final error = _searchItemsProvider.searchError == null
+        ? null
+        : 'Could not load online suggestions. Showing local matches.';
+    if (!mounted ||
+        generation != _searchGeneration ||
+        categoryId != _selectedCategoryId) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) {
+      setState(() {
+        _isLoadingSuggestions = false;
+        if (submit) _committingSearch = false;
+      });
+      return;
+    }
+    setState(() {
+      _suggestionQuery = query;
+      _suggestionApiResults = results;
+      _suggestionError = error;
+      _isLoadingSuggestions = false;
+      if (submit) {
+        _submittedApiResults = results;
+        _submittedSearchError = error;
+        _committingSearch = false;
+      }
+    });
+  }
+
+  void _submitSearch(String value) {
+    final query = value.trim();
+    _debounceTimer?.cancel();
+    if (query.length < 2) {
+      _clearSearch();
+      _searchFocus.unfocus();
+      return;
+    }
+    final ready = _suggestionQuery == query && !_isLoadingSuggestions;
+    _committingSearch = true;
+    setState(() {
+      _submittedSearchQuery = query;
+      _submittedApiResults =
+          ready ? _suggestionApiResults : const CatalogSearchResponse();
+      _submittedSearchError = ready ? _suggestionError : null;
+      _showSearchResults = true;
+    });
+    _searchFocus.unfocus();
+    // Commit a separate snapshot; later draft searches never replace this list.
+    _performSearch(query, submit: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final targetContext = _productsSectionKey.currentContext;
+      if (targetContext == null) return;
+      Scrollable.ensureVisible(targetContext,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          alignment: 0.05);
+    });
+  }
+
   void _clearSearch() {
     _searchController.clear();
-
-    Provider.of<ItemsProvider>(
-      context,
-      listen: false,
-    ).clearSearch();
-
+    _debounceTimer?.cancel();
+    ++_searchGeneration;
+    _committingSearch = false;
+    _searchItemsProvider.clearSearch();
     if (!mounted) return;
-
     setState(() {
       _showSearchResults = false;
+      _submittedSearchQuery = '';
+      _submittedApiResults = const CatalogSearchResponse();
+      _suggestionQuery = '';
+      _suggestionApiResults = const CatalogSearchResponse();
+      _isLoadingSuggestions = false;
+      _suggestionError = null;
+      _submittedSearchError = null;
     });
+  }
+
+  void _openSearchResult(SearchSuggestion suggestion) {
+    _searchFocus.unfocus();
+    final data = suggestion.data;
+    final Widget screen;
+    switch (suggestion.type) {
+      case SearchResultType.product:
+        final id = data['item_id'] ?? data['id'];
+        if (id == null) return;
+        screen = ProductDetailScreen(
+            productId: id, productData: data, loadFullDetails: true);
+      case SearchResultType.shop:
+        screen = ShopScreen(
+            shopId: data['shop_id'] ?? data['id'], shopName: suggestion.title);
+      case SearchResultType.gamefowl:
+        screen = FarmGamefowlListingDetailScreen(
+            listingId: data['listing_id'] ?? data['id'],
+            farmsService: _farmsService);
+    }
+    Navigator.push(context, _createFadeRoute(screen));
   }
 
   void _onAuthenticatedTap(
@@ -1014,8 +1107,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                             searchWidget: _buildSearchBar(),
                             categoriesWidget: _buildCategoryButtons(),
                             cover: _buildRoosterCover(),
-                            maxHeight: 324,
-                            minHeight: 112,
+                            maxHeight: _showDashboardCategories ? 324 : 280,
+                            minHeight: _showDashboardCategories ? 112 : 68,
                           ),
                         ),
                         SliverToBoxAdapter(
@@ -1332,7 +1425,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
               ),
               child: _buildSearchBar(),
             ),
-            const SizedBox(height: 8),
+            if (_showDashboardCategories) const SizedBox(height: 8),
             _buildCategoryButtons(),
           ],
         ),
@@ -1345,62 +1438,87 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        textAlignVertical: TextAlignVertical.center,
-        style: const TextStyle(
-          fontSize: 11,
-          color: Colors.black87,
+    final query = _searchController.text.trim();
+    final results = _suggestionQuery == query
+        ? _suggestionApiResults
+        : const CatalogSearchResponse();
+    final suggestions = _matchProducts(query, remoteResults: results.itemData);
+    return SearchSuggestions(
+      controller: _searchController,
+      focusNode: _searchFocus,
+      minimumLength: 2,
+      isLoading: _isLoadingSuggestions || _isLoadingDisplayedProducts,
+      error: _suggestionError,
+      grouped: true,
+      emptyText: 'No matches found',
+      suggestions: [
+        ...suggestions
+            .where((item) => item['id'] != null || item['item_id'] != null)
+            .map(SearchSuggestion.fromItem),
+        ...results.shops.map(SearchSuggestion.fromHit),
+        ...results.gamefowl.map(SearchSuggestion.fromHit),
+      ],
+      onDismissed: _dismissSuggestionSearch,
+      onSelected: _openSearchResult,
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 0,
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          textInputAction: TextInputAction.search,
+          onSubmitted: _submitSearch,
+          textAlignVertical: TextAlignVertical.center,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.black87,
           ),
-          hintText: 'Search items or store...',
-          hintStyle: TextStyle(
-            color: Colors.grey.shade500,
-            fontSize: 10,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 0,
+            ),
+            hintText: 'Search items or store...',
+            hintStyle: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 10,
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 17,
+              color: Colors.grey.shade500,
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 35,
+                      minHeight: 35,
+                    ),
+                    icon: Icon(
+                      Icons.close,
+                      size: 15,
+                      color: Colors.grey.shade500,
+                    ),
+                    onPressed: _clearSearch,
+                  )
+                : null,
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            size: 17,
-            color: Colors.grey.shade500,
-          ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 40,
-            minHeight: 40,
-          ),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 35,
-                    minHeight: 35,
-                  ),
-                  icon: Icon(
-                    Icons.close,
-                    size: 15,
-                    color: Colors.grey.shade500,
-                  ),
-                  onPressed: _clearSearch,
-                )
-              : null,
         ),
       ),
     );
@@ -1412,76 +1530,72 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       ..._categories,
     ];
 
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-        ),
-        physics: const BouncingScrollPhysics(),
-        itemCount: categories.length,
-        separatorBuilder: (
-          context,
-          index,
-        ) =>
-            const SizedBox(width: 7),
-        itemBuilder: (
-          context,
-          index,
-        ) {
-          final category = categories[index];
-          final categoryName = category['name']?.toString() ?? 'Category';
+    return Visibility(
+      visible: _showDashboardCategories,
+      maintainState: true,
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+          ),
+          physics: const BouncingScrollPhysics(),
+          itemCount: categories.length,
+          separatorBuilder: (
+            context,
+            index,
+          ) =>
+              const SizedBox(width: 7),
+          itemBuilder: (
+            context,
+            index,
+          ) {
+            final category = categories[index];
+            final categoryName = category['name']?.toString() ?? 'Category';
 
-          final isSelected =
-              _selectedCategoryId?.toString() == category['id']?.toString();
+            final isSelected =
+                _selectedCategoryId?.toString() == category['id']?.toString();
 
-          return GestureDetector(
-            onTap: () => _selectCategory(category),
-            child: AnimatedContainer(
-              duration:
-                  const Duration(milliseconds: 180),
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 18,
-              ),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF3155B7)
-                    : const Color(0xFFFFF6D8),
-                borderRadius:
-                    BorderRadius.circular(18),
-                border: Border.all(
+            return GestureDetector(
+              onTap: () => _selectCategory(category),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                ),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF3155B7)
-                      : const Color(0xFFEAD37A),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black
-                        .withOpacity(isSelected ? 0.10 : 0.03),
-                    blurRadius: isSelected ? 4 : 2,
-                    offset: const Offset(0, 1),
+                      : const Color(0xFFFFF6D8),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF3155B7)
+                        : const Color(0xFFEAD37A),
+                    width: 1.2,
                   ),
-                ],
-              ),
-              child: Text(
-                categoryName,
-                style: TextStyle(
-                  color: isSelected
-                      ? Colors.white
-                      : const Color(0xFF214766),
-                  fontSize: 12,
-                  fontWeight: isSelected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isSelected ? 0.10 : 0.03),
+                      blurRadius: isSelected ? 4 : 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  categoryName,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF214766),
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1490,7 +1604,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     if (!mounted) return;
 
     final id = category['id'];
+    _committingSearch = false;
+    _dismissSuggestionSearch();
     setState(() {
+      _submittedApiResults = const CatalogSearchResponse();
+      _submittedSearchError = null;
       _selectedCategoryId = id;
       _selectedCategory = category['name']?.toString() ?? 'All';
     });
@@ -1824,7 +1942,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle(
-          title: 'Local Farms',
+          title: 'Partner Gamefarms',
           iconPath: 'assets/icons/near-stores.svg',
           iconColor: const Color(0xFF4D9D45),
         ),
@@ -2167,8 +2285,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       store['shop_rating'] ?? store['rating'],
     );
 
-    final distance =
-        (store['distance'] ?? store['distance_km'] ?? '2.1').toString();
+    final location = store['shop_address']?.toString().trim() ?? '';
 
     final shopId = store['id'] ?? store['shop_id'];
 
@@ -2259,11 +2376,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           size: 9,
                         ),
                         const SizedBox(width: 2),
-                        Text(
-                          '$distance km away',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
+                        Flexible(
+                          child: Text(
+                            location.isNotEmpty
+                                ? location
+                                : 'Location unavailable',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -2430,6 +2553,54 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildProductsSection() {
+    if (!_showSearchResults) return _buildProductMatchesSection();
+    final products = _getFilteredProducts(applySearch: true);
+    final results = _submittedApiResults;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_submittedSearchError != null)
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_submittedSearchError!)),
+        if (_committingSearch) const LinearProgressIndicator(),
+        if (products.isNotEmpty) _buildProductMatchesSection(),
+        if (results.shops.isNotEmpty)
+          _buildSearchHitSection(SearchResultType.shop, results.shops),
+        if (results.gamefowl.isNotEmpty)
+          _buildSearchHitSection(SearchResultType.gamefowl, results.gamefowl),
+        if (!_committingSearch &&
+            products.isEmpty &&
+            results.shops.isEmpty &&
+            results.gamefowl.isEmpty)
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No matches found for "$_submittedSearchQuery".')),
+      ],
+    );
+  }
+
+  Widget _buildSearchHitSection(
+      SearchResultType type, List<CatalogSearchHit> hits) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(searchGroupLabel(type),
+            style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF242424))),
+        for (final hit in hits)
+          SearchSuggestionTile(
+            key: ValueKey('search-result-${type.name}-${hit.id}'),
+            suggestion: SearchSuggestion.fromHit(hit),
+            onTap: () => _openSearchResult(SearchSuggestion.fromHit(hit)),
+          ),
+      ]),
+    );
+  }
+
+  Widget _buildProductMatchesSection() {
     if (_isLoadingDisplayedProducts) {
       return _buildProductLoading(
         'Products',
@@ -2437,9 +2608,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
 
     final products = _getFilteredProducts(applySearch: true);
-    final searchQuery = _showSearchResults
-        ? _searchController.text.trim()
-        : '';
+    final searchQuery = _showSearchResults ? _submittedSearchQuery : '';
 
     if (products.isEmpty) {
       return Column(
@@ -2485,8 +2654,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             searchQuery.isNotEmpty
                 ? 'Products matching "$searchQuery"'
                 : _selectedCategory == 'All'
-                ? 'Products'
-                : '$_selectedCategory Products',
+                    ? 'Products'
+                    : '$_selectedCategory Products',
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -2584,6 +2753,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   bool _isGamefowlProduct(
     Map<String, dynamic> product,
   ) {
+    if (product['_search_result_type'] == 'product') return false;
     return isGamefowlItem(
       product,
       categories: context.read<CategoryProvider>().categories,
@@ -2757,11 +2927,17 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     return null;
   }
 
+  /// Marked-up list price before discounts; `item_price` excludes the markup.
+  double? _regularPrice(Map<String, dynamic> product) => _cardAmount(
+        product['list_price'] ??
+            product['item_price'] ??
+            product['price'] ??
+            product['selling_price'],
+      );
+
   // Only products with a current, real price reduction belong in Best Offers.
   bool _hasActiveDiscount(Map<String, dynamic> product) {
-    final regular = _cardAmount(
-      product['item_price'] ?? product['price'] ?? product['selling_price'],
-    );
+    final regular = _regularPrice(product);
     final discounted = _salePrice(product);
     final end = _saleEnd(product);
     return regular != null &&
@@ -2849,11 +3025,6 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             'Product')
         .toString();
 
-    final price = product['item_price'] ??
-        product['price'] ??
-        product['selling_price'] ??
-        0;
-
     final image = _getImageUrl(
       product,
       [
@@ -2867,10 +3038,12 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     final categoryName = _productCategoryName(product);
   final shopName = _productShopName(product);
-  final regularPrice = _cardAmount(price) ?? 0;
+  final regularPrice = _regularPrice(product) ?? 0;
   final discountPrice = _salePrice(product);
   final saleEnd = _saleEnd(product);
   final isOnSale = _hasActiveDiscount(product);
+  final displayPrice = _cardAmount(product['effective_price']) ??
+      (isOnSale ? discountPrice! : regularPrice);
   final showCountdown = isOnSale && saleEnd != null;
 
   final productId = product['id'] ?? product['item_id'];
@@ -2901,7 +3074,9 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                       shopName: product['shop_name']?.toString(),
                     )
                   : ProductDetailScreen(
-                      productId: productId, productData: product),
+                      productId: productId,
+                      productData: product,
+                      loadFullDetails: product['_search_result_type'] == 'product'),
             ),
           );
         },
@@ -3026,7 +3201,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                     Row(
                       children: [
                         Text(
-                          _formatPrice(isOnSale ? discountPrice! : price),
+                          _formatPrice(displayPrice),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -3037,7 +3212,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              _formatPrice(price),
+                              _formatPrice(regularPrice),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -3114,26 +3289,59 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     final categories = context.read<CategoryProvider>().categories;
     if (categories.isEmpty) return [];
     final provider = context.read<ItemsProvider>();
-    final source = _selectedCategoryId == null
-        ? _products
-        : provider.categoryItems;
+    final source =
+        _selectedCategoryId == null ? _products : provider.categoryItems;
     final baseProducts = source
         .where((item) => !isGamefowlItem(item, categories: categories))
         .toList();
     if (!applySearch || !_showSearchResults) return baseProducts;
 
-    final query = _searchController.text.trim().toLowerCase();
+    return _matchProducts(_submittedSearchQuery,
+        remoteResults: _submittedApiResults.itemData);
+  }
+
+  List<Map<String, dynamic>> _matchProducts(String value,
+      {List<Map<String, dynamic>> remoteResults = const []}) {
+    final categories = context.read<CategoryProvider>().categories;
+    final baseProducts = _getFilteredProducts();
+    final query = value.trim().toLowerCase();
     if (query.isEmpty) return baseProducts;
+
+    // Rank local/name matches first, but never discard matches returned by the server.
+    List<Map<String, dynamic>> withServerResults(
+        Iterable<Map<String, dynamic>> matches) {
+      if (_selectedCategoryId != null) return matches.toList();
+      final seenIds = <String>{};
+      return [...matches, ...remoteResults].where((item) {
+        if (item['_search_result_type'] != 'product' &&
+            isGamefowlItem(item, categories: categories)) return false;
+        final id = (item['id'] ?? item['item_id'])?.toString();
+        return id == null || seenIds.add(id);
+      }).toList();
+    }
+
+    final seenNameIds = <String>{};
+    final nameMatches = [
+      if (_selectedCategoryId == null) ...remoteResults,
+      ...baseProducts,
+    ].where((item) {
+      if (item['_search_result_type'] != 'product' &&
+          isGamefowlItem(item, categories: categories)) return false;
+      final matches = ['item_name', 'product_name', 'name'].any((key) =>
+          item[key]?.toString().toLowerCase().contains(query) ?? false);
+      if (!matches) return false;
+      final id = (item['id'] ?? item['item_id'])?.toString();
+      return id == null || seenNameIds.add(id);
+    }).toList();
+    if (nameMatches.isNotEmpty) return withServerResults(nameMatches);
 
     final matchingCategories = categories.where((category) {
       final name = category['name']?.toString().trim().toLowerCase() ?? '';
       return name.isNotEmpty && name.contains(query);
     }).toList();
     if (matchingCategories.isNotEmpty) {
-      return baseProducts
-          .where((item) => matchingCategories
-              .any((category) => itemMatchesCategory(item, category)))
-          .toList();
+      return withServerResults(baseProducts.where((item) => matchingCategories
+          .any((category) => itemMatchesCategory(item, category))));
     }
 
     final localMatches = baseProducts.where((item) {
@@ -3152,14 +3360,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     if (_selectedCategoryId != null) return localMatches.toList();
 
-    final seenIds = <String>{};
-    return [...context.read<ItemsProvider>().searchResults, ...localMatches]
-        .where((item) => !isGamefowlItem(item, categories: categories))
-        .where((item) {
-          final id = (item['id'] ?? item['item_id'])?.toString();
-          return id == null || seenIds.add(id);
-        })
-        .toList();
+    return withServerResults([...remoteResults, ...localMatches]);
   }
 
   bool get _isLoadingDisplayedProducts =>
@@ -3277,23 +3478,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     return parsed != null ? parsed.toStringAsFixed(1) : '0.0';
   }
 
-  String _formatPrice(
-    dynamic value,
-  ) {
-    if (value is num) {
-      return '₱${value.toStringAsFixed(2)}';
-    }
-
-    final parsed = double.tryParse(
-      value.toString(),
-    );
-
-    if (parsed != null) {
-      return '₱${parsed.toStringAsFixed(2)}';
-    }
-
-    return '₱0.00';
-  }
+  String _formatPrice(dynamic price) => formatPeso(price);
 
   Widget _buildProductLoading(
     String title,
@@ -3433,8 +3618,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
   @override
   void dispose() {
+    ++_searchGeneration;
+    _searchItemsProvider.invalidateSearch();
     _debounceTimer?.cancel();
     _saleCountdownTimer?.cancel();
+    _searchFocus.removeListener(_onSearchFocusChanged);
 
     _searchController.removeListener(
       _onSearchChanged,

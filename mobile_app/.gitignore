@@ -32,8 +32,20 @@ migrate_working_dir/
 .pub/
 /build/
 
-# Include these regression tests despite the repository-level test exclusion.
-/test
+# Keep local tests ignored except the customer Farms regression tests.
+!/test/
+/test/*
+!/test/customer_nav_farms_test.dart
+!/test/partner_farms_screen_test.dart
+
+# Search suggestion regression tests.
+!/test/farm_store_search_test.dart
+!/test/search_suggestions_test.dart
+!/test/items_provider_search_test.dart
+!/test/marketplace_search_test.dart
+!/test/price_format_test.dart
+!/test/catalog_search_test.dart
+!/test/search_product_details_test.dart
 
 # Symbolication related
 app.*.symbols

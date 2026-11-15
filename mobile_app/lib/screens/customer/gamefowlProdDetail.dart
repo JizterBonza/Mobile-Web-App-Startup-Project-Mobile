@@ -7,6 +7,7 @@ import '../../services/shops_service.dart';
 import '../../services/cart_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/auth_guard.dart';
+import '../../utils/item_display_price.dart';
 import 'InquiryChat.dart';
 import 'checkOutScreen.dart';
 import 'gamefowlOrderReq.dart';
@@ -16,6 +17,7 @@ import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import '../../widgets/order_request_confirmation_dialog.dart';
 import 'gamefowlListing.dart';
+import '../../utils/price_format.dart';
 
 class gamefowlProdDetail extends StatefulWidget {
   final dynamic productId;
@@ -430,13 +432,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     return totalRating / reviews.length;
   }
 
-  String _formatDisplayPrice(double price) {
-    if (price == price.roundToDouble()) {
-      return '₱${price.toStringAsFixed(0)}';
-    }
-
-    return '₱${price.toStringAsFixed(2)}';
-  }
+  String _formatDisplayPrice(double price) => formatPeso(price);
 
   String _resolveCategoryName(
     BuildContext context,
@@ -585,9 +581,10 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     final gamefowlAge = _resolveGamefowlAge(product);
     final productName = gamefowlName;
 
+    final displayPrice = ItemDisplayPrice.fromItem(product);
+    final regularPrice = displayPrice.strikethrough;
     final productPrice = _parsePrice(
-      product?['item_price'] ??
-          product?['price'] ??
+      displayPrice.price ??
           product?['selling_price'] ??
           product?['product_price'] ??
           product?['amount'],
@@ -662,13 +659,27 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                                 const Padding(
                                   padding: EdgeInsets.only(bottom: 2),
                                   child: Text(
-                                    '/per head',
+                                    '/per bird',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Color(0xFF777777),
                                     ),
                                   ),
                                 ),
+                                if (regularPrice != null) ...[
+                                  const SizedBox(width: 6),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Text(
+                                      _formatDisplayPrice(regularPrice),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9A9A9A),
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const Spacer(),
                                 Text(
                                   '$soldCount sold',
@@ -1650,7 +1661,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '₱${(199.99 + index * 50).toStringAsFixed(2)}',
+                            formatPeso(199.99 + index * 50),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1977,8 +1988,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
         'price_snapshot':
             cartLine['price_snapshot']?.toString() ?? price.toStringAsFixed(2),
         'item_name': cartLine['item_name'] ?? product?['item_name'],
-        'item_price':
-            cartLine['item_price']?.toString() ?? price.toStringAsFixed(2),
+        if (cartLine['item'] is Map) 'item': cartLine['item'],
+        'effective_price': price.toStringAsFixed(2),
         'item_quantity': cartLine['item_quantity']?.toString() ??
             product?['item_quantity']?.toString(),
         if (product?['item_images'] != null)
