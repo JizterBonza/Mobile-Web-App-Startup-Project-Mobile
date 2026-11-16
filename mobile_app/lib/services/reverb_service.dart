@@ -15,9 +15,9 @@ typedef ShopMessageSentHandler = void Function(
 
 class _ChannelBinding {
   final PrivateChannel channel;
-  final StreamSubscription<ChannelReadEvent> eventSub;
+  final List<StreamSubscription<ChannelReadEvent>> subs;
 
-  _ChannelBinding({required this.channel, required this.eventSub});
+  _ChannelBinding({required this.channel, required this.subs});
 }
 
 /// Laravel Reverb (Pusher-compatible) client for customer messaging.
@@ -160,33 +160,47 @@ class ReverbService {
       await _dropChannel(conversationId);
     }
 
+    final name = _channelName(conversationId);
     final headers = await _authHeaders();
     final channel = client.privateChannel(
-      _channelName(conversationId),
+      name,
       authorizationDelegate:
           EndpointAuthorizableChannelTokenAuthorizationDelegate.forPrivateChannel(
         authorizationEndpoint: Uri.parse(ApiEndpoints.broadcastingAuth),
         headers: headers,
+        onAuthFailed: (exception, _) {
+          debugPrint('DEBUG [Reverb] auth failed for $name: $exception');
+        },
       ),
       forceCreateNewInstance: force,
     );
 
-    final eventSub = channel.bind(eventName).listen((event) {
-      _handleShopMessageSent(conversationId, event);
-    });
+    final subs = [
+      channel.bind(eventName).listen((event) {
+        _handleShopMessageSent(conversationId, event);
+      }),
+      channel.whenSubscriptionSucceeded().listen((_) {
+        debugPrint('DEBUG [Reverb] subscription succeeded $name');
+      }),
+      channel.onSubscriptionError().listen((event) {
+        debugPrint('DEBUG [Reverb] subscription error $name: ${event.data}');
+      }),
+    ];
 
     _channels[conversationId] = _ChannelBinding(
       channel: channel,
-      eventSub: eventSub,
+      subs: subs,
     );
     channel.subscribe();
-    debugPrint('DEBUG [Reverb] subscribed ${_channelName(conversationId)}');
+    debugPrint('DEBUG [Reverb] subscribed $name');
   }
 
   Future<void> _dropChannel(String conversationId) async {
     final binding = _channels.remove(conversationId);
     if (binding == null) return;
-    await binding.eventSub.cancel();
+    for (final sub in binding.subs) {
+      await sub.cancel();
+    }
     try {
       binding.channel.unsubscribe();
     } catch (_) {}

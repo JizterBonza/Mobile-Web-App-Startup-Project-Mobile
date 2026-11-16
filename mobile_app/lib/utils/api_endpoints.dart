@@ -124,7 +124,7 @@ class ApiEndpoints {
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
   static String get getShopMessageProducts =>
       '$baseUrl/api/shops/{shopId}/messages/products';
-  static String get broadcastingAuth => '$baseUrl/broadcasting/auth';
+  static String get broadcastingAuth => '$baseUrl/api/broadcasting/auth';
 
   // Badge endpoints
   static String get getBadges => '$baseUrl/api/badges';

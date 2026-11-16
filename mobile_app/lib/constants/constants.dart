@@ -38,14 +38,21 @@ class AppConfig {
   /// Public Reverb app key (not REVERB_APP_SECRET).
   static String get reverbAppKey => dotenv.env['REVERB_APP_KEY']?.trim() ?? '';
 
+  static Uri? get _apiUri => Uri.tryParse(Url.getUrl());
+
+  /// Defaults to the active API host so the socket and
+  /// `/broadcasting/auth` always hit the same backend.
   static String get reverbHost {
     final host = dotenv.env['REVERB_HOST']?.trim();
     if (host != null && host.isNotEmpty) return host;
-    return Uri.tryParse(Url.getUrl())?.host ?? '';
+    return _apiUri?.host ?? '';
   }
 
   static String get reverbWsScheme {
-    final raw = (dotenv.env['REVERB_SCHEME'] ?? 'https').trim().toLowerCase();
+    final override = dotenv.env['REVERB_SCHEME']?.trim().toLowerCase();
+    final raw = (override != null && override.isNotEmpty)
+        ? override
+        : (_apiUri?.scheme.toLowerCase() ?? 'https');
     if (raw == 'ws' || raw == 'wss') return raw;
     if (raw == 'https') return 'wss';
     return 'ws';

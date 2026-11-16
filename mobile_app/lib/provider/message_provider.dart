@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -23,7 +24,13 @@ class MessageProvider with ChangeNotifier {
   int _unreadCount = 0;
   bool _liveEnabled = false;
   bool _eventInFlight = false;
+  bool _eventPending = false;
+  final Set<String> _pendingEventIds = {};
   int _conversationWatchers = 0;
+
+  /// Used only while the Reverb socket is down.
+  static const _fallbackPollInterval = Duration(seconds: 5);
+  Timer? _fallbackPoll;
 
   List<ConversationModel> get conversations => _conversations;
   ConversationThread? get activeThread => _activeThread;
@@ -35,6 +42,10 @@ class MessageProvider with ChangeNotifier {
   Future<void> startLiveUpdates() async {
     _liveEnabled = true;
     _reverb.onShopMessageSent = _onShopMessageSent;
+    _fallbackPoll ??= Timer.periodic(
+      _fallbackPollInterval,
+      (_) => _pollIfDisconnected(),
+    );
 
     await _reverb.connect();
     await fetchUnreadCount();
@@ -48,13 +59,32 @@ class MessageProvider with ChangeNotifier {
   }
 
   Future<void> pauseLiveUpdates() async {
+    _cancelFallbackPoll();
     await _reverb.disconnect();
   }
 
   Future<void> stopLiveUpdates() async {
     _liveEnabled = false;
     _reverb.onShopMessageSent = null;
+    _cancelFallbackPoll();
     await _reverb.disconnect();
+  }
+
+  void _cancelFallbackPoll() {
+    _fallbackPoll?.cancel();
+    _fallbackPoll = null;
+  }
+
+  Future<void> _pollIfDisconnected() async {
+    if (!_liveEnabled || _reverb.isConnected) return;
+    await _onShopMessageSent(_activeThread?.conversation.id, const {});
+  }
+
+  @override
+  void dispose() {
+    _cancelFallbackPoll();
+    _reverb.disconnect();
+    super.dispose();
   }
 
   void watchConversations() {
@@ -89,25 +119,34 @@ class MessageProvider with ChangeNotifier {
     dynamic conversationId,
     Map<String, dynamic> data,
   ) async {
-    if (_eventInFlight) return;
+    if (conversationId != null) {
+      _pendingEventIds.add(conversationId.toString());
+    }
+    if (_eventInFlight) {
+      _eventPending = true;
+      return;
+    }
 
     _eventInFlight = true;
 
     try {
-      final activeId = _activeThread?.conversation.id?.toString();
+      do {
+        _eventPending = false;
+        final ids = Set<String>.from(_pendingEventIds);
+        _pendingEventIds.clear();
 
-      if (activeId != null &&
-          conversationId != null &&
-          activeId == conversationId.toString()) {
-        await refreshActiveThread();
-      }
+        final activeId = _activeThread?.conversation.id?.toString();
+        if (activeId != null && ids.contains(activeId)) {
+          await refreshActiveThread();
+        }
 
-      await fetchUnreadCount();
+        await fetchUnreadCount();
 
-      if (_conversations.isNotEmpty || _conversationWatchers > 0) {
-        await fetchConversations(silent: true);
-        await _syncRealtimeSubscriptions();
-      }
+        if (_conversations.isNotEmpty || _conversationWatchers > 0) {
+          await fetchConversations(silent: true);
+          await _syncRealtimeSubscriptions();
+        }
+      } while (_eventPending);
     } finally {
       _eventInFlight = false;
     }
