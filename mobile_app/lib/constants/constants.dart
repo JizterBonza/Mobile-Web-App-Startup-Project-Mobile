@@ -75,6 +75,9 @@ class AppColors {
   static const Color brandPrimaryDark = Color(0xFF0F1B40);
   static const Color brandPrimaryLight = Color(0xFF2C3E80);
 
+  /// Green pair of [brandPrimary]: same lightness and saturation.
+  static const Color brandConfirmed = Color(0xFF1A5C3B);
+
   // Accent yellow (notification badges)
   static const Color accentAmber = Color(0xFFFFB800);
   static const Color accentAmberDark = Color(0xFFE6A600);

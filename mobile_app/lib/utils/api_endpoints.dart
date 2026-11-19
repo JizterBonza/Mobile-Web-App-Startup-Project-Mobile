@@ -85,6 +85,20 @@ class ApiEndpoints {
   static String get checkZoneCoverage =>
       '$baseUrl/api/shops/check-zone-coverage';
 
+  // Featured endpoints (GET). Listed only; not called yet.
+  /// Products, Agrivet stores, and farms together.
+  static String get getFeatured => '$baseUrl/api/featured';
+
+  /// Featured products only.
+  static String get getFeaturedProducts => '$baseUrl/api/featured/products';
+
+  /// Featured Agrivet stores.
+  static String get getFeaturedAgrivetStores =>
+      '$baseUrl/api/featured/agrivet-stores';
+
+  /// Featured farms.
+  static String get getFeaturedFarms => '$baseUrl/api/featured/farms';
+
   // Farm endpoints
   static String get getFarms => '$baseUrl/api/farms';
   static String get getFarmById => '$baseUrl/api/farms/{id}';

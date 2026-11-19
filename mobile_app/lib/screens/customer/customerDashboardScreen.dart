@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../services/api_service.dart';
 import '../../services/farms_service.dart';
+import '../../services/featured_service.dart';
 import '../../services/favorite_services.dart';
 import '../../provider/provider.dart';
 import '../../utils/auth_guard.dart';
@@ -31,9 +32,14 @@ import 'productDetailScreen.dart';
 import '../../utils/price_format.dart';
 
 class CustomerDashboardScreen extends StatefulWidget {
-  const CustomerDashboardScreen({super.key, this.farmsService});
+  const CustomerDashboardScreen({
+    super.key,
+    this.farmsService,
+    this.featuredService,
+  });
 
   final FarmsService? farmsService;
+  final FeaturedService? featuredService;
 
   @override
   State<CustomerDashboardScreen> createState() =>
@@ -64,6 +70,10 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _onSaleProducts = [];
   bool _isLoadingOnSaleProducts = true;
+
+  late final FeaturedService _featuredService;
+  List<Map<String, dynamic>> _featuredProducts = [];
+  bool _isLoadingFeaturedProducts = true;
   List<Map<String, dynamic>> _categories = [];
 
   final PageController _storesPageController =
@@ -115,6 +125,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   void initState() {
     super.initState();
     _farmsService = widget.farmsService ?? FarmsService();
+    _featuredService = widget.featuredService ?? FeaturedService();
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -132,7 +143,8 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
 
     // Refresh countdown labels only for products with a timed sale.
     _saleCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && [..._products, ..._onSaleProducts].any(_hasActiveTimedSale)) {
+      if (mounted && [..._products, ..._onSaleProducts, ..._featuredProducts]
+              .any(_hasActiveTimedSale)) {
         setState(() {});
       }
     });
@@ -150,6 +162,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       _loadKlasrumFeatured(),
       _loadProducts(),
       _loadOnSaleProducts(),
+      _loadFeaturedProducts(),
       _loadCategories(),
       _loadFavoriteState(),
     ]);
@@ -814,6 +827,26 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
     }
   }
 
+  Future<void> _loadFeaturedProducts() async {
+    if (!mounted) return;
+    setState(() => _isLoadingFeaturedProducts = true);
+    try {
+      final products = await _featuredService.fetchFeaturedProducts();
+      if (!mounted) return;
+      setState(() {
+        _featuredProducts = products;
+        _isLoadingFeaturedProducts = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading featured products: $e');
+      if (!mounted) return;
+      setState(() {
+        _featuredProducts = [];
+        _isLoadingFeaturedProducts = false;
+      });
+    }
+  }
+
   Future<void> _loadCategories() async {
     final provider = context.read<CategoryProvider>();
     await provider.fetchCategories();
@@ -1069,6 +1102,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         useCache: false,
       ),
       _loadOnSaleProducts(),
+      _loadFeaturedProducts(),
       _loadCategories(),
       _loadFavoriteState(),
     ]);
@@ -2515,13 +2549,13 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
   }
 
   Widget _buildFeaturedProductsSection() {
-    if (_isLoadingDisplayedProducts) {
+    if (_isLoadingFeaturedProducts) {
       return _buildProductLoading(
         'Featured Products',
       );
     }
 
-    final products = _getFilteredProducts();
+    final products = _featuredProducts;
 
     if (products.isEmpty) {
       return const SizedBox.shrink();
@@ -2545,7 +2579,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         ),
         const SizedBox(height: 10),
         _buildHorizontalProducts(
-          products.take(4).toList(),
+          products,
           sectionKey: 'featured',
         ),
       ],

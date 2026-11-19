@@ -13,6 +13,7 @@ import 'package:agriconnect/screens/customer/farmGamefowlListingDetailScreen.dar
 import 'package:agriconnect/screens/customer/productDetailScreen.dart';
 import 'package:agriconnect/screens/customer/shopScreen.dart';
 import 'package:agriconnect/services/farms_service.dart';
+import 'package:agriconnect/services/featured_service.dart';
 import 'package:agriconnect/services/items_services.dart';
 import 'package:agriconnect/widgets/search_suggestions.dart';
 import 'package:flutter/material.dart';
@@ -113,6 +114,11 @@ class _Farms extends FarmsService {
   Future<List<Map<String, dynamic>>> fetchFarms() async => [];
 }
 
+class _Featured extends FeaturedService {
+  @override
+  Future<List<Map<String, dynamic>>> fetchFeaturedProducts() async => [];
+}
+
 Future<_SearchService> _show(WidgetTester tester,
     {bool dashboard = false,
     bool grouped = false,
@@ -134,7 +140,8 @@ Future<_SearchService> _show(WidgetTester tester,
     ],
     child: MaterialApp(
         home: dashboard
-            ? CustomerDashboardScreen(farmsService: _Farms())
+            ? CustomerDashboardScreen(
+                farmsService: _Farms(), featuredService: _Featured())
             : const ShopScreen(shopId: 1)),
   ));
   await tester.pumpAndSettle();
