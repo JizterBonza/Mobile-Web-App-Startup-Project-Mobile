@@ -5,14 +5,25 @@ import '../../provider/badge_provider.dart';
 import '../../provider/notification_provider.dart';
 import '../../models/notificationModel.dart';
 import '../../services/api_service.dart';
+import '../../services/farm_checkout_service.dart';
+import '../../services/order_service.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import 'farmOrderDetailsScreen.dart';
+import 'orderDetailScreen.dart';
 
 class NotificationScreen extends StatefulWidget {
   final bool showCustomerBottomNav;
+  final OrderService? orderService;
+  final FarmCheckoutService? farmCheckoutService;
 
-  const NotificationScreen({super.key, this.showCustomerBottomNav = false});
+  const NotificationScreen({
+    super.key,
+    this.showCustomerBottomNav = false,
+    this.orderService,
+    this.farmCheckoutService,
+  });
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -20,11 +31,17 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final ScrollController _scrollController = ScrollController();
+  late final OrderService _orderService;
+  late final FarmCheckoutService _farmCheckoutService;
   bool _isGuest = true;
+  bool _isOpeningOrder = false;
+  final Map<int, String> _farmOrderCodes = {};
 
   @override
   void initState() {
     super.initState();
+    _orderService = widget.orderService ?? OrderService();
+    _farmCheckoutService = widget.farmCheckoutService ?? FarmCheckoutService();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadGuestState();
@@ -180,7 +197,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   IconData _getIconForNotification(NotificationModel notification) {
-    // Determine icon based on type and category
+    if (_isPaymentNotification(notification)) return Icons.payment;
     switch (notification.type) {
       case 'order':
         switch (notification.category) {
@@ -216,13 +233,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Color _getIconColorForNotification(NotificationModel notification) {
+    if (_isPaymentNotification(notification)) {
+      return _isConfirmedPayment(notification)
+          ? AppColors.brandConfirmed
+          : AppColors.warning;
+    }
     switch (notification.type) {
       case 'order':
         switch (notification.category) {
           case 'delivered':
             return AppColors.success;
           case 'in-transit':
-            return AppColors.warning;
+            return AppColors.brandPrimaryLight;
           case 'processing':
             return AppColors.brandPrimaryLight;
           case 'cancelled':
@@ -245,6 +267,235 @@ class _NotificationScreenState extends State<NotificationScreen> {
       default:
         return AppColors.brandPrimary;
     }
+  }
+
+  bool _isPaymentNotification(NotificationModel notification) {
+    final type = notification.type.toLowerCase();
+    const payments = {
+      'payment_pending',
+      'payment_reminder',
+      'payment_confirmed',
+    };
+    if (payments.contains(type)) return true;
+    if (!type.startsWith('farm_')) return false;
+    return type.contains('payment') ||
+        type.contains('deposit') ||
+        type.contains('balance');
+  }
+
+  bool _isConfirmedPayment(NotificationModel notification) {
+    final type = notification.type.toLowerCase();
+    if (type == 'payment_confirmed') return true;
+    return type.startsWith('farm_') && type.endsWith('_paid');
+  }
+
+  bool _isFarmOrderReference(NotificationModel notification) {
+    if (_referencedOrderId(notification) == null) return false;
+    return notification.type.toLowerCase().startsWith('farm_');
+  }
+
+  bool _isKnownItemOrderType(String type) {
+    if (type == 'order' || type.startsWith('order_')) return true;
+    const payments = {
+      'payment_pending',
+      'payment_reminder',
+      'payment_confirmed',
+    };
+    return payments.contains(type);
+  }
+
+  bool _isItemOrderReference(NotificationModel notification) {
+    final type = notification.type.toLowerCase();
+    if (type.startsWith('farm_') || type == 'refund_required') return false;
+    final action = notification.actionUrl ?? '';
+    if (action.startsWith('/farm-orders')) return false;
+    if (_isKnownItemOrderType(type)) {
+      return _referencedOrderId(notification) != null;
+    }
+    return _explicitDataOrderId(notification) != null ||
+        _messageOrderCode(notification) != null;
+  }
+
+  /// Order id the signed-in customer is allowed to open.
+  /// Shop status rows often put a shop or order-shop id in `reference_id`.
+  int? _customerOrderId(NotificationModel notification) {
+    final type = notification.type.toLowerCase();
+    if (_isKnownItemOrderType(type)) return _referencedOrderId(notification);
+    return _explicitDataOrderId(notification);
+  }
+
+  int? _explicitDataOrderId(NotificationModel notification) {
+    final data = notification.data;
+    final fromData = _notificationId(data?['order_id']);
+    if (fromData != null) return fromData;
+    final order = data?['order'];
+    if (order is Map) {
+      return _notificationId(order['id']) ?? _notificationId(order['order_id']);
+    }
+    final action = notification.actionUrl ?? '';
+    final match = RegExp(r'^/orders/(\d+)$').firstMatch(action);
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  bool _isAuthorizationFailure(String? message) {
+    final text = message?.toLowerCase() ?? '';
+    return text.contains('authoriz') || text.contains('forbidden');
+  }
+
+  bool _showsOrderReference(NotificationModel notification) {
+    if (notification.type.toLowerCase() == 'refund_required') return false;
+    return _isFarmOrderReference(notification) ||
+        _isItemOrderReference(notification) ||
+        _messageOrderCode(notification) != null;
+  }
+
+  static final RegExp _orderCodeInMessage = RegExp(
+    r'#?(ORD-[A-Z0-9]+)',
+    caseSensitive: false,
+  );
+
+  String? _messageOrderCode(NotificationModel notification) {
+    final match = _orderCodeInMessage.firstMatch(notification.message);
+    return match?.group(1)?.toUpperCase();
+  }
+
+  int? _referencedOrderId(NotificationModel notification) {
+    final direct = notification.referenceId;
+    if (direct != null) return direct;
+
+    final reference = notification.reference;
+    final referenced = _notificationId(reference?['id']) ??
+        _notificationId(reference?['order_id']);
+    if (referenced != null) return referenced;
+
+    final data = notification.data;
+    final fromData = _notificationId(data?['order_id']) ??
+        _notificationId(data?['reference_id']);
+    if (fromData != null) return fromData;
+
+    final order = data?['order'];
+    if (order is Map) {
+      return _notificationId(order['id']) ?? _notificationId(order['order_id']);
+    }
+    return null;
+  }
+
+  int? _notificationId(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    final text = raw?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return int.tryParse(text);
+  }
+
+  Future<void> _openReferencedOrder(NotificationModel notification) async {
+    if (_isOpeningOrder) return;
+    final referencedId = _referencedOrderId(notification);
+
+    if (_isFarmOrderReference(notification)) {
+      if (referencedId == null) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FarmOrderDetailsScreen(
+            orderId: referencedId,
+            service: _farmCheckoutService,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final code = _messageOrderCode(notification) ??
+        notificationOrderCode(notification);
+    final orderId = _customerOrderId(notification);
+    if (orderId == null && code == null) return;
+
+    setState(() => _isOpeningOrder = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      Map<String, dynamic>? order;
+      String? errorMessage;
+      if (orderId != null) {
+        final result = await _orderService.getOrderById(orderId.toString());
+        if (result['success'] == true && result['data'] is Map) {
+          order = Map<String, dynamic>.from(result['data'] as Map);
+        } else {
+          errorMessage =
+              result['message']?.toString() ?? 'Failed to open order.';
+          if (code != null && _isAuthorizationFailure(errorMessage)) {
+            order = await _orderByCode(code);
+            if (order != null) errorMessage = null;
+          }
+        }
+      } else if (code != null) {
+        order = await _orderByCode(code);
+        errorMessage = order == null ? 'Order not found' : null;
+      }
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      final opened = order;
+      if (opened != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(order: opened),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage ?? 'Failed to open order.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open order: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpeningOrder = false);
+    }
+  }
+
+  String _normalizeOrderCode(String value) =>
+      value.trim().toLowerCase().replaceFirst(RegExp(r'^#'), '');
+
+  Future<Map<String, dynamic>?> _orderByCode(String code) async {
+    final result = await _orderService.fetchOrders();
+    final orders = result['orders'];
+    if (orders is! List) return null;
+    final target = _normalizeOrderCode(code);
+    for (final raw in orders) {
+      if (raw is! Map) continue;
+      final orderCode =
+          _normalizeOrderCode(raw['order_code']?.toString() ?? '');
+      if (orderCode == target) return Map<String, dynamic>.from(raw);
+    }
+    return null;
   }
 
   @override
@@ -515,6 +766,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final isRead = notification.read;
     final iconData = _getIconForNotification(notification);
     final iconColor = _getIconColorForNotification(notification);
+    final cardColor = _isConfirmedPayment(notification)
+        ? AppColors.brandConfirmed
+        : AppColors.brandPrimary;
 
     return Dismissible(
       key: Key(notification.id.toString()),
@@ -547,20 +801,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            color: isRead
-                ? Colors.white
-                : AppColors.brandPrimary.withOpacity(0.05),
+            color: isRead ? Colors.white : cardColor.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isRead
-                  ? Colors.grey[200]!
-                  : AppColors.brandPrimary.withOpacity(0.2),
+              color: isRead ? Colors.grey[200]! : cardColor.withOpacity(0.2),
             ),
             boxShadow: isRead
                 ? []
                 : [
                     BoxShadow(
-                      color: AppColors.brandPrimary.withOpacity(0.08),
+                      color: cardColor.withOpacity(0.08),
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -639,7 +889,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: AppColors.brandPrimary,
+                      color: cardColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -741,46 +991,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ),
             SizedBox(height: 24),
 
-            // Action button based on notification type
-            if (notification.type == 'order')
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // Navigate to order details if reference_id exists
-                    if (notification.referenceId != null) {
-                      // TODO: Navigate to order details
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Navigating to order details...'),
-                          backgroundColor: AppColors.brandPrimary,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandPrimary,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'View Order',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
+            // Highlighted order reference — tap opens Order Details.
+            if (_showsOrderReference(notification)) ...[
+              _buildOrderReferenceHighlight(notification),
+              SizedBox(height: 16),
+            ],
 
             if (notification.type == 'promo')
               SizedBox(
@@ -821,6 +1036,157 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
             SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderReferenceHighlight(NotificationModel notification) {
+    final highlight = _isConfirmedPayment(notification)
+        ? AppColors.brandConfirmed
+        : _isPaymentNotification(notification)
+            ? AppColors.warning
+            : AppColors.brandPrimary;
+    final orderId = _referencedOrderId(notification);
+    return _OrderReferenceHighlight(
+      label: _orderReferenceLabel(notification),
+      highlight: highlight,
+      resolveCode: _isFarmOrderReference(notification) &&
+              notificationOrderCode(notification) == null &&
+              orderId != null
+          ? () => _loadFarmOrderCode(orderId)
+          : null,
+      onOpen: () {
+        Navigator.pop(context);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _openReferencedOrder(notification);
+        });
+      },
+    );
+  }
+
+  Future<String?> _loadFarmOrderCode(int orderId) async {
+    final cached = _farmOrderCodes[orderId];
+    if (cached != null) return cached;
+    try {
+      final code = (await _farmCheckoutService.order(orderId)).code.trim();
+      if (code.isEmpty || code == '#$orderId') return null;
+      _farmOrderCodes[orderId] = code;
+      return code;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _orderReferenceLabel(NotificationModel notification) {
+    final orderId = _referencedOrderId(notification);
+    return notificationOrderCode(notification) ??
+        _messageOrderCode(notification) ??
+        (orderId == null ? null : _farmOrderCodes[orderId]) ??
+        'Order #$orderId';
+  }
+}
+
+class _OrderReferenceHighlight extends StatefulWidget {
+  const _OrderReferenceHighlight({
+    required this.label,
+    required this.highlight,
+    required this.onOpen,
+    this.resolveCode,
+  });
+
+  final String label;
+  final Color highlight;
+  final VoidCallback onOpen;
+  final Future<String?> Function()? resolveCode;
+
+  @override
+  State<_OrderReferenceHighlight> createState() =>
+      _OrderReferenceHighlightState();
+}
+
+class _OrderReferenceHighlightState extends State<_OrderReferenceHighlight> {
+  late String _label;
+
+  @override
+  void initState() {
+    super.initState();
+    _label = widget.label;
+    final resolveCode = widget.resolveCode;
+    if (resolveCode == null) return;
+    resolveCode().then((code) {
+      final next = code?.trim() ?? '';
+      if (!mounted || next.isEmpty || next == _label) return;
+      setState(() => _label = next);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = widget.highlight;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const ValueKey('notification-order-reference'),
+        onTap: widget.onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: highlight.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: highlight.withOpacity(0.45),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: highlight.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.receipt_long,
+                  color: highlight,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Order reference',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: highlight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey[500],
+              ),
+            ],
+          ),
         ),
       ),
     );

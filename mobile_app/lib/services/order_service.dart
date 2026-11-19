@@ -97,18 +97,20 @@ class OrderService extends ApiService {
   /// Create a new order.
   /// Each item carries its cart-row ID as `cart_id`, matching the original
   /// order API contract.
-  Future<Map<String, dynamic>> createOrder({
-    required List<Map<String, dynamic>> items,
-    required String shippingAddress,
-    required int? shippingAddressId,
-    String? paymentMethod,
-    required double subtotal,
-    required double shippingFee,
-    required double totalAmount,
-    String? orderInstruction,
-    required int? deliveryMethodId,
-    String? voucherCode,
-  }) async {
+Future<Map<String, dynamic>> createOrder({
+  int? cartId,
+  required List<Map<String, dynamic>> items,
+  required String shippingAddress,
+  required int? shippingAddressId,
+  String? paymentMethod,
+  required double subtotal,
+  required double shippingFee,
+  required double totalAmount,
+  String? orderInstruction,
+  required int? deliveryMethodId,
+  String? voucherCode,
+}) async {
+  
     try {
       print('========== CREATE ORDER ==========');
       print('Shipping address ID: $shippingAddressId');
@@ -140,13 +142,27 @@ class OrderService extends ApiService {
         };
       }
 
-      if (items.any((item) => _positiveInt(item['cart_id']) == null)) {
-        return {
-          'success': false,
-          'message': 'A cart item ID is missing or invalid.',
-          'data': null,
-        };
-      }
+     final isDirectGamefowlOrder = items.any(
+  (item) => item['is_direct_gamefowl_order'] == true,
+);
+
+if (!isDirectGamefowlOrder &&
+    items.any((item) => _positiveInt(item['cart_id']) == null)) {
+  return {
+    'success': false,
+    'message': 'A cart item ID is missing or invalid.',
+    'data': null,
+  };
+}
+
+if (isDirectGamefowlOrder &&
+    items.any((item) => item['item_id'] == null)) {
+  return {
+    'success': false,
+    'message': 'The Gamefowl product ID is missing.',
+    'data': null,
+  };
+}
 
       final token = await ApiService.getToken();
       if (token == null || token.isEmpty) {
@@ -170,22 +186,22 @@ class OrderService extends ApiService {
       final trimmedVoucher = voucherCode?.trim();
       final trimmedPaymentMethod = paymentMethod?.trim();
 
-      final body = <String, dynamic>{
-        'user_id': userId,
-        'items': items,
-        'subtotal': subtotal,
-        'shipping_fee': shippingFee,
-        'total_amount': totalAmount,
-        'shipping_address': shippingAddress,
-        'shipping_address_id': shippingAddressId,
-        'order_instruction': orderInstruction ?? '',
-        'delivery_method_id': deliveryMethodId,
-        if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
-          'voucher_code': trimmedVoucher,
-        if (trimmedPaymentMethod != null && trimmedPaymentMethod.isNotEmpty)
-          'payment_method': trimmedPaymentMethod,
-      };
-
+final body = <String, dynamic>{
+  'user_id': userId,
+  if (cartId != null) 'cart_id': cartId,
+  'items': items,
+  'subtotal': subtotal,
+  'shipping_fee': shippingFee,
+  'total_amount': totalAmount,
+  'shipping_address': shippingAddress,
+  'shipping_address_id': shippingAddressId,
+  'order_instruction': orderInstruction ?? '',
+  'delivery_method_id': deliveryMethodId,
+  if (trimmedVoucher != null && trimmedVoucher.isNotEmpty)
+    'voucher_code': trimmedVoucher,
+  if (trimmedPaymentMethod != null && trimmedPaymentMethod.isNotEmpty)
+    'payment_method': trimmedPaymentMethod,
+};
       print('CREATE ORDER URL: $uri');
       print('CREATE ORDER REQUEST BODY: ${jsonEncode(body)}');
 
@@ -424,68 +440,75 @@ class OrderService extends ApiService {
     if (responseData is Map &&
         responseData['success'] == true &&
         responseData['data'] is List) {
-      final orders = (responseData['data'] as List).map((raw) {
-        final order = Map<String, dynamic>.from(raw as Map);
-        final detailRaw = order['order_detail'];
-        final orderDetail =
-            detailRaw is Map ? Map<String, dynamic>.from(detailRaw) : null;
-
-        return <String, dynamic>{
-          'id': order['id'],
-          'user_id': order['user_id'],
-          'order_detail_id': order['order_detail_id'],
-          'order_status': order['order_status']?.toString() ?? 'Pending',
-          'delivery_method_id':
-              order['delivery_method_id'] ?? orderDetail?['delivery_method_id'],
-          'ordered_at': order['ordered_at']?.toString() ?? '',
-          'updated_at': order['updated_at']?.toString(),
-          'order_code': orderDetail?['order_code']?.toString() ?? '',
-          'subtotal': orderDetail?['subtotal']?.toString() ?? '0.00',
-          'shipping_fee': orderDetail?['shipping_fee']?.toString() ?? '0.00',
-          'delivery_base_fee':
-              orderDetail?['delivery_base_fee']?.toString() ?? '0.00',
-          'delivery_km_fee':
-              orderDetail?['delivery_km_fee']?.toString() ?? '0.00',
-          'delivery_distance_km':
-              orderDetail?['delivery_distance_km']?.toString() ?? '0.00',
-          'is_reduced_base': orderDetail?['is_reduced_base'] ?? false,
-          'heavy_surcharge':
-              orderDetail?['heavy_surcharge']?.toString() ?? '0.00',
-          'heavy_surcharge_units': orderDetail?['heavy_surcharge_units'] ?? 0,
-          'total_weight_kg':
-              orderDetail?['total_weight_kg']?.toString() ?? '0.00',
-          'multi_store_fee':
-              orderDetail?['multi_store_fee']?.toString() ?? '0.00',
-          'mov_penalty_fee':
-              orderDetail?['mov_penalty_fee']?.toString() ?? '0.00',
-          'total_fees': orderDetail?['total_fees']?.toString() ?? '0.00',
-          'store_count': orderDetail?['store_count'] ?? 0,
-          'is_pickup': orderDetail?['is_pickup'] ?? false,
-          'total_amount':
-              orderDetail?['total_amount']?.toString() ?? '0.00',
-          'shipping_address':
-              orderDetail?['shipping_address']?.toString() ?? '',
-          'drop_location_lat': orderDetail?['drop_location_lat'],
-          'drop_location_long': orderDetail?['drop_location_long'],
-          'order_instruction': orderDetail?['order_instruction'],
-          'payment_status':
-              orderDetail?['payment_status']?.toString() ?? 'pending',
-          'voucher_discount_amount':
-              orderDetail?['voucher_discount_amount']?.toString() ?? '0.00',
-          'order_detail_created_at': orderDetail?['created_at'],
-          'order_detail_updated_at': orderDetail?['updated_at'],
-          'user': order['user'],
-          'order_items': order['order_items'] ?? [],
-          'order_shops': order['order_shops'] ?? [],
-          'payment': order['payment'],
-          'order_id': order['id'],
-        };
-      }).toList();
+      final orders = (responseData['data'] as List)
+          .map((raw) => _mapOrder(Map<String, dynamic>.from(raw as Map)))
+          .toList();
 
       return {'orders': orders, 'count': responseData['count'] ?? orders.length};
     }
 
     return {'orders': <Map<String, dynamic>>[], 'count': 0};
+  }
+
+  /// Flatten an API order so detail screens see `order_detail` fields at the
+  /// top level (`order_code`, `total_amount`, `payment_status`, etc.).
+  Map<String, dynamic> _mapOrder(Map<String, dynamic> order) {
+    final detailRaw = order['order_detail'];
+    final orderDetail =
+        detailRaw is Map ? Map<String, dynamic>.from(detailRaw) : null;
+
+    return <String, dynamic>{
+      ...order,
+      'id': order['id'],
+      'user_id': order['user_id'],
+      'order_detail_id': order['order_detail_id'],
+      'order_status': order['order_status']?.toString() ?? 'Pending',
+      'delivery_method_id':
+          order['delivery_method_id'] ?? orderDetail?['delivery_method_id'],
+      'ordered_at': order['ordered_at']?.toString() ?? '',
+      'updated_at': order['updated_at']?.toString(),
+      'order_code': () {
+        final detailCode = orderDetail?['order_code']?.toString().trim() ?? '';
+        if (detailCode.isNotEmpty) return detailCode;
+        return order['order_code']?.toString().trim() ?? '';
+      }(),
+      'subtotal': orderDetail?['subtotal']?.toString() ?? '0.00',
+      'shipping_fee': orderDetail?['shipping_fee']?.toString() ?? '0.00',
+      'delivery_base_fee':
+          orderDetail?['delivery_base_fee']?.toString() ?? '0.00',
+      'delivery_km_fee': orderDetail?['delivery_km_fee']?.toString() ?? '0.00',
+      'delivery_distance_km':
+          orderDetail?['delivery_distance_km']?.toString() ?? '0.00',
+      'is_reduced_base': orderDetail?['is_reduced_base'] ?? false,
+      'heavy_surcharge':
+          orderDetail?['heavy_surcharge']?.toString() ?? '0.00',
+      'heavy_surcharge_units': orderDetail?['heavy_surcharge_units'] ?? 0,
+      'total_weight_kg':
+          orderDetail?['total_weight_kg']?.toString() ?? '0.00',
+      'multi_store_fee':
+          orderDetail?['multi_store_fee']?.toString() ?? '0.00',
+      'mov_penalty_fee':
+          orderDetail?['mov_penalty_fee']?.toString() ?? '0.00',
+      'total_fees': orderDetail?['total_fees']?.toString() ?? '0.00',
+      'store_count': orderDetail?['store_count'] ?? 0,
+      'is_pickup': orderDetail?['is_pickup'] ?? false,
+      'total_amount': orderDetail?['total_amount']?.toString() ?? '0.00',
+      'shipping_address': orderDetail?['shipping_address']?.toString() ?? '',
+      'drop_location_lat': orderDetail?['drop_location_lat'],
+      'drop_location_long': orderDetail?['drop_location_long'],
+      'order_instruction': orderDetail?['order_instruction'],
+      'payment_status':
+          orderDetail?['payment_status']?.toString() ?? 'pending',
+      'voucher_discount_amount':
+          orderDetail?['voucher_discount_amount']?.toString() ?? '0.00',
+      'order_detail_created_at': orderDetail?['created_at'],
+      'order_detail_updated_at': orderDetail?['updated_at'],
+      'user': order['user'],
+      'order_items': order['order_items'] ?? [],
+      'order_shops': order['order_shops'] ?? [],
+      'payment': order['payment'],
+      'order_id': order['id'],
+    };
   }
 
   /// Get a single order by ID.
@@ -522,14 +545,17 @@ class OrderService extends ApiService {
       if (response.statusCode >= 200 &&
           response.statusCode < 300 &&
           !(responseData is Map && responseData['success'] == false)) {
+        final raw = responseData is Map
+            ? responseData['data'] ?? responseData
+            : responseData;
         return {
           'success': true,
           'message': responseData is Map
               ? responseData['message'] ?? 'Order retrieved successfully.'
               : 'Order retrieved successfully.',
-          'data': responseData is Map
-              ? responseData['data'] ?? responseData
-              : responseData,
+          'data': raw is Map
+              ? _mapOrder(Map<String, dynamic>.from(raw))
+              : raw,
         };
       }
 

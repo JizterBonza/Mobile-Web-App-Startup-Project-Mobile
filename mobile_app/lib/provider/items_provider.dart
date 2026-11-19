@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/items_services.dart';
+import '../models/catalog_search.dart';
 
 /// Provider for managing items state and caching
 class ItemsProvider with ChangeNotifier {
-  final ItemsService _itemsService = ItemsService();
+  ItemsProvider({ItemsService? itemsService})
+      : _itemsService = itemsService ?? ItemsService();
+
+  final ItemsService _itemsService;
 
   List<Map<String, dynamic>> _items = [];
   bool _isLoading = false;
@@ -16,10 +20,13 @@ class ItemsProvider with ChangeNotifier {
   Map<dynamic, String?> _reviewsError = {};
 
   // Search state
+  CatalogSearchResponse _catalogSearchResults = const CatalogSearchResponse();
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
   String? _searchError;
   String _lastSearchQuery = '';
+  int _searchRequestId = 0;
+  bool _disposed = false;
 
   // Category items state
   List<Map<String, dynamic>> _categoryItems = [];
@@ -37,6 +44,8 @@ class ItemsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get fromCache => _fromCache;
+
+  CatalogSearchResponse get catalogSearchResults => _catalogSearchResults;
 
   // Search getters
   List<Map<String, dynamic>> get searchResults => _searchResults;
@@ -101,7 +110,12 @@ class ItemsProvider with ChangeNotifier {
 
   /// Get a specific item by ID from cached items
   Map<String, dynamic>? getItemById(dynamic id) {
-    for (final source in [_items, _categoryItems, _searchResults, _onSaleItems]) {
+    for (final source in [
+      _items,
+      _categoryItems,
+      _searchResults,
+      _onSaleItems
+    ]) {
       for (final item in source) {
         if (item['id']?.toString() == id?.toString()) return item;
       }
@@ -117,16 +131,22 @@ class ItemsProvider with ChangeNotifier {
 
     try {
       final itemData = await _itemsService.fetchItemReviews(itemId.toString());
+      if (_disposed) return;
       if (itemData.isNotEmpty) {
         _itemReviews[itemId] = itemData;
         _reviewsError[itemId] = null;
+      } else {
+        _reviewsError[itemId] = 'Product details are unavailable';
       }
     } catch (e) {
+      if (_disposed) return;
       _reviewsError[itemId] = e.toString();
       print('Error fetching item reviews: $e');
     } finally {
-      _reviewsLoading[itemId] = false;
-      notifyListeners();
+      if (!_disposed) {
+        _reviewsLoading[itemId] = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -154,46 +174,77 @@ class ItemsProvider with ChangeNotifier {
     return [];
   }
 
-  /// Search items from API
+  /// Compatibility wrapper: grouped search state is updated atomically.
   Future<List<Map<String, dynamic>>> searchItems(String query,
+          {int limit = 20}) async =>
+      (await searchCatalog(query, limit: limit)).itemData;
+
+  Future<CatalogSearchResponse> searchCatalog(String query,
       {int limit = 20}) async {
+    final requestId = ++_searchRequestId;
     if (query.trim().length < 2) {
       _searchResults = [];
+      _catalogSearchResults = const CatalogSearchResponse();
       _isSearching = false;
       _searchError = null;
       _lastSearchQuery = '';
       notifyListeners();
-      return [];
+      return const CatalogSearchResponse();
     }
 
     _isSearching = true;
+    _searchResults = [];
+    _catalogSearchResults = const CatalogSearchResponse();
     _searchError = null;
     _lastSearchQuery = query;
     notifyListeners();
 
     try {
-      final results = await _itemsService.searchItems(query, limit: limit);
-      _searchResults = results;
+      final results = await _itemsService.searchCatalog(query, limit: limit);
+      if (_disposed || requestId != _searchRequestId)
+        return const CatalogSearchResponse();
+      _catalogSearchResults = results;
+      _searchResults = results.itemData;
       _searchError = null;
     } catch (e) {
+      if (_disposed || requestId != _searchRequestId)
+        return const CatalogSearchResponse();
       _searchError = e.toString();
       _searchResults = [];
+      _catalogSearchResults = const CatalogSearchResponse();
       print('Search error: $e');
     } finally {
-      _isSearching = false;
-      notifyListeners();
+      if (!_disposed && requestId == _searchRequestId) {
+        _isSearching = false;
+        notifyListeners();
+      }
     }
 
-    return _searchResults;
+    return _catalogSearchResults;
   }
 
   /// Clear search results
   void clearSearch() {
+    ++_searchRequestId;
+    _catalogSearchResults = const CatalogSearchResponse();
     _searchResults = [];
     _isSearching = false;
     _searchError = null;
     _lastSearchQuery = '';
     notifyListeners();
+  }
+
+  /// Invalidates in-flight work without notifying listeners during teardown.
+  void invalidateSearch() {
+    ++_searchRequestId;
+    _isSearching = false;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    ++_searchRequestId;
+    super.dispose();
   }
 
   /// Fetch items by category from API

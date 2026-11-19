@@ -12,22 +12,32 @@ import '../../constants/constants.dart';
 import '../../models/messageModel.dart';
 import '../../provider/message_provider.dart';
 import '../../services/message_service.dart';
+import '../../services/farms_service.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/farm_gamefowl_message_card.dart';
+import '../../widgets/gamefowl_icon.dart';
+import '../../widgets/conversation_avatar.dart';
 import 'messageProductPickerScreen.dart';
+import 'farmGamefowlMessagePickerScreen.dart';
 import 'productDetailScreen.dart';
+import 'farmGamefowlListingDetailScreen.dart';
 
 class ConversationScreen extends StatefulWidget {
   final dynamic conversationId;
   final dynamic shopId;
+  final dynamic farmId;
   final String? shopName;
+  final FarmsService? farmsService;
 
   const ConversationScreen({
     super.key,
     this.conversationId,
     this.shopId,
+    this.farmId,
     this.shopName,
+    this.farmsService,
   });
 
   @override
@@ -46,10 +56,35 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _didInitialLoad = false;
   int _lastMessageCount = 0;
   MessageProvider? _messageProvider;
+  late final FarmsService _farmsService;
+  final Map<String, Future<Map<String, dynamic>>> _farmListingFutures = {};
+
+  bool get _isFarmConversation =>
+      widget.farmId != null || _messageProvider?.activeThread?.farm != null;
+
+  String? _headerAvatarUrl(
+      ConversationThread? thread, MessageProvider provider) {
+    final entityAvatar = thread?.farm?.avatarUrl ?? thread?.shop?.avatarUrl;
+    if (entityAvatar != null) return entityAvatar;
+    final id = thread?.conversation.id ?? widget.conversationId;
+    for (final item in provider.conversations) {
+      if (item.id?.toString() == id?.toString() && item.avatarUrl != null) {
+        return item.avatarUrl;
+      }
+    }
+    return thread?.conversation.avatarUrl;
+  }
+
+  Future<Map<String, dynamic>> _farmListing(dynamic id) {
+    if (id == null) return Future.value(const <String, dynamic>{});
+    return _farmListingFutures.putIfAbsent(
+        id.toString(), () => _farmsService.fetchFarmGamefowlListing(id));
+  }
 
   @override
   void initState() {
     super.initState();
+    _farmsService = widget.farmsService ?? FarmsService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrap();
     });
@@ -69,6 +104,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
       success = await provider.loadConversation(widget.conversationId);
     } else if (widget.shopId != null) {
       success = await provider.startOrResumeConversation(shopId: widget.shopId);
+    } else if (widget.farmId != null) {
+      success = await provider.startOrResumeFarmConversation(
+        farmId: widget.farmId,
+        farmName: widget.shopName,
+      );
     } else {
       success = false;
       provider.clearActiveThread();
@@ -182,6 +222,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   void _openProductPicker() {
+    if (_isFarmConversation) return;
     setState(() => _attachMenuOpen = false);
     final shopId = widget.shopId ?? _messageProvider?.activeThread?.shop?.id;
     if (shopId == null) {
@@ -197,6 +238,29 @@ class _ConversationScreenState extends State<ConversationScreen> {
           shopId: shopId,
           conversationId: conversationId,
           shopName: widget.shopName,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) _scrollToBottom();
+    });
+  }
+
+  void _openFarmGamefowlPicker() {
+    setState(() => _attachMenuOpen = false);
+    final farmId = widget.farmId ?? _messageProvider?.activeThread?.farm?.id;
+    final conversationId = _messageProvider?.activeThread?.conversation.id ??
+        widget.conversationId;
+    if (farmId == null || conversationId == null) {
+      SnackbarHelper.showWarning(context, 'Farm conversation is still loading');
+      return;
+    }
+    Navigator.push(
+      context,
+      customerFadeRoute(
+        FarmGamefowlMessagePickerScreen(
+          farmId: farmId,
+          conversationId: conversationId,
+          farmsService: _farmsService,
         ),
       ),
     ).then((_) {
@@ -268,6 +332,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
         attachments: attachments,
       );
     }
+    if (widget.farmId != null) {
+      return provider.startOrResumeFarmConversation(
+        farmId: widget.farmId,
+        farmName: widget.shopName,
+        body: body,
+        attachments: attachments,
+      );
+    }
     return provider.startOrResumeConversation(
       shopId: widget.shopId,
       body: body,
@@ -293,7 +365,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final hasBody = body.isNotEmpty;
     final hasAttachments = attachments.isNotEmpty;
 
-    if (conversationId == null && widget.shopId == null) {
+    if (conversationId == null &&
+        widget.shopId == null &&
+        widget.farmId == null) {
       SnackbarHelper.showError(context, 'No conversation to send to');
       return;
     }
@@ -394,8 +468,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
     return Consumer<MessageProvider>(
       builder: (context, provider, _) {
         final thread = provider.activeThread;
-        final title = thread?.shopName.isNotEmpty == true
-            ? thread!.shopName
+        final title = thread?.displayName.isNotEmpty == true
+            ? thread!.displayName
             : (widget.shopName?.isNotEmpty == true ? widget.shopName! : 'Chat');
         final lastSeen = thread?.conversation.lastSeen ?? '';
         final isLoading = provider.isLoading && thread == null;
@@ -420,7 +494,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 statusBarIconBrightness: Brightness.dark,
                 statusBarBrightness: Brightness.light,
               ),
-              title: _buildHeader(title, lastSeen),
+              title: _buildHeader(
+                  title, lastSeen, _headerAvatarUrl(thread, provider)),
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(1),
                 child:
@@ -487,12 +562,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
         if (message.isDate) {
           return _buildDateSeparator(message);
         }
-        return _buildBubble(message);
+        return _buildBubble(message,
+            isFarmConversation: widget.farmId != null || thread?.farm != null);
       },
     );
   }
 
-  Widget _buildHeader(String title, String lastSeen) {
+  Widget _buildHeader(String title, String lastSeen, String? avatarUrl) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -515,10 +591,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          SvgPicture.asset(
-            'assets/icons/Store.svg',
-            width: 40,
-            height: 40,
+          ConversationAvatar(
+            avatarUrl: avatarUrl,
+            isFarm: _isFarmConversation,
+            size: 40,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -593,10 +669,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
     return value.contains('read') || value.contains('seen');
   }
 
-  Widget _buildBubble(MessageModel message) {
+  Widget _buildBubble(MessageModel message,
+      {required bool isFarmConversation}) {
     final mine = _isMine(message);
     final time = _formatMessageTime(message.time);
     final isProduct = message.isProduct && message.product != null;
+    final isFarmProduct = isFarmConversation && isProduct;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -654,7 +732,25 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   crossAxisAlignment:
                       mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    if (isProduct) _buildProductSnapshot(message.product!),
+                    if (isFarmProduct)
+                      FarmGamefowlMessageCard(
+                        product: message.product!,
+                        body: message.displayText,
+                        listingFuture: _farmListing(message.product!.listingId),
+                        onTap: message.product!.listingId == null
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  customerFadeRoute(
+                                    FarmGamefowlListingDetailScreen(
+                                      listingId: message.product!.listingId,
+                                      farmsService: _farmsService,
+                                    ),
+                                  ),
+                                ),
+                      )
+                    else if (isProduct)
+                      _buildProductSnapshot(message.product!),
                     if (message.attachments.isNotEmpty) ...[
                       if (isProduct) const SizedBox(height: 8),
                       ...message.attachments.map(
@@ -664,7 +760,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         ),
                       ),
                     ],
-                    if (message.displayText.isNotEmpty) ...[
+                    if (message.displayText.isNotEmpty && !isFarmProduct) ...[
                       if (isProduct || message.attachments.isNotEmpty)
                         const SizedBox(height: 8),
                       Text(
@@ -798,7 +894,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             Navigator.push(
                               context,
                               customerFadeRoute(
-                                ProductDetailScreen(productId: product.id),
+                                widget.farmId != null
+                                    ? FarmGamefowlListingDetailScreen(
+                                        listingId: product.id)
+                                    : ProductDetailScreen(
+                                        productId: product.id),
                               ),
                             );
                           },
@@ -994,15 +1094,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
                               ? null
                               : () => _onAttachAction(_pickFromCamera),
                         ),
-                        _buildAttachTile(
-                          icon: const Icon(
-                            Icons.shopping_bag_outlined,
-                            size: 24,
-                            color: iconGrey,
+                        if (_isFarmConversation)
+                          _buildAttachTile(
+                            icon: const GamefowlIcon(size: 24, color: iconGrey),
+                            label: 'Gamefowl',
+                            onTap: isSending ? null : _openFarmGamefowlPicker,
+                          )
+                        else
+                          _buildAttachTile(
+                            icon: const Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 24,
+                              color: iconGrey,
+                            ),
+                            label: 'Products',
+                            onTap: isSending ? null : _openProductPicker,
                           ),
-                          label: 'Products',
-                          onTap: isSending ? null : _openProductPicker,
-                        ),
                       ],
                     ),
                   )

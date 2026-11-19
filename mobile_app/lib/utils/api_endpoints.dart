@@ -32,9 +32,10 @@ class ApiEndpoints {
   static String get getItems => '$baseUrl/api/items';
   static String get getItemsRandom => '$baseUrl/api/items/random';
   static String get getItemReviews => '$baseUrl/api/items/{id}/reviews';
-  static String get getSearchItem => '$baseUrl/api/items/search';
+  static String get getSearchItem => '$baseUrl/api/search';
   static String get getItemsByCategory => '$baseUrl/api/items';
   static String get getItemsOnSale => '$baseUrl/api/items/on-sale';
+  
 
   // Order endpoints
   static String get createOrder => '$baseUrl/api/orders/create';
@@ -84,6 +85,27 @@ class ApiEndpoints {
   static String get checkZoneCoverage =>
       '$baseUrl/api/shops/check-zone-coverage';
 
+  // Featured endpoints (GET). Listed only; not called yet.
+  /// Products, Agrivet stores, and farms together.
+  static String get getFeatured => '$baseUrl/api/featured';
+
+  /// Featured products only.
+  static String get getFeaturedProducts => '$baseUrl/api/featured/products';
+
+  /// Featured Agrivet stores.
+  static String get getFeaturedAgrivetStores =>
+      '$baseUrl/api/featured/agrivet-stores';
+
+  /// Featured farms.
+  static String get getFeaturedFarms => '$baseUrl/api/featured/farms';
+
+  // Farm endpoints
+  static String get getFarms => '$baseUrl/api/farms';
+  static String get getFarmById => '$baseUrl/api/farms/{id}';
+  static String get getFarmListings => '$baseUrl/api/farms/{id}/listings';
+  static String get getFarmGamefowlListing =>
+      '$baseUrl/api/farm-gamefowl-listings/{id}';
+
   // Review endpoints
   static String get submitReview => '$baseUrl/api/shops/{id}/reviews';
 
@@ -110,11 +132,13 @@ class ApiEndpoints {
       '$baseUrl/api/messages/unread-count';
   static String get startShopConversation =>
       '$baseUrl/api/shops/{shopId}/messages';
+  static String get startFarmConversation =>
+      '$baseUrl/api/farms/{farmId}/messages';
   static String get getConversation => '$baseUrl/api/messages/{conversationId}';
   static String get sendMessage => '$baseUrl/api/messages/{conversationId}';
   static String get getShopMessageProducts =>
       '$baseUrl/api/shops/{shopId}/messages/products';
-  static String get broadcastingAuth => '$baseUrl/broadcasting/auth';
+  static String get broadcastingAuth => '$baseUrl/api/broadcasting/auth';
 
   // Badge endpoints
   static String get getBadges => '$baseUrl/api/badges';
@@ -147,4 +171,5 @@ class ApiEndpoints {
   static String get getLatestAppRelease => '$baseUrl/api/app-releases/latest';
   static String get downloadAppRelease =>
       '$baseUrl/api/app-releases/{release}/download';
+      
 }

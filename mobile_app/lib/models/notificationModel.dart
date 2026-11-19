@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../utils/manila_time.dart';
 
 /// Notification model for API responses
@@ -44,9 +46,9 @@ class NotificationModel {
       category: json['category'] as String? ?? 'general',
       title: json['title'] as String? ?? '',
       message: json['message'] as String? ?? '',
-      referenceType: json['reference_type'] as String?,
-      referenceId: json['reference_id'] as int?,
-      data: json['data'] as Map<String, dynamic>?,
+      referenceType: json['reference_type']?.toString(),
+      referenceId: _notificationInt(json['reference_id']),
+      data: _notificationMap(json['data']),
       read: json['read'] == true || json['read'] == 1,
       readAt: json['read_at'] != null
           ? ManilaTime.tryParseUtc(json['read_at'])
@@ -54,7 +56,7 @@ class NotificationModel {
       actionUrl: json['action_url'] as String?,
       createdAt: ManilaTime.parseUtc(json['created_at']),
       updatedAt: ManilaTime.parseUtc(json['updated_at']),
-      reference: json['reference'] as Map<String, dynamic>?,
+      reference: _notificationMap(json['reference']),
     );
   }
 
@@ -119,6 +121,52 @@ class NotificationModel {
   String toString() {
     return 'NotificationModel(id: $id, type: $type, title: $title, read: $read)';
   }
+}
+
+int? _notificationInt(dynamic raw) {
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  final text = raw?.toString().trim() ?? '';
+  if (text.isEmpty || text.toLowerCase() == 'null') return null;
+  return int.tryParse(text);
+}
+
+Map<String, dynamic>? _notificationMap(dynamic raw) {
+  var value = raw;
+  for (var attempt = 0; attempt < 2 && value is String; attempt++) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+    try {
+      value = jsonDecode(text);
+    } catch (_) {
+      return null;
+    }
+  }
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return null;
+}
+
+/// Order code carried on a notification, including JSON `data` and nested order detail.
+String? notificationOrderCode(NotificationModel notification) {
+  return _orderCodeIn(notification.data) ?? _orderCodeIn(notification.reference);
+}
+
+String? _orderCodeIn(dynamic raw) {
+  final map = _notificationMap(raw);
+  if (map == null) return null;
+  final direct = _cleanOrderCode(map['order_code']);
+  if (direct != null) return direct;
+  for (final key in ['order', 'order_detail', 'detail']) {
+    final nested = _orderCodeIn(map[key]);
+    if (nested != null) return nested;
+  }
+  return null;
+}
+
+String? _cleanOrderCode(dynamic raw) {
+  final code = raw?.toString().trim() ?? '';
+  if (code.isEmpty || code.toLowerCase() == 'null') return null;
+  return code;
 }
 
 /// Paginated response wrapper for notifications

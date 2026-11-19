@@ -128,6 +128,7 @@ class ShopsService extends ApiService {
               "average_rating": item['average_rating'],
               "total_reviews": item['total_reviews'] ?? 0,
               "sold_count": item['sold_count'] ?? 0,
+              ...discountFieldsFromItem(item),
             };
           }).toList();
         }

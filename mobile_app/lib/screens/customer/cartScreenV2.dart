@@ -11,6 +11,7 @@ import '../../utils/snackbar_helper.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'checkOutScreen.dart';
 import 'customerDashboardScreen.dart';
+import '../../utils/price_format.dart';
 
 class CartScreenV2 extends StatefulWidget {
   const CartScreenV2({super.key});
@@ -105,46 +106,22 @@ class _CartScreenV2State extends State<CartScreenV2> {
         shopData = zoneData.shops[shopIndex];
       }
 
-      final priceSnapshot =
-          CartItemPricing.parseDouble(cartItem['price_snapshot']);
-      final itemPrice = CartItemPricing.parseDouble(item['item_price']);
       final stock = int.tryParse(item['item_quantity'].toString()) ?? 0;
       final quantity = cartItem['quantity'] is int
           ? cartItem['quantity'] as int
           : int.tryParse(cartItem['quantity'].toString()) ?? 1;
 
-      double? discountedPrice;
-      if (cartItem['discounted_price'] != null) {
-        discountedPrice =
-            CartItemPricing.parseDouble(cartItem['discounted_price']);
-      }
-      final discountDetails = cartItem['discount_details'];
-      if (discountedPrice == null && discountDetails is Map) {
-        final nested = discountDetails['discounted_price'];
-        if (nested != null) {
-          discountedPrice = CartItemPricing.parseDouble(nested);
-        }
-      }
-
-      double? discountPercent;
-      if (discountDetails is Map &&
-          discountDetails['discount_percent'] != null) {
-        discountPercent =
-            CartItemPricing.parseDouble(discountDetails['discount_percent']);
-      }
-
       shopData.items.add(ItemData(
         id: cartItem['id'].toString(),
         itemId: (item['id'] ?? cartItem['item_id']).toString(),
         name: item['item_name']?.toString() ?? 'Unknown Item',
-        price: itemPrice,
-        priceSnapshot: priceSnapshot,
-        discountedPrice: discountedPrice,
-        discountStatus: cartItem['discount_status']?.toString(),
-        discountPercent: discountPercent,
+        pricing: CartItemPricing.fromCartMap(cartItem),
         stock: stock,
         quantity: quantity,
         imageUrl: resolveItemImageUrl(item['item_images']),
+        // `carts.id` is the cart-row ID required on each order item.
+        cartId: cartItem['id']?.toString(),
+
         isGamefowl: isGamefowl,
       ));
     }
@@ -416,25 +393,28 @@ class _CartScreenV2State extends State<CartScreenV2> {
         if (item.isSelected && item.isQuantityValid && !item.isGamefowl) {
           items.add({
             'id': int.tryParse(item.id) ?? item.id,
+            if (item.cartId != null)
+              'cart_id': int.tryParse(item.cartId!) ?? item.cartId,
             'item_id': int.tryParse(item.itemId) ?? item.itemId,
             'shop_id': int.tryParse(shop.id) ?? shop.id,
             'shop_name': shop.name,
             'quantity': item.quantity,
-            'price_snapshot': item.priceSnapshot.toStringAsFixed(2),
+            'price_snapshot': item.pricing.priceSnapshot.toStringAsFixed(2),
             'item_name': item.name,
-            'item_price': item.price.toStringAsFixed(2),
             'item_quantity': item.stock.toString(),
             'is_gamefowl': item.isGamefowl,
             if (item.imageUrl != null) 'item_images': item.imageUrl,
-            if (item.discountedPrice != null)
-              'discounted_price': item.discountedPrice!.toStringAsFixed(2),
-            if (item.discountStatus != null)
-              'discount_status': item.discountStatus,
-            if (item.discountPercent != null)
+            'discounted_price': item.pricing.unitPrice.toStringAsFixed(2),
+            'list_price': item.pricing.originalPrice.toStringAsFixed(2),
+            if (item.pricing.discountStatus != null)
+              'discount_status': item.pricing.discountStatus,
+            if (item.pricing.discountPercent != null)
               'discount_details': {
-                'discount_percent': item.discountPercent!.toStringAsFixed(2),
-                if (item.discountedPrice != null)
-                  'discounted_price': item.discountedPrice!.toStringAsFixed(2),
+                'discount_percent':
+                    item.pricing.discountPercent!.toStringAsFixed(2),
+                'discounted_price': item.pricing.unitPrice.toStringAsFixed(2),
+                'original_price':
+                    item.pricing.originalPrice.toStringAsFixed(2),
               },
           });
         }
@@ -461,11 +441,12 @@ class _CartScreenV2State extends State<CartScreenV2> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckOutScreen(selectedCartItems: selectedItems),
+        builder: (context) => CheckOutScreen(
+          selectedCartItems: selectedItems,
+        ),
       ),
     );
   }
-
   // ---------------------------------------------------------------------------
   // Build methods
   // ---------------------------------------------------------------------------
@@ -689,7 +670,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                   ),
                 ),
                 Text(
-                  '₱${subtotal.toStringAsFixed(2)}',
+                  formatPeso(subtotal),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -743,7 +724,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
                     const SizedBox(width: 8),
                     Text(
                       selectedCount > 0
-                          ? 'Checkout - ₱${subtotal.toStringAsFixed(2)}'
+                          ? 'Checkout - ${formatPeso(subtotal)}'
                           : 'Select items to checkout',
                       style: const TextStyle(
                         fontSize: 16,
@@ -997,7 +978,7 @@ class _CartScreenV2State extends State<CartScreenV2> {
               children: [
                 if (isValid)
                   Text(
-                    '₱${lineTotal.toStringAsFixed(2)}',
+                    formatPeso(lineTotal),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -1150,13 +1131,10 @@ class ShopData {
 
 class ItemData {
   final String id;
+  final String? cartId;
   final String itemId;
   final String name;
-  final double price;
-  final double priceSnapshot;
-  final double? discountedPrice;
-  final String? discountStatus;
-  final double? discountPercent;
+  final CartItemPricing pricing;
   final int stock;
   int quantity;
   bool isSelected;
@@ -1165,27 +1143,16 @@ class ItemData {
 
   ItemData({
     required this.id,
+    this.cartId,
     required this.itemId,
     required this.name,
-    required this.price,
-    required this.priceSnapshot,
-    this.discountedPrice,
-    this.discountStatus,
-    this.discountPercent,
+    required this.pricing,
     required this.stock,
     required this.quantity,
     this.isSelected = false,
     this.imageUrl,
     this.isGamefowl = false,
   });
-
-  CartItemPricing get pricing => CartItemPricing(
-        priceSnapshot: priceSnapshot,
-        itemPrice: price,
-        discountedPrice: discountedPrice,
-        discountStatus: discountStatus,
-        discountPercent: discountPercent,
-      );
 
   double get effectivePrice => pricing.effectivePrice;
 

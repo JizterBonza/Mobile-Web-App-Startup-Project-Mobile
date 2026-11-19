@@ -1,5 +1,6 @@
-/// Discount-related keys from an API item payload for product cards.
+/// Pricing and discount keys from an API item payload for product cards.
 Map<String, dynamic> discountFieldsFromItem(Map<String, dynamic> item) => {
+      'list_price': item['list_price'],
       'discount_percent': item['discount_percent'],
       'discount_type': item['discount_type'],
       'discount_expires_at': item['discount_expires_at'],

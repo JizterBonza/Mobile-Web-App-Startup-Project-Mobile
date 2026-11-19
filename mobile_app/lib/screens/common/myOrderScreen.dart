@@ -7,31 +7,46 @@ import '../../services/order_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/shops_service.dart';
 import '../../services/api_service.dart';
+import '../../services/farm_checkout_service.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/media_url.dart';
 import '../../widgets/order/order_helpers.dart';
 import '../../widgets/order/order_status_navigation.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/farm_pending_payments.dart';
+import '../../models/customer_order_entry.dart';
+import '../../models/farm_checkout.dart';
+import '../../provider/customer_farm_orders.dart';
+import '../../widgets/order/farm_order_widgets.dart';
+import '../customer/gamefowlCheckoutScreen.dart';
+import 'farmOrderDetailsScreen.dart';
 import 'orderDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class MyOrderScreen extends StatefulWidget {
   final bool showCustomerBottomNav;
+  final FarmCheckoutService? farmCheckoutService;
 
-  const MyOrderScreen({super.key, this.showCustomerBottomNav = false});
+  const MyOrderScreen({
+    super.key,
+    this.showCustomerBottomNav = false,
+    this.farmCheckoutService,
+  });
 
   @override
   State<MyOrderScreen> createState() => _MyOrderScreenState();
 }
 
 class _MyOrderScreenState extends State<MyOrderScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final OrderService _orderService = OrderService();
   final ShopsService _shopsService = ShopsService();
   bool _isCancelling = false;
   bool _isGuest = true;
   Map<String, String> _paymentMethodNames = {};
+  late final CustomerFarmOrders _farms;
 
   final List<Map<String, dynamic>> _statusTabs = [
     {
@@ -74,6 +89,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _farms = CustomerFarmOrders(service: widget.farmCheckoutService)
+      ..addListener(_farmChanged);
     _tabController = TabController(length: _statusTabs.length, vsync: this);
     _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -91,6 +109,18 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       await orderStatusProvider.fetchAndCacheOrderStatuses();
     } catch (e) {
       print('Error loading order statuses: $e');
+    }
+  }
+
+  void _farmChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      _loadOrders(useCache: false);
     }
   }
 
@@ -117,6 +147,9 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _farms.removeListener(_farmChanged);
+    _farms.dispose();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
@@ -124,7 +157,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
 
   Future<void> _loadOrders({bool useCache = true}) async {
     final ordersProvider = Provider.of<OrdersProvider>(context, listen: false);
-    await ordersProvider.fetchOrders(useCache: useCache);
+    await Future.wait(
+        [ordersProvider.fetchOrders(useCache: useCache), _farms.load()]);
   }
 
   Future<void> _onRefresh() async {
@@ -226,21 +260,7 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     return dateString;
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0';
-    try {
-      final parsed =
-          price is num ? price.toDouble() : double.tryParse(price.toString());
-      if (parsed == null) return '₱0';
-      if (parsed == parsed.roundToDouble()) {
-        return '₱${parsed.toStringAsFixed(0)}';
-      }
-      return '₱${parsed.toStringAsFixed(2)}';
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0';
-  }
+  String _formatPrice(dynamic price) => formatPeso(price);
 
   /// Reads zone title from order_shops[].shop.zone.name
   String _resolveZoneTitle(Map<String, dynamic> order) {
@@ -735,27 +755,55 @@ class _MyOrderScreenState extends State<MyOrderScreen>
           ),
         ),
       ),
-      body: Consumer<OrdersProvider>(
-        builder: (context, ordersProvider, child) {
-          return TabBarView(
-            controller: _tabController,
-            children: _statusTabs.map((tab) {
-              if (ordersProvider.isLoading && ordersProvider.orders.isEmpty) {
-                return _buildLoadingState();
-              }
-              final filteredOrders = _filterOrdersByStatus(
-                ordersProvider.orders,
-                tab['status'] as String?,
-              );
-              return _buildOrdersList(
-                filteredOrders,
-                ordersProvider.error,
-                isPickup: tab['status'] == 'to-pickup',
-              );
-            }).toList(),
-          );
-        },
-      ),
+      body: Column(children: [
+        if (_farms.recovery?['body'] is Map)
+          FarmOrderRecoveryNotice(onContinue: _recoverSubmission),
+        if (_farms.error != null && !_isGuest)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(children: [
+                Expanded(
+                    child: Text(
+                        'Farm orders could not be refreshed. ${_farms.error}')),
+                TextButton(
+                    onPressed: _farms.loading ? null : _farms.load,
+                    child: const Text('Retry farm orders')),
+              ])),
+        Expanded(child:
+            Consumer<OrdersProvider>(builder: (context, ordersProvider, child) {
+          final entries = _farms.merge(ordersProvider.orders);
+          return Column(children: [
+            if (entries.isNotEmpty &&
+                (ordersProvider.error != null || ordersProvider.fromCache))
+              Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text('Item orders could not be refreshed.'),
+                        TextButton(
+                            onPressed: () => _loadOrders(useCache: false),
+                            child: const Text('Retry item orders'))
+                      ])),
+            Expanded(
+                child: TabBarView(
+                    controller: _tabController,
+                    children: _statusTabs.map((tab) {
+                      if (entries.isEmpty &&
+                          (ordersProvider.isLoading || _farms.loading)) {
+                        return _buildLoadingState();
+                      }
+                      return _buildOrdersList(
+                          _filterFeed(entries, tab['status'] as String?),
+                          ordersProvider.error,
+                          isPickup: tab['status'] == 'to-pickup');
+                    }).toList())),
+          ]);
+        })),
+      ]),
       bottomNavigationBar: widget.showCustomerBottomNav
           ? buildCustomerBottomNavigationBar(
               context: context,
@@ -770,11 +818,87 @@ class _MyOrderScreenState extends State<MyOrderScreen>
     );
   }
 
+  String _farmStatus(CustomerOrderEntry entry) {
+    // Farm fulfillment can advance independently of the shared order status.
+    final status = farmText(entry.farm?.data['status']);
+    if (status.isNotEmpty) return status.replaceAll('_', ' ');
+
+    final raw = entry.basic?['order_status'];
+    final statusId = int.tryParse(raw?.toString() ?? '');
+    final resolved = statusId == null
+        ? null
+        : context
+            .read<OrderStatusProvider>()
+            .getOrderStatusDescription(statusId);
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    if (raw != null && statusId == null && raw.toString().trim().isNotEmpty) {
+      return raw.toString();
+    }
+    return 'Status unavailable';
+  }
+
+  List<CustomerOrderEntry> _filterFeed(
+      List<CustomerOrderEntry> entries, String? status) {
+    if (status == null) return entries;
+    String normalized(String value) =>
+        value.trim().toLowerCase().replaceAll(RegExp(r'[-_]'), ' ');
+    return entries.where((entry) {
+      if (entry.kind != CustomerOrderKind.farm) {
+        return entry.basic != null &&
+            _filterOrdersByStatus([entry.basic!], status).isNotEmpty;
+      }
+      final current = normalized(_farmStatus(entry));
+      final pickup = entry.farm?.data['fulfillment_method'] == 'pickup' &&
+          ['ready for delivery', 'ready for pickup', 'to pickup']
+              .contains(current);
+      if (status == 'to-pickup') return pickup;
+      if (status == 'in-transit') {
+        return !pickup &&
+            ['in transit', 'ready for delivery'].contains(current);
+      }
+      return normalized(status) == current;
+    }).toList();
+  }
+
+  Future<void> _openFarm(CustomerOrderEntry entry,
+      {bool payment = false}) async {
+    final id = farmInt(entry.id);
+    if (id <= 0) return;
+    if (payment) {
+      await Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => GamefowlCheckoutScreen(
+                  orderId: id, service: _farms.service)));
+    } else {
+      await Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => FarmOrderDetailsScreen(
+                    orderId: id,
+                    initialOrder: entry.farm,
+                    service: _farms.service,
+                    onUpdated: (order) {
+                      if (mounted) _farms.update(order);
+                    },
+                  )));
+    }
+    if (mounted) await _loadOrders(useCache: false);
+  }
+
+  Future<void> _recoverSubmission() async {
+    await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => GamefowlCheckoutScreen(service: _farms.service)));
+    if (mounted) await _loadOrders(useCache: false);
+  }
+
   Widget _buildLoadingState() {
     return const OrderListSkeleton();
   }
 
-  Widget _buildOrdersList(List<Map<String, dynamic>> orders, String? error,
+  Widget _buildOrdersList(List<CustomerOrderEntry> orders, String? error,
       {bool isPickup = false}) {
     if (orders.isEmpty) {
       return _buildEmptyState(error, isPickup: isPickup);
@@ -787,7 +911,36 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         padding: EdgeInsets.all(16),
         itemCount: orders.length,
         itemBuilder: (context, index) {
-          return _buildOrderCard(orders[index]);
+          final entry = orders[index];
+          if (entry.kind == CustomerOrderKind.farm) {
+            return FarmOrderCard(
+                key: ValueKey('farm-order-${entry.id}'),
+                entry: entry,
+                status: _farmStatus(entry),
+                onOpen: () => _openFarm(entry),
+                onContinue: () => _openFarm(entry, payment: true),
+                onLoad: (retry) =>
+                    _farms.ensureDetails(farmInt(entry.id), retry: retry));
+          }
+          if (entry.kind == CustomerOrderKind.unavailable) {
+            return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('No: ${entry.code}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          const Text('Order item details are unavailable.'),
+                          TextButton(
+                              onPressed: () => _loadOrders(useCache: false),
+                              child: const Text('Retry order details')),
+                        ])));
+          }
+          return _buildOrderCard(entry.basic!);
         },
       ),
     );
@@ -800,7 +953,8 @@ class _MyOrderScreenState extends State<MyOrderScreen>
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
         child: Container(
-          height: MediaQuery.of(context).size.height * 0.6,
+          constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height * 0.6),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -952,10 +1106,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         final itemsSubtotal = orderItems.fold<double>(0, (sum, raw) {
           if (raw is! Map) return sum;
           final nestedItem = raw['item'] as Map<String, dynamic>?;
-          final price = raw['price'] ??
+          final price = raw['price_at_purchase'] ??
+              raw['price'] ??
+              nestedItem?['effective_price'] ??
               raw['item_price'] ??
               nestedItem?['item_price'] ??
-              raw['price_at_purchase'] ??
               0;
           final qty = int.tryParse(raw['quantity']?.toString() ?? '1') ?? 1;
           final unit = price is num
@@ -1012,10 +1167,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   final groupCount = items.length;
                   final groupSubtotal = items.fold<double>(0, (sum, raw) {
                     final nestedItem = raw['item'] as Map<String, dynamic>?;
-                    final price = raw['price'] ??
+                    final price = raw['price_at_purchase'] ??
+                        raw['price'] ??
+                        nestedItem?['effective_price'] ??
                         raw['item_price'] ??
                         nestedItem?['item_price'] ??
-                        raw['price_at_purchase'] ??
                         0;
                     final qty =
                         int.tryParse(raw['quantity']?.toString() ?? '1') ?? 1;
@@ -1146,54 +1302,73 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (canCancel)
-                      TextButton(
-                        onPressed:
-                            _isCancelling ? null : () => _cancelOrder(orderId),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.error,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (canCancel)
+                        TextButton(
+                          onPressed: _isCancelling
+                              ? null
+                              : () => _cancelOrder(orderId),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                          child: _isCancelling
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.error,
+                                  ),
+                                )
+                              : const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                        ),
+                      if (isDelivered)
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _showRateOrderDialog(
+                              orderId,
+                              shopId,
+                              orderItems,
+                            );
+                          },
+                          icon: const Icon(Icons.star_rounded, size: 18),
+                          label: const Text(
+                            'Rate',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentAmber,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
                           ),
                         ),
-                        child: _isCancelling
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.error,
-                                ),
-                              )
-                            : const Text(
-                                'Cancel',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                      ),
-                    if (canCancel) const SizedBox(width: 8),
-                    if (isDelivered)
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          _showRateOrderDialog(
-                            orderId,
-                            shopId,
-                            orderItems,
-                          );
-                        },
-                        icon: const Icon(Icons.star_rounded, size: 18),
-                        label: const Text(
-                          'Rate',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
+                      ElevatedButton(
+                        onPressed: () => _openOrderDetails(order),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accentAmber,
+                          backgroundColor: AppColors.brandPrimary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                            horizontal: 20,
                             vertical: 10,
                           ),
                           shape: RoundedRectangleBorder(
@@ -1201,28 +1376,13 @@ class _MyOrderScreenState extends State<MyOrderScreen>
                           ),
                           elevation: 0,
                         ),
-                      ),
-                    if (isDelivered) const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => _openOrderDetails(order),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.brandPrimary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                        child: const Text(
+                          'View Details',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 0,
                       ),
-                      child: const Text(
-                        'View Details',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1239,10 +1399,11 @@ class _MyOrderScreenState extends State<MyOrderScreen>
         item['name']?.toString() ??
         'Unknown Item';
     final quantity = item['quantity']?.toString() ?? '1';
-    final price = item['price'] ??
+    final price = item['price_at_purchase'] ??
+        item['price'] ??
+        nestedItem?['effective_price'] ??
         item['item_price'] ??
         nestedItem?['item_price'] ??
-        item['price_at_purchase'] ??
         0;
     final variant = _itemVariantLabel(item);
     final imageUrl = _itemImageUrl(item);

@@ -88,10 +88,11 @@ class OrderItemsWidget extends StatelessWidget {
         item['name']?.toString() ??
         'Unknown Item';
     final quantity = item['quantity']?.toString() ?? '1';
-    final price = item['price'] ??
+    final price = item['price_at_purchase'] ??
+        item['price'] ??
+        nestedItem?['effective_price'] ??
         item['item_price'] ??
         nestedItem?['item_price'] ??
-        item['price_at_purchase'] ??
         0;
     final imageUrl = resolveItemImageUrl(
       nestedItem?['item_images'] ?? item['item_images'],

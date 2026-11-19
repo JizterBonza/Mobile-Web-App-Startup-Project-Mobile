@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
 import '../../utils/manila_time.dart';
 import '../../widgets/empty_state_widget.dart';
+import '../../widgets/conversation_avatar.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'conversationScreen.dart';
 
@@ -132,6 +133,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ConversationScreen(
           conversationId: conversation.id,
           shopId: conversation.shopId,
+          farmId: conversation.farmId,
           shopName: conversation.shopName,
         ),
       ),
@@ -189,8 +191,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   children: [
                     SizedBox(
                       height: MediaQuery.of(context).size.height - 220,
-                      child: const EmptyStateWidget(
-                        icon: Icons.chat_bubble_outline,
+                      child: EmptyStateWidget(
+                        iconWidget: SvgPicture.asset(
+                          'assets/icons/chat.svg',
+                          width: 64,
+                          height: 64,
+                          colorFilter: ColorFilter.mode(
+                              Colors.grey[400]!, BlendMode.srcIn),
+                        ),
                         message: 'No conversations yet',
                         subtitle: 'Message a shop to start a conversation',
                       ),
@@ -324,10 +332,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            SvgPicture.asset(
-              'assets/icons/Store.svg',
-              width: 52,
-              height: 52,
+            ConversationAvatar(
+              avatarUrl: conversation.avatarUrl,
+              isFarm: conversation.farmId != null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -337,7 +344,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   Text(
                     conversation.shopName.isNotEmpty
                         ? conversation.shopName
-                        : 'Shop',
+                        : (conversation.farmId != null ? 'Farm' : 'Shop'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

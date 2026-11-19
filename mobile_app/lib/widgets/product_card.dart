@@ -7,6 +7,7 @@ import '../provider/category_provider.dart';
 import '../screens/customer/productDetailScreen.dart';
 import '../utils/manila_time.dart';
 import '../utils/media_url.dart';
+import '../utils/price_format.dart';
 
 /// Reusable marketplace product card.
 ///
@@ -53,12 +54,7 @@ class ProductCard extends StatelessWidget {
     return int.tryParse(raw) != null ? '' : raw;
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    if (price is num) return '₱${price.toStringAsFixed(2)}';
-    final parsed = double.tryParse(price.toString());
-    return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-  }
+  String _formatPrice(dynamic price) => formatPeso(price);
 
   DateTime? _parseDiscountExpiresAt() {
     final raw = product['discount_expires_at'];
@@ -100,7 +96,8 @@ class ProductCard extends StatelessWidget {
 
     final name = (product['item_name'] ?? product['name'] ?? 'Unknown Product')
         .toString();
-    final originalPrice = product['item_price'] ?? product['price'];
+    final originalPrice =
+        product['list_price'] ?? product['item_price'] ?? product['price'];
     final effectivePrice = product['effective_price'] ?? originalPrice;
 
     return Container(

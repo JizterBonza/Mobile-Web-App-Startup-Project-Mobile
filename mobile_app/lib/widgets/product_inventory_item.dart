@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
+import '../utils/price_format.dart';
 
 class ProductInventoryItem extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -119,7 +120,7 @@ class ProductInventoryItem extends StatelessWidget {
                       ],
                     ),
                     Text(
-                      '₱${(product['price'] ?? 0.0).toStringAsFixed(2)}',
+                      formatPeso(product['price']),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

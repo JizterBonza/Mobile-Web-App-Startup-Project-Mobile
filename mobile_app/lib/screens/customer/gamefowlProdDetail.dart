@@ -4,12 +4,20 @@ import 'package:provider/provider.dart';
 import '../../constants/constants.dart';
 import '../../provider/provider.dart';
 import '../../services/shops_service.dart';
+import '../../services/cart_services.dart';
+import '../../services/api_service.dart';
+import '../../utils/auth_guard.dart';
+import '../../utils/item_display_price.dart';
+import 'InquiryChat.dart';
+import 'checkOutScreen.dart';
+import 'gamefowlOrderReq.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
+import '../../widgets/order_request_confirmation_dialog.dart';
 import 'gamefowlListing.dart';
-
+import '../../utils/price_format.dart';
 
 class gamefowlProdDetail extends StatefulWidget {
   final dynamic productId;
@@ -31,6 +39,10 @@ class gamefowlProdDetail extends StatefulWidget {
 
 class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   int _selectedImageIndex = 0;
+  int _quantity = 1;
+  bool _isAddingToCart = false;
+  bool _isBuyingNow = false;
+  bool _isConfirmingOrder = false;
   bool _showAllReviews = false;
   final ShopsService _shopsService = ShopsService();
 
@@ -60,12 +72,10 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
       _ensureShopLoaded(shopId);
     });
-
   }
 
   dynamic _resolveShopId(Map<String, dynamic>? product) {
-    if (widget.shopId != null &&
-        widget.shopId.toString().trim().isNotEmpty) {
+    if (widget.shopId != null && widget.shopId.toString().trim().isNotEmpty) {
       return widget.shopId;
     }
 
@@ -168,9 +178,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     if (product == null) return const [];
 
     final rawImages =
-        product['item_images'] ??
-        product['images'] ??
-        product['image_urls'];
+        product['item_images'] ?? product['images'] ?? product['image_urls'];
 
     final urls = <String>[];
 
@@ -197,8 +205,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     }
 
     if (urls.isEmpty) {
-      final singleImage =
-          product['image_url'] ??
+      final singleImage = product['image_url'] ??
           product['image'] ??
           product['product_image'] ??
           product['item_image'] ??
@@ -323,8 +330,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               first['file_path'] ??
               first['image'];
 
-          if (nestedValue is String &&
-              nestedValue.trim().isNotEmpty) {
+          if (nestedValue is String && nestedValue.trim().isNotEmpty) {
             final resolved = _resolveMediaUrl(nestedValue);
 
             if (resolved != null) {
@@ -375,6 +381,11 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
+  int _parseStock(dynamic stock) {
+    if (stock is num) return stock.toInt();
+    return int.tryParse(stock?.toString() ?? '') ?? 0;
+  }
+
   double _parsePrice(dynamic price) {
     if (price == null) return 0.0;
 
@@ -415,20 +426,13 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
 
     final totalRating = reviews.fold<double>(
       0.0,
-      (sum, review) =>
-          sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
+      (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
     );
 
     return totalRating / reviews.length;
   }
 
-  String _formatDisplayPrice(double price) {
-    if (price == price.roundToDouble()) {
-      return '₱${price.toStringAsFixed(0)}';
-    }
-
-    return '₱${price.toStringAsFixed(2)}';
-  }
+  String _formatDisplayPrice(double price) => formatPeso(price);
 
   String _resolveCategoryName(
     BuildContext context,
@@ -577,27 +581,29 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     final gamefowlAge = _resolveGamefowlAge(product);
     final productName = gamefowlName;
 
+    final displayPrice = ItemDisplayPrice.fromItem(product);
+    final regularPrice = displayPrice.strikethrough;
     final productPrice = _parsePrice(
-      product?['item_price'] ??
-          product?['price'] ??
+      displayPrice.price ??
           product?['selling_price'] ??
           product?['product_price'] ??
           product?['amount'],
     );
+    final productStock = int.tryParse(
+          (product?['item_quantity'] ?? product?['stock'] ?? 0).toString(),
+        ) ??
+        0;
 
-    final productDescription = (
-      product?['item_description'] ??
-          product?['description'] ??
-          product?['product_description'] ??
-          ''
-    ).toString();
+    final productDescription = (product?['item_description'] ??
+            product?['description'] ??
+            product?['product_description'] ??
+            '')
+        .toString();
 
     final images = _resolveProductImages(product);
 
     final soldCount = _parseSoldCount(
-      product?['sold_count'] ??
-          product?['sold'] ??
-          product?['sales_count'],
+      product?['sold_count'] ?? product?['sold'] ?? product?['sales_count'],
     );
 
     final shopId = widget.shopId ?? _resolveShopId(product);
@@ -653,13 +659,27 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                                 const Padding(
                                   padding: EdgeInsets.only(bottom: 2),
                                   child: Text(
-                                    '/per head',
+                                    '/per bird',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Color(0xFF777777),
                                     ),
                                   ),
                                 ),
+                                if (regularPrice != null) ...[
+                                  const SizedBox(width: 6),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Text(
+                                      _formatDisplayPrice(regularPrice),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9A9A9A),
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 const Spacer(),
                                 Text(
                                   '$soldCount sold',
@@ -699,6 +719,27 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                               shopId: shopId,
                               shopName: _getShopDisplayName(),
                             ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: ElevatedButton.icon(
+                                onPressed: productStock > 0 && !_isBuyingNow
+                                    ? () => _handleInquiry(shopId)
+                                    : null,
+                                icon: const Icon(Icons.help, size: 18),
+                                label: const Text('Inquire'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF29479A),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      const Color(0xFF29479A).withOpacity(0.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -709,7 +750,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               ],
             ),
           ),
-          _buildBottomActionBar(),
+          _buildBottomActionBar(productPrice, productStock > 0, shopId),
         ],
       ),
     );
@@ -808,9 +849,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
             width: selected ? 18 : 7,
             height: 7,
             decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.brandPrimary
-                  : Colors.grey[300],
+              color: selected ? AppColors.brandPrimary : Colors.grey[300],
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -841,9 +880,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.brandPrimaryDark
-                      : Colors.white,
+                  color: selected ? AppColors.brandPrimaryDark : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: selected
@@ -896,20 +933,20 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     required dynamic shopId,
     required String shopName,
   }) {
-    final address = (
-      _shopDetails?['shop_address'] ??
-          _shopDetails?['address'] ??
-          _shopDetails?['store_address'] ??
-          ''
-    ).toString().trim();
+    final address = (_shopDetails?['shop_address'] ??
+            _shopDetails?['address'] ??
+            _shopDetails?['store_address'] ??
+            '')
+        .toString()
+        .trim();
 
-    final contact = (
-      _shopDetails?['contact_number'] ??
-          _shopDetails?['phone'] ??
-          _shopDetails?['phone_number'] ??
-          _shopDetails?['mobile_number'] ??
-          ''
-    ).toString().trim();
+    final contact = (_shopDetails?['contact_number'] ??
+            _shopDetails?['phone'] ??
+            _shopDetails?['phone_number'] ??
+            _shopDetails?['mobile_number'] ??
+            '')
+        .toString()
+        .trim();
 
     return Material(
       color: Colors.white,
@@ -1122,9 +1159,8 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   }
 
   Widget _buildDescriptionSection(String description) {
-    final text = description.trim().isEmpty
-        ? 'No description available.'
-        : description;
+    final text =
+        description.trim().isEmpty ? 'No description available.' : description;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1176,17 +1212,13 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
   Widget _buildReviewsSection() {
     return Consumer<ItemsProvider>(
       builder: (context, itemsProvider, child) {
-        final reviewsData =
-            itemsProvider.getItemReviews(widget.productId);
+        final reviewsData = itemsProvider.getItemReviews(widget.productId);
 
-        final isLoading =
-            itemsProvider.isReviewsLoading(widget.productId);
+        final isLoading = itemsProvider.isReviewsLoading(widget.productId);
 
-        final error =
-            itemsProvider.getReviewsError(widget.productId);
+        final error = itemsProvider.getReviewsError(widget.productId);
 
-        final reviews =
-            itemsProvider.getReviewsList(widget.productId);
+        final reviews = itemsProvider.getReviewsList(widget.productId);
 
         double averageRating = 0.0;
 
@@ -1384,9 +1416,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
               const SizedBox(height: 16),
               ...(_showAllReviews || reviews.length <= 3
                   ? reviews.map((review) => _buildReviewCard(review))
-                  : reviews
-                      .take(3)
-                      .map((review) => _buildReviewCard(review))),
+                  : reviews.take(3).map((review) => _buildReviewCard(review))),
             ],
           ],
         );
@@ -1462,8 +1492,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     final rating = (review['rating'] as num?)?.toDouble() ?? 0.0;
     final comment = (review['comment'] ?? '').toString();
 
-    final verified =
-        review['verified'] == true || review['verified'] == 'true';
+    final verified = review['verified'] == true || review['verified'] == 'true';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1482,8 +1511,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor:
-                    AppColors.brandPrimary.withOpacity(0.2),
+                backgroundColor: AppColors.brandPrimary.withOpacity(0.2),
                 child: Text(
                   username.isNotEmpty ? username[0].toUpperCase() : 'A',
                   style: TextStyle(
@@ -1633,7 +1661,7 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '₱${(199.99 + index * 50).toStringAsFixed(2)}',
+                            formatPeso(199.99 + index * 50),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1653,14 +1681,492 @@ class _gamefowlProdDetailState extends State<gamefowlProdDetail> {
     );
   }
 
-  Widget _buildBottomActionBar() {
-    return const SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: Text('Gamefowl is available to view only')),
+  /// Resolves the catalog item ID used by the cart API.
+  /// The generic `id` is only considered from a product record, never from a cart line.
+  int? _getCartItemId() {
+    Map<String, dynamic>? product = widget.productData;
+    product ??= Provider.of<ItemsProvider>(
+      context,
+      listen: false,
+    ).getItemById(widget.productId);
+    if (product == null) return null;
+
+    int? parsePositive(dynamic value) {
+      if (value == null) return null;
+      final parsed =
+          value is num ? value.toInt() : int.tryParse(value.toString().trim());
+      return parsed != null && parsed > 0 ? parsed : null;
+    }
+
+    final item = product['item'] is Map
+        ? Map<String, dynamic>.from(product['item'] as Map)
+        : <String, dynamic>{};
+    final nestedProduct = product['product'] is Map
+        ? Map<String, dynamic>.from(product['product'] as Map)
+        : <String, dynamic>{};
+
+    final candidates = <dynamic>[
+      product['item_id'],
+      product['product_item_id'],
+      product['catalog_item_id'],
+      item['item_id'],
+      item['id'],
+      nestedProduct['item_id'],
+      nestedProduct['id'],
+    ];
+
+    for (final candidate in candidates) {
+      final id = parsePositive(candidate);
+      if (id != null) return id;
+    }
+
+    // The detail page's productId is the lookup key passed to ItemsProvider.
+    // Use it only after confirming a product record was resolved.
+    final resolvedLookupId = parsePositive(widget.productId);
+    if (resolvedLookupId != null) return resolvedLookupId;
+
+    // Last resort: some item endpoints serialize the database item primary key as `id`.
+    // Avoid IDs that explicitly identify a cart row or a listing wrapper.
+    final looksLikeProduct = product.containsKey('item_name') ||
+        product.containsKey('item_price') ||
+        product.containsKey('product_name') ||
+        product.containsKey('selling_price');
+    if (looksLikeProduct &&
+        !product.containsKey('cart_item_id') &&
+        !product.containsKey('cart_id') &&
+        !product.containsKey('listing_id')) {
+      return parsePositive(product['id']);
+    }
+    return null;
+  }
+
+  void _showInvalidItemIdMessage() {
+    if (!mounted) return;
+    SnackbarHelper.showError(
+      context,
+      'This gamefowl listing has no valid item ID. Please refresh the listing or check the product data.',
+    );
+  }
+
+  Future<Map<String, dynamic>?> _findCartLine(
+    CartService cartService,
+    String userId,
+    int itemId,
+  ) async {
+    final items = await cartService.fetchCartItemsFromAPI(userId);
+    for (final item in items) {
+      if (item['item_id']?.toString() == itemId.toString()) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _handleAddToCart(double price) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+    if (!await requireAuth(context)) return;
+
+    final itemId = _getCartItemId();
+    if (itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+    if (price <= 0) {
+      SnackbarHelper.showError(context, 'This gamefowl has an invalid price.');
+      return;
+    }
+
+    setState(() => _isAddingToCart = true);
+    try {
+      final userId = await ApiService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          SnackbarHelper.showError(
+              context, 'Please login again to use your cart.');
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      final existingLine = await _findCartLine(cartService, userId, itemId);
+      if (existingLine != null) {
+        final lineId = existingLine['cart_item_id'] ?? existingLine['id'];
+        if (lineId != null) {
+          final update = await cartService.updateCart(
+            cartItemId: lineId,
+            quantity: _quantity,
+          );
+          if (update['success'] != true) {
+            if (mounted) {
+              SnackbarHelper.showError(
+                context,
+                update['message']?.toString() ??
+                    'Could not update the item in your crate.',
+              );
+            }
+            return;
+          }
+        }
+        if (mounted) {
+          context.read<BadgeProvider>().fetchBadges();
+          SnackbarHelper.showSuccess(
+            context,
+            'This gamefowl is already in your crate.',
+            duration: const Duration(seconds: 2),
+          );
+        }
+        return;
+      }
+
+      final result = await cartService.addToCart(
+        userId: userId,
+        itemId: itemId.toString(),
+        price: price,
+        quantity: _quantity,
+      );
+      if (!mounted) return;
+      if (result['success'] == true) {
+        context.read<BadgeProvider>().fetchBadges();
+        SnackbarHelper.showSuccess(
+          context,
+          result['message']?.toString() ?? 'Added $_quantity item(s) to crate.',
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        SnackbarHelper.showError(
+          context,
+          result['message']?.toString() ?? 'Failed to add gamefowl to crate.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(context, 'Error adding to crate: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isAddingToCart = false);
+    }
+  }
+
+  Future<void> _handleBuyNow(double price) async {
+    if (_isBuyingNow || _isAddingToCart) {
+      return;
+    }
+
+    if (!await requireAuth(context)) {
+      return;
+    }
+
+    final itemId = _getCartItemId();
+
+    if (itemId == null) {
+      _showInvalidItemIdMessage();
+      return;
+    }
+
+    setState(() {
+      _isBuyingNow = true;
+    });
+
+    try {
+      final userId = await ApiService.getUserId();
+
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isBuyingNow = false;
+          });
+        }
+        return;
+      }
+
+      final cartService = CartService();
+      final productIdStr = itemId.toString();
+
+      var cartItems = await cartService.fetchCartItemsFromAPI(userId);
+
+      Map<String, dynamic>? cartLine;
+
+      for (final item in cartItems) {
+        if (item['item_id']?.toString() == productIdStr) {
+          cartLine = item;
+          break;
+        }
+      }
+
+      if (cartLine != null) {
+        final result = await cartService.updateCart(
+          cartItemId: cartLine['id'],
+          quantity: _quantity,
+        );
+
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          SnackbarHelper.showError(
+            context,
+            result['message'] ?? 'Failed to prepare checkout',
+          );
+          return;
+        }
+
+        cartLine = Map<String, dynamic>.from(cartLine);
+        cartLine['quantity'] = _quantity;
+      } else {
+        final result = await cartService.addToCart(
+          userId: userId,
+          itemId: productIdStr,
+          price: price,
+          quantity: _quantity,
+        );
+
+        if (!mounted) return;
+
+        if (result['success'] != true) {
+          SnackbarHelper.showError(
+            context,
+            result['message'] ?? 'Failed to prepare checkout',
+          );
+          return;
+        }
+
+        cartItems = await cartService.fetchCartItemsFromAPI(userId);
+
+        for (final item in cartItems) {
+          if (item['item_id']?.toString() == productIdStr) {
+            cartLine = item;
+            break;
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      if (cartLine == null) {
+        SnackbarHelper.showError(
+          context,
+          'Could not find item in cart for checkout',
+        );
+        return;
+      }
+
+      final nestedCart = cartLine['cart'] is Map
+          ? Map<String, dynamic>.from(cartLine['cart'] as Map)
+          : <String, dynamic>{};
+      final rawCartId = cartLine['cart_id'] ??
+          cartLine['cartId'] ??
+          nestedCart['id'] ??
+          nestedCart['cart_id'];
+      final checkoutCartId = int.tryParse(rawCartId?.toString() ?? '');
+
+      if (checkoutCartId == null) {
+        SnackbarHelper.showError(
+          context,
+          'The cart API did not return a valid parent cart ID. Please refresh your cart and try again.',
+        );
+        return;
+      }
+      final product = Provider.of<ItemsProvider>(
+        context,
+        listen: false,
+      ).getItemById(widget.productId);
+
+      final checkoutItem = <String, dynamic>{
+        'cart_id': checkoutCartId,
+        'id': cartLine['id'] is int
+            ? cartLine['id']
+            : int.tryParse(cartLine['id'].toString()) ?? cartLine['id'],
+        'item_id': cartLine['item_id'] is int
+            ? cartLine['item_id']
+            : int.tryParse(cartLine['item_id'].toString()) ??
+                cartLine['item_id'],
+        'shop_id': cartLine['shop_id'] is int
+            ? cartLine['shop_id']
+            : int.tryParse(cartLine['shop_id'].toString()) ??
+                cartLine['shop_id'],
+        'shop_name': cartLine['shop_name'],
+        'quantity': _quantity,
+        'price_snapshot':
+            cartLine['price_snapshot']?.toString() ?? price.toStringAsFixed(2),
+        'item_name': cartLine['item_name'] ?? product?['item_name'],
+        if (cartLine['item'] is Map) 'item': cartLine['item'],
+        'effective_price': price.toStringAsFixed(2),
+        'item_quantity': cartLine['item_quantity']?.toString() ??
+            product?['item_quantity']?.toString(),
+        if (product?['item_images'] != null)
+          'item_images': product!['item_images'],
+        if (cartLine['discounted_price'] != null)
+          'discounted_price': cartLine['discounted_price'].toString(),
+        if (cartLine['discount_status'] != null)
+          'discount_status': cartLine['discount_status'],
+        if (cartLine['discount_details'] != null)
+          'discount_details': cartLine['discount_details'],
+      };
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CheckOutScreen(
+            cartId: checkoutCartId,
+            selectedCartItems: [checkoutItem],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        SnackbarHelper.showError(
+          context,
+          'Error starting checkout: ${e.toString()}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBuyingNow = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showOrderRequestConfirmation(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow || _isConfirmingOrder) return;
+    _isConfirmingOrder = true;
+    try {
+      final confirmed = await OrderRequestConfirmationDialog.show(context);
+      if (!mounted || !confirmed) return;
+      await _handleOrderRequest(shopId);
+    } finally {
+      _isConfirmingOrder = false;
+    }
+  }
+
+  Future<void> _handleOrderRequest(dynamic shopId) async {
+    if (_isAddingToCart || _isBuyingNow) return;
+
+    final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
+    final requestProduct =
+        widget.productData ?? itemsProvider.getItemById(widget.productId);
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => GamefowlOrderReq(
+          productData: requestProduct,
+          shopName: _getShopDisplayName(),
+          shopId: shopId ?? _resolveShopId(requestProduct),
+        ),
       ),
     );
   }
 
+  Future<void> _handleInquiry(dynamic shopId) async {
+    if (!await requireAuth(context)) {
+      return;
+    }
+
+    final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
+
+    final inquiryProduct =
+        widget.productData ?? itemsProvider.getItemById(widget.productId);
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InquiryChat(
+          shopId: shopId,
+          shopName: _getShopDisplayName(),
+          productData: inquiryProduct,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+  }
+
+  Widget _buildBottomActionBar(
+    double price,
+    bool inStock,
+    dynamic shopId,
+  ) {
+    final actionsBusy = _isAddingToCart || _isBuyingNow;
+    final canAct = inStock && !actionsBusy;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Material(
+                color: canAct
+                    ? const Color(0xFF4C66B3)
+                    : const Color(0xFF4C66B3).withOpacity(0.5),
+                child: InkWell(
+                  onTap: canAct ? () => _handleAddToCart(price) : null,
+                  child: const SizedBox(
+                    height: 52,
+                    child: Center(
+                      child: Text(
+                        'Add to Crate',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Material(
+                color: canAct
+                    ? const Color(0xFF29479A)
+                    : const Color(0xFF29479A).withOpacity(0.5),
+                child: InkWell(
+                  onTap: canAct
+                      ? () => _showOrderRequestConfirmation(shopId)
+                      : null,
+                  child: SizedBox(
+                    height: 52,
+                    child: Center(
+                      child: _isBuyingNow
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              'Order Request',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

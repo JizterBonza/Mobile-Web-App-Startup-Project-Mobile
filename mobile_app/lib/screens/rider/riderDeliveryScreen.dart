@@ -7,6 +7,7 @@ import '../../widgets/order_item_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/price_format.dart';
 
 class RiderDeliveryScreen extends StatefulWidget {
   const RiderDeliveryScreen({super.key});
@@ -218,20 +219,7 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
     return 'Unknown Customer';
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    try {
-      if (price is num) {
-        return '₱${price.toStringAsFixed(2)}';
-      } else if (price is String) {
-        final parsed = double.tryParse(price);
-        return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-      }
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0.00';
-  }
+  String _formatPrice(dynamic price) => formatPeso(price);
 
   String _formatOrderDate(String dateString) {
     if (dateString.isEmpty) return 'N/A';
@@ -605,6 +593,8 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
               ),
               SizedBox(height: 8),
               ...orderItems.take(5).map((item) {
+                final unitPrice =
+                    item['price_at_purchase'] ?? item['item_price'];
                 return Padding(
                   padding: EdgeInsets.only(bottom: 4),
                   child: Row(
@@ -616,9 +606,9 @@ class _RiderDeliveryScreenState extends State<RiderDeliveryScreen> {
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
-                      if (item['item_price'] != null)
+                      if (unitPrice != null)
                         Text(
-                          _formatPrice(item['item_price']),
+                          _formatPrice(unitPrice),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

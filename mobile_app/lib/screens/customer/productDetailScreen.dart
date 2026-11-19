@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../services/shops_service.dart';
 import '../../utils/auth_guard.dart';
 import '../../utils/gamefowl_item.dart';
+import '../../utils/item_display_price.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/url.dart';
@@ -16,15 +17,19 @@ import '../../widgets/skeletons/app_skeletons.dart';
 import 'cartScreenV2.dart';
 import 'checkOutScreen.dart';
 import 'shopScreen.dart';
+import '../../utils/price_format.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic productId;
   final Map<String, dynamic>? productData;
+  /// Loads authoritative stock, category and pricing for search summaries.
+  final bool loadFullDetails;
 
   const ProductDetailScreen({
     super.key,
     required this.productId,
     this.productData,
+    this.loadFullDetails = false,
   });
 
   @override
@@ -48,17 +53,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _isLoadingShop = false;
   int _selectedVariantIndex = 0;
   dynamic _loadedShopId;
+  Map<String, dynamic>? _fullDetails;
+  bool _loadingFullDetails = false;
+  String? _fullDetailsError;
+
+  bool get _detailsReady => !widget.loadFullDetails ||
+      (!_loadingFullDetails && _fullDetails != null && _fullDetailsError == null);
 
   @override
   void initState() {
     super.initState();
+    _loadingFullDetails = widget.loadFullDetails;
     // Fetch reviews when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCategoriesForPurchase();
       final itemsProvider = Provider.of<ItemsProvider>(context, listen: false);
-      itemsProvider.fetchItemReviews(widget.productId);
+      if (widget.loadFullDetails) {
+        _loadFullDetails();
+      } else {
+        itemsProvider.fetchItemReviews(widget.productId);
+      }
       _checkFavoriteStatus();
-      final product = widget.productData ?? itemsProvider.getItemById(widget.productId);
+      final product = _currentProduct;
       _ensureShopLoaded(product?['shop_id']);
     });
 
@@ -73,8 +89,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Map<String, dynamic>? get _currentProduct => widget.productData ??
-      context.read<ItemsProvider>().getItemById(widget.productId);
+  Map<String, dynamic>? get _currentProduct {
+    if (widget.loadFullDetails && _fullDetails != null) return _fullDetails;
+    return widget.productData ??
+        context.read<ItemsProvider>().getItemById(widget.productId);
+  }
+
+  Future<void> _loadFullDetails() async {
+    setState(() {
+      _loadingFullDetails = true;
+      _fullDetailsError = null;
+      _fullDetails = null;
+    });
+    try {
+      final provider = context.read<ItemsProvider>();
+      await provider.fetchItemReviews(widget.productId);
+      if (!mounted) return;
+      final details = provider.getItemReviews(widget.productId);
+      final id = details?['id'] ?? details?['item_id'];
+      if (provider.getReviewsError(widget.productId) != null ||
+          details == null ||
+          id?.toString() != widget.productId.toString()) {
+        throw StateError('Product details unavailable');
+      }
+      setState(() {
+        _fullDetails = Map.of(details);
+        _loadingFullDetails = false;
+        _selectedImageIndex = 0;
+        _selectedVariantIndex = 0;
+        _quantity = 1;
+      });
+      _ensureShopLoaded(details['shop_id']);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingFullDetails = false;
+        _fullDetailsError = 'Could not load product details';
+      });
+    }
+  }
 
   bool get _isGamefowlProduct {
     final product = _currentProduct;
@@ -333,12 +386,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  String _formatDisplayPrice(double price) {
-    if (price == price.roundToDouble()) {
-      return '₱${price.toStringAsFixed(0)}';
-    }
-    return '₱${price.toStringAsFixed(2)}';
-  }
+  String _formatDisplayPrice(double price) => formatPeso(price);
 
   String _resolveCategoryName(
       BuildContext context, Map<String, dynamic>? product) {
@@ -392,11 +440,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final itemsProvider = Provider.of<ItemsProvider>(context);
-    final product = widget.productData ?? itemsProvider.getItemById(widget.productId);
+    context.watch<ItemsProvider>();
+    final product = _currentProduct;
 
     final productName = product?['item_name'] ?? 'Product';
-    final productPrice = _parsePrice(product?['item_price']);
+    final displayPrice = ItemDisplayPrice.fromItem(product);
+    final productPrice = _parsePrice(displayPrice.price);
+    final regularPrice = displayPrice.strikethrough;
     final productDescription = product?['item_description']?.toString() ?? '';
     final productStock = _parseStock(product?['item_quantity']);
     final images = _resolveProductImages(product);
@@ -439,16 +489,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  _formatDisplayPrice(productPrice),
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.grey[900],
-                                    height: 1.1,
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          _formatDisplayPrice(productPrice),
+                                          style: TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.grey[900],
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                        if (regularPrice != null) ...[
+                                          const SizedBox(width: 8),
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 3),
+                                            child: Text(
+                                              _formatDisplayPrice(
+                                                  regularPrice),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[500],
+                                                decoration:
+                                                    TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const Spacer(),
                                 GestureDetector(
                                   onTap: _isTogglingFavorite
                                       ? null
@@ -1411,7 +1489,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            '₱${(199.99 + index * 50).toStringAsFixed(2)}',
+                            formatPeso(199.99 + index * 50),
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -1432,7 +1510,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart(double price) async {
-    if (!_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
+    if (!_detailsReady || !_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
     if (!await requireAuth(context)) return;
 
     setState(() {
@@ -1491,7 +1569,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   /// Sets the cart line to the Buy Now quantity (update if present, add if not),
   /// then opens checkout with only that line.
   Future<void> _handleBuyNow(double price) async {
-    if (!_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
+    if (!_detailsReady || !_categoriesReady || _currentProduct == null || _isGamefowlProduct) return;
     if (_isBuyingNow || _isAddingToCart) return;
     if (!await requireAuth(context)) return;
 
@@ -1573,8 +1651,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return;
       }
 
-      final product = widget.productData ?? Provider.of<ItemsProvider>(context, listen: false)
-          .getItemById(widget.productId);
+      final product = _currentProduct;
 
       final checkoutItem = <String, dynamic>{
         'id': cartLine['id'] is int
@@ -1593,8 +1670,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         'price_snapshot':
             cartLine['price_snapshot']?.toString() ?? price.toStringAsFixed(2),
         'item_name': cartLine['item_name'] ?? product?['item_name'],
-        'item_price':
-            cartLine['item_price']?.toString() ?? price.toStringAsFixed(2),
+        if (cartLine['item'] is Map) 'item': cartLine['item'],
+        'effective_price': price.toStringAsFixed(2),
         'item_quantity': cartLine['item_quantity']?.toString() ??
             product?['item_quantity']?.toString(),
         if (product?['item_images'] != null)
@@ -1632,6 +1709,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildBottomActionBar(double price, bool inStock) {
+    if (!_detailsReady) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_loadingFullDetails) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text('Loading product details...'),
+            ] else ...[
+              Text(_fullDetailsError ?? 'Product details are unavailable'),
+              TextButton(onPressed: _loadFullDetails,
+                  child: const Text('Retry product details')),
+            ],
+          ]),
+        ),
+      );
+    }
     if (_isGamefowlProduct) {
       return const SafeArea(
         top: false,

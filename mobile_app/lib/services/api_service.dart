@@ -1265,7 +1265,16 @@ class ApiService {
       };
     }
   }
-
+  
+  
+  /// Fetch farms from the Laravel API.
+  ///
+  /// Expected response:
+  /// {
+  ///   "success": true,
+  ///   "data": [...]
+  /// }
+  
   /// Change user password
   static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,
@@ -1327,7 +1336,9 @@ class ApiService {
         'success': false,
         'message': 'Network error: ${e.toString()}',
         'data': null,
+
       };
+
     }
   }
 }

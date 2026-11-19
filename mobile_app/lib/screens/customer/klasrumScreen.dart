@@ -16,6 +16,7 @@ import '../../widgets/skeletons/app_skeletons.dart';
 import '../../widgets/user_profile_avatar.dart';
 import '../common/profileScreen.dart';
 import 'cartScreenV2.dart';
+import 'breederNewsfeed.dart';
 import 'messagesScreen.dart';
 
 class KlasrumScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
   String? _userName;
   String? _profileImageUrl;
   dynamic _selectedCategoryId;
+  int _selectedClassroomTab = 0;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -264,25 +266,37 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildGreenHeader(topInset),
-                      _buildFeaturedHero(provider),
-                      _buildSectionHeader(),
-                      _buildCategoryChips(provider),
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-                        child: Text(
-                          'MORE ARTICLE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: Color(0xFF6B7280),
+                      if (_selectedClassroomTab == 0) ...[
+                        _buildFeaturedHero(provider),
+                        _buildSectionHeader(),
+                        _buildCategoryChips(provider),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                          child: Text(
+                            'MORE ARTICLE',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
                         ),
-                      ),
+                      ] else ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: _buildContentTabs(),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                _buildArticleListSliver(provider),
+                if (_selectedClassroomTab == 0)
+                  _buildArticleListSliver(provider)
+                else
+                  SliverToBoxAdapter(
+                    child: BreederNewsfeed(posts: const []),
+                  ),
               ],
             ),
           );
@@ -300,7 +314,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
   Widget _buildGreenHeader(double topInset) {
     return Container(
       width: double.infinity,
-      color: AppColors.brandPrimary,
+      color: const Color(0xFF263F91),
       padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 16),
       child: Row(
         children: [
@@ -490,7 +504,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
         bottomRight: Radius.circular(28),
       ),
       child: SizedBox(
-        height: 320,
+        height: 340,
         width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
@@ -504,6 +518,8 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                       ? Image.network(
                           coverUrl,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null ? child : _coverFallback(),
                           errorBuilder: (_, __, ___) => _coverFallback(),
                         )
                       : _coverFallback(),
@@ -541,12 +557,14 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 72),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 68,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Spacer(),
                         Row(
                           children: [
                             _buildHeroBadge(
@@ -586,7 +604,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                         const SizedBox(height: 10),
                         Text(
                           title.isNotEmpty ? title : 'Learn with Klasmeyt',
-                          maxLines: 3,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 20,
@@ -596,15 +614,15 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                           ),
                         ),
                         if (description.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 5),
                           Text(
                             description,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.88),
-                              height: 1.35,
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.92),
+                              height: 1.2,
                             ),
                           ),
                         ],
@@ -614,11 +632,16 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
                 ],
               ),
             ),
-            // Search sits inside the dark bottom of the featured card
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildContentTabs(),
+            ),
             Positioned(
               left: 16,
               right: 16,
-              bottom: 16,
+              bottom: 12,
               child: _buildSearchField(),
             ),
           ],
@@ -652,7 +675,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
 
   Widget _buildSearchField() {
     return SizedBox(
-      height: 40,
+      height: 44,
       child: Material(
         color: Colors.white,
         elevation: 0,
@@ -664,7 +687,9 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             isDense: true,
-            hintText: 'Search articles...',
+            hintText: _selectedClassroomTab == 0
+                ? 'Search articles...'
+                : 'Search articles, posts, breeders...',
             hintStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
             prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey[500]),
             prefixIconConstraints: const BoxConstraints(
@@ -706,7 +731,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
 
   Widget _buildSectionHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -715,14 +740,14 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             children: [
               SvgPicture.asset(
                 'assets/icons/klasrum-icon.svg',
-                height: 18,
+                height: 23,
                 fit: BoxFit.contain,
               ),
               const SizedBox(width: 8),
               Text(
                 'KLASRUM',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   height: 1.1,
                   color: Colors.grey[900],
@@ -735,12 +760,71 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           Text(
             'Learn with Klasmeyt',
             style: TextStyle(
-              fontSize: 13,
+            fontSize: 15,
               height: 1.2,
               color: Colors.grey[600],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildContentTabs() {
+    return Align(
+      alignment: Alignment.center,
+      child: FractionallySizedBox(
+        widthFactor: 0.9,
+        child: Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _buildContentTab(Icons.article_outlined, 'Articles', 0),
+              _buildContentTab(Icons.wifi, 'Newsfeed', 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentTab(IconData icon, String label, int index) {
+    final isSelected = _selectedClassroomTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedClassroomTab = index),
+        child: Container(
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF263F91) : null,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 12,
+                color: isSelected ? Colors.white : AppColors.brandPrimary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.brandPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -762,7 +846,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
             )
           : ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               children: [
                 _buildCategoryChip(
                   label: 'All',
@@ -800,7 +884,7 @@ class _KlasrumScreenState extends State<KlasrumScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(24),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               border: Border.all(

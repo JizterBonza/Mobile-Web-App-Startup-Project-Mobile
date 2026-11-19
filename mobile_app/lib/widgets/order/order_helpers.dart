@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/manila_time.dart';
 import '../../utils/status_utils.dart' as status_utils;
+import '../../utils/price_format.dart';
 
 /// Helper functions for order-related formatting and styling
 class OrderHelpers {
@@ -36,20 +37,7 @@ class OrderHelpers {
     return dateString;
   }
 
-  static String formatPrice(dynamic price) {
-    if (price == null) return '₱0.00';
-    try {
-      if (price is num) {
-        return '₱${price.toStringAsFixed(2)}';
-      } else if (price is String) {
-        final parsed = double.tryParse(price);
-        return parsed != null ? '₱${parsed.toStringAsFixed(2)}' : '₱0.00';
-      }
-    } catch (e) {
-      print('Error formatting price: $e');
-    }
-    return '₱0.00';
-  }
+  static String formatPrice(dynamic price) => formatPeso(price);
 
   static dynamic orderField(Map<String, dynamic> order, String key) {
     final detail = order['order_detail'] as Map<String, dynamic>?;

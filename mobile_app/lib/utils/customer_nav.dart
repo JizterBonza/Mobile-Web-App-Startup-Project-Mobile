@@ -9,6 +9,7 @@ import '../screens/common/notificationScreen.dart';
 import '../screens/customer/customerDashboardScreen.dart';
 import '../screens/customer/favoriteScreen.dart';
 import '../screens/customer/klasrumScreen.dart';
+import '../screens/customer/partnerFarmsScreen.dart';
 import '../widgets/login_dialog.dart';
 import '../widgets/notification_bell_icon.dart';
 
@@ -19,7 +20,19 @@ abstract final class CustomerNavIndex {
   static const int klasrum = 2;
   static const int orders = 3;
   static const int notifs = 4;
+  static const int farms = 5;
 }
+
+// Preserve Favorites as a destination while hiding its navigation entry.
+const bool _showCustomerFavorites = false;
+const List<int> _visibleCustomerDestinations = [
+  CustomerNavIndex.home,
+  if (_showCustomerFavorites) CustomerNavIndex.favorites,
+  CustomerNavIndex.farms,
+  CustomerNavIndex.klasrum,
+  CustomerNavIndex.orders,
+  CustomerNavIndex.notifs,
+];
 
 Widget _customerNavSvgIcon({
   required String asset,
@@ -115,16 +128,17 @@ Widget _buildCustomerBottomNavigationBarContent({
   required bool isGuest,
   VoidCallback? onLoginSuccess,
 }) {
+  final visibleIndex = _visibleCustomerDestinations.indexOf(currentIndex);
   return Container(
     decoration: BoxDecoration(
       color: Colors.white,
       border: Border(top: BorderSide(color: Colors.grey[300]!)),
     ),
     child: BottomNavigationBar(
-      currentIndex: currentIndex,
+      currentIndex: visibleIndex < 0 ? 0 : visibleIndex,
       onTap: (index) => handleCustomerNavTap(
         context,
-        targetIndex: index,
+        targetIndex: _visibleCustomerDestinations[index],
         currentIndex: currentIndex,
         isGuest: isGuest,
         onLoginSuccess: onLoginSuccess,
@@ -147,16 +161,28 @@ Widget _buildCustomerBottomNavigationBarContent({
           ),
           label: 'Home',
         ),
+        if (_showCustomerFavorites)
+          BottomNavigationBarItem(
+            icon: _customerNavSvgIcon(
+              asset: 'assets/icons/favorite.svg',
+              color: Colors.grey[600]!,
+            ),
+            activeIcon: _customerNavSvgIcon(
+              asset: 'assets/icons/favorite.svg',
+              color: AppColors.brandPrimaryDark,
+            ),
+            label: 'Favorite',
+          ),
         BottomNavigationBarItem(
           icon: _customerNavSvgIcon(
-            asset: 'assets/icons/favorite.svg',
+            asset: 'assets/icons/chicken.svg',
             color: Colors.grey[600]!,
           ),
           activeIcon: _customerNavSvgIcon(
-            asset: 'assets/icons/favorite.svg',
+            asset: 'assets/icons/chicken.svg',
             color: AppColors.brandPrimaryDark,
           ),
-          label: 'Favorite',
+          label: 'Farms',
         ),
         BottomNavigationBarItem(
           icon: _customerNavSvgIcon(
@@ -224,6 +250,7 @@ void handleCustomerNavTap(
 
   final Widget screen = switch (targetIndex) {
     CustomerNavIndex.favorites => const FavoriteScreen(),
+    CustomerNavIndex.farms => const PartnerFarmsScreen(),
     CustomerNavIndex.klasrum => const KlasrumScreen(),
     CustomerNavIndex.orders => const MyOrderScreen(showCustomerBottomNav: true),
     CustomerNavIndex.notifs =>

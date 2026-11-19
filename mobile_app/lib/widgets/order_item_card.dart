@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/constants.dart';
 import 'status_badge.dart';
+import '../utils/price_format.dart';
 
 class OrderItemCard extends StatelessWidget {
   final Map<String, dynamic> order;
@@ -93,7 +94,7 @@ class OrderItemCard extends StatelessWidget {
               StatusBadge(status: order['status'] ?? ''),
               SizedBox(height: 4),
               Text(
-                '₱${(order['total'] ?? 0.0).toStringAsFixed(2)}',
+                formatPeso(order['total']),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -204,7 +205,7 @@ class OrderItemCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '₱${(order['total'] ?? 0.0).toStringAsFixed(2)}',
+                formatPeso(order['total']),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

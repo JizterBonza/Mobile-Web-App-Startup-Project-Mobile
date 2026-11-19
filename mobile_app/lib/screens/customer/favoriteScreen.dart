@@ -3,12 +3,14 @@ import '../../constants/constants.dart';
 import '../../services/favorite_services.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_nav.dart';
+import '../../utils/item_display_price.dart';
 import '../../utils/media_url.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/skeletons/app_skeletons.dart';
 import 'customerDashboardScreen.dart';
 import 'productDetailScreen.dart';
+import '../../utils/price_format.dart';
 
 class FavoriteScreen extends StatefulWidget {
   const FavoriteScreen({super.key});
@@ -373,6 +375,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
   Widget _buildProductCard(Map<String, dynamic> product, int index,
       {required bool isGrid}) {
     final imageUrl = resolveItemImageUrl(product['item_images']);
+    final displayPrice = ItemDisplayPrice.fromItem(product);
 
     return Container(
       margin: EdgeInsets.only(bottom: isGrid ? 0 : 12),
@@ -565,13 +568,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '₱${(product['price'] ?? 0.0) is num ? (product['price'] as num).toStringAsFixed(2) : '0.00'}',
+                            formatPeso(displayPrice.price),
                             style: TextStyle(
                               fontSize: isGrid ? 12 : 16,
                               fontWeight: FontWeight.bold,
                               color: AppColors.brandPrimary,
                             ),
                           ),
+                          if (displayPrice.strikethrough != null)
+                            Text(
+                              formatPeso(displayPrice.strikethrough),
+                              style: TextStyle(
+                                fontSize: isGrid ? 10 : 12,
+                                color: Colors.grey[500],
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
                           if (!isGrid &&
                               (product['vendor']?.toString().isNotEmpty ??
                                   false)) ...[

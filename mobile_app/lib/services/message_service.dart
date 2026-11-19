@@ -12,6 +12,9 @@ import 'api_service.dart';
 
 /// Customer messaging API: conversations, thread, and send (JSON or multipart).
 class MessageService extends ApiService {
+  MessageService({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
   static const int maxBodyLength = 5000;
   static const int maxAttachments = 10;
   static const int maxAttachmentBytes = 20 * 1024 * 1024;
@@ -149,7 +152,8 @@ class MessageService extends ApiService {
       if (!file.existsSync()) {
         return {
           'success': false,
-          'message': 'Attachment not found: ${file.path.split(Platform.pathSeparator).last}',
+          'message':
+              'Attachment not found: ${file.path.split(Platform.pathSeparator).last}',
           'data': null,
         };
       }
@@ -186,23 +190,28 @@ class MessageService extends ApiService {
     final headers = await _authHeaders();
     if (headers == null) return _unauthenticated();
 
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: headers,
-          body: jsonEncode(payload),
-        )
+    final response = await (_httpClient?.post(
+              Uri.parse(url),
+              headers: headers,
+              body: jsonEncode(payload),
+            ) ??
+            http.post(
+              Uri.parse(url),
+              headers: headers,
+              body: jsonEncode(payload),
+            ))
         .timeout(
-          const Duration(seconds: 20),
-          onTimeout: () {
-            throw TimeoutException('Request timed out after 20 seconds');
-          },
-        );
+      const Duration(seconds: 20),
+      onTimeout: () {
+        throw TimeoutException('Request timed out after 20 seconds');
+      },
+    );
 
     _debugLog(label, response.statusCode, response.body);
     final responseData = _decodeBody(response.body);
 
-    if (successCodes.contains(response.statusCode)) {
+    if (successCodes.contains(response.statusCode) &&
+        !(responseData is Map && responseData['success'] == false)) {
       return {
         'success': true,
         'message': responseData is Map
@@ -283,7 +292,8 @@ class MessageService extends ApiService {
       final responseData = _normalizeResponseData(response.data);
       _debugLog(label, status, responseData?.toString() ?? '');
 
-      if (successCodes.contains(status)) {
+      if (successCodes.contains(status) &&
+          !(responseData is Map && responseData['success'] == false)) {
         return {
           'success': true,
           'message': responseData is Map
@@ -335,16 +345,18 @@ class MessageService extends ApiService {
       final headers = await _authHeaders();
       if (headers == null) return _unauthenticated();
 
-      final response = await http
-          .get(Uri.parse(ApiEndpoints.getConversations), headers: headers)
+      final response = await (_httpClient?.get(
+                  Uri.parse(ApiEndpoints.getConversations),
+                  headers: headers) ??
+              http.get(Uri.parse(ApiEndpoints.getConversations),
+                  headers: headers))
           .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              throw TimeoutException('Request timed out after 15 seconds');
-            },
-          );
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 15 seconds');
+        },
+      );
 
-      _debugLog('GET conversations', response.statusCode, response.body);
       final responseData = _decodeBody(response.body);
 
       if (response.statusCode == 200) {
@@ -385,11 +397,11 @@ class MessageService extends ApiService {
       final response = await http
           .get(Uri.parse(ApiEndpoints.getUnreadMessageCount), headers: headers)
           .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Request timed out after 10 seconds');
-            },
-          );
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 10 seconds');
+        },
+      );
 
       _debugLog('GET unread-count', response.statusCode, response.body);
       final responseData = _decodeBody(response.body);
@@ -461,7 +473,8 @@ class MessageService extends ApiService {
         },
       );
 
-      _debugLog('GET shop message products', response.statusCode, response.body);
+      _debugLog(
+          'GET shop message products', response.statusCode, response.body);
       final responseData = _decodeBody(response.body);
 
       if (response.statusCode == 200) {
@@ -552,6 +565,69 @@ class MessageService extends ApiService {
         'message': e.toString(),
         'data': null,
       };
+    }
+  }
+
+  /// POST /api/farms/{farmId}/messages — start or resume a farm conversation.
+  Future<Map<String, dynamic>> startFarmConversation(
+    dynamic farmId, {
+    String? body,
+    List<File> attachments = const [],
+    dynamic itemId,
+  }) async {
+    try {
+      final validation = _validatePayload(
+        body: body,
+        attachments: attachments,
+        requireContent: false,
+        itemId: itemId,
+      );
+      if (validation != null) return validation;
+
+      final url = ApiEndpoints.startFarmConversation
+          .replaceAll('{farmId}', Uri.encodeComponent(farmId.toString()));
+      late final Map<String, dynamic> result;
+      if (itemId != null) {
+        result = await _postJson(
+          url: url,
+          payload: {'item_id': itemId},
+          label: 'POST start farm conversation (listing)',
+          successCodes: {200, 201},
+          successFallback: 'Conversation started',
+          failureFallback: 'Failed to start farm conversation',
+        );
+      } else if (attachments.isEmpty) {
+        final trimmed = body?.trim() ?? '';
+        result = await _postJson(
+          url: url,
+          payload: trimmed.isEmpty ? const {} : {'body': trimmed},
+          label: 'POST start farm conversation',
+          successCodes: {200, 201},
+          successFallback: 'Conversation started',
+          failureFallback: 'Failed to start farm conversation',
+        );
+      } else {
+        result = await _postMultipart(
+          url: url,
+          body: body,
+          attachments: attachments,
+          label: 'POST start farm conversation (multipart)',
+          successCodes: {200, 201},
+          successFallback: 'Conversation started',
+          failureFallback: 'Failed to start farm conversation',
+        );
+      }
+      if (result['success'] == true &&
+          (result['data'] as ConversationThread).conversation.id == null) {
+        return {
+          'success': false,
+          'message': 'Farm conversation has no ID',
+          'data': null,
+        };
+      }
+      return result;
+    } catch (e) {
+      return {'success': false, 'message': e.toString(), 'data': null};
     }
   }
 

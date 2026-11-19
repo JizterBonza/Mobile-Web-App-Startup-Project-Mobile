@@ -30,7 +30,7 @@ class OrderStatusNavigation extends StatefulWidget {
   final ValueChanged<int> onSelected;
 
   static const _labelStyle = TextStyle(
-    fontSize: 12,
+    fontSize: 11,
     height: 1.25,
     fontWeight: FontWeight.w600,
   );
@@ -65,13 +65,13 @@ class OrderStatusNavigation extends StatefulWidget {
     BuildContext context,
     List<OrderStatusNavigationItem> items,
   ) {
-    return 8 +
-        28 +
-        math.max(48, 24 + 8 + _labelSize(context, items).height) +
+    return 6 +
         10 +
+        math.max(48, 20 + 4 + _labelSize(context, items).height) +
+        6 +
         4 +
-        11 +
-        12;
+        8 +
+        8;
   }
 
   @override
@@ -144,21 +144,21 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
   @override
   Widget build(BuildContext context) {
     final labelSize = OrderStatusNavigation._labelSize(context, widget.items);
-    final itemHeight = math.max(48.0, 24 + 8 + labelSize.height);
+    final itemHeight = math.max(48.0, 20 + 4 + labelSize.height);
     return Container(
       color: AppColors.surfaceLight,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 28, 0, 11),
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.only(left: 20, right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final itemWidth = math.max(
@@ -206,15 +206,15 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
                                       children: [
                                         SvgPicture.asset(
                                           item.iconPath,
-                                          width: 24,
-                                          height: 24,
+                                          width: 20,
+                                          height: 20,
                                           fit: BoxFit.contain,
                                           colorFilter: ColorFilter.mode(
                                             color,
                                             BlendMode.srcIn,
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 4),
                                         Text(
                                           item.label,
                                           maxLines: 1,
@@ -241,7 +241,7 @@ class _OrderStatusNavigationState extends State<OrderStatusNavigation> {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               SizedBox(
                 height: 4,
                 child: _hasOverflow

@@ -38,14 +38,21 @@ class AppConfig {
   /// Public Reverb app key (not REVERB_APP_SECRET).
   static String get reverbAppKey => dotenv.env['REVERB_APP_KEY']?.trim() ?? '';
 
+  static Uri? get _apiUri => Uri.tryParse(Url.getUrl());
+
+  /// Defaults to the active API host so the socket and
+  /// `/broadcasting/auth` always hit the same backend.
   static String get reverbHost {
     final host = dotenv.env['REVERB_HOST']?.trim();
     if (host != null && host.isNotEmpty) return host;
-    return Uri.tryParse(Url.getUrl())?.host ?? '';
+    return _apiUri?.host ?? '';
   }
 
   static String get reverbWsScheme {
-    final raw = (dotenv.env['REVERB_SCHEME'] ?? 'https').trim().toLowerCase();
+    final override = dotenv.env['REVERB_SCHEME']?.trim().toLowerCase();
+    final raw = (override != null && override.isNotEmpty)
+        ? override
+        : (_apiUri?.scheme.toLowerCase() ?? 'https');
     if (raw == 'ws' || raw == 'wss') return raw;
     if (raw == 'https') return 'wss';
     return 'ws';
@@ -67,6 +74,9 @@ class AppColors {
   static const Color brandPrimary = Color(0xFF1A2A5C);
   static const Color brandPrimaryDark = Color(0xFF0F1B40);
   static const Color brandPrimaryLight = Color(0xFF2C3E80);
+
+  /// Green pair of [brandPrimary]: same lightness and saturation.
+  static const Color brandConfirmed = Color(0xFF1A5C3B);
 
   // Accent yellow (notification badges)
   static const Color accentAmber = Color(0xFFFFB800);

@@ -1,815 +1,709 @@
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-
-import 'checkOutScreen.dart';
+import '../../constants/constants.dart';
+import '../../models/gamefowl_request_draft.dart';
+import '../../widgets/custom_elevated_button.dart';
+import '../../utils/auth_guard.dart';
+import '../../models/farm_checkout.dart';
+import '../../services/farm_checkout_service.dart';
+import '../../services/farms_service.dart';
+import 'farmBirdRequestPicker.dart';
+import 'gamefowlCheckoutScreen.dart';
 
 class GamefowlOrderReq extends StatefulWidget {
   final Map<String, dynamic>? productData;
   final String? shopName;
   final dynamic shopId;
+  final FarmCheckoutService? checkoutService;
+  final FarmsService? farmsService;
 
-  const GamefowlOrderReq({
-    super.key,
-    this.productData,
-    this.shopName,
-    this.shopId,
-  });
+  const GamefowlOrderReq(
+      {super.key,
+      this.productData,
+      this.shopName,
+      this.shopId,
+      this.checkoutService,
+      this.farmsService});
 
   @override
   State<GamefowlOrderReq> createState() => _GamefowlOrderReqState();
 }
 
 class _GamefowlOrderReqState extends State<GamefowlOrderReq> {
-  final List<_GamefowlRequestEntry> _gamefowls = [
-    _GamefowlRequestEntry(),
-  ];
-
-  PlatformFile? _selectedFile;
-  bool _isProceeding = false;
-
-  static const Color primaryBlue = Color(0xFF263F91);
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-  static const Color textColor = Color(0xFF242735);
-  static const Color mutedColor = Color(0xFF92949C);
-  static const Color borderColor = Color(0xFFE5E6EA);
+  late final FarmCheckoutService _service;
+  late final int _farmId;
+  final List<
+          ({Map<String, dynamic> source, GlobalKey<_RequestItemFormState> key})>
+      _selections = [];
+  Map<String, String> _errors = {};
+  bool _openingCheckout = false;
 
   @override
   void initState() {
     super.initState();
-
-    final productName = _getProductName();
-    _gamefowls.first.chosenController.text =
-        productName == 'Gamefowl' ? '' : productName;
+    _service = widget.checkoutService ?? FarmCheckoutService();
+    final source = widget.productData ?? <String, dynamic>{};
+    _farmId = farmInt(source['farm_id'] ?? farmMap(source['farm'])['id']);
+    _selections.add((source: source, key: GlobalKey<_RequestItemFormState>()));
   }
 
-  String _getProductName() {
-    final product = widget.productData;
-    final value = product?['item_name'] ??
-        product?['product_name'] ??
-        product?['name'] ??
-        product?['title'];
+  void _notice(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
-    final name = value?.toString().trim() ?? '';
-    return name.isEmpty ? 'Gamefowl' : name;
+  Future<void> _addBird() async {
+    if (_openingCheckout) return;
+    if (_farmId <= 0) {
+      _notice('Reopen this gamefowl from its farm to load a valid listing.');
+      return;
+    }
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => FarmBirdRequestPicker(
+        farmId: _farmId,
+        excludedIds: _selections
+            .map((entry) => entry.key.currentState!.draft.listingId)
+            .toSet(),
+        service: widget.farmsService ?? FarmsService(),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    final selectedFarm =
+        farmInt(selected['farm_id'] ?? farmMap(selected['farm'])['id']);
+    final id = farmInt(selected['listing_id'] ?? selected['id']);
+    if (selectedFarm != _farmId ||
+        id <= 0 ||
+        _selections.any(
+            (entry) => entry.key.currentState!.draft.listingId == id)) return;
+    setState(() {
+      _selections
+          .add((source: selected, key: GlobalKey<_RequestItemFormState>()));
+      _errors = {};
+    });
   }
 
-  String _getGamefowlType() {
-    final product = widget.productData;
-    final value = product?['gamefowl_type'] ??
-        product?['fowl_type'] ??
-        product?['breed_type'] ??
-        product?['type'] ??
-        product?['category_name'];
-
-    final type = value?.toString().trim() ?? '';
-    return type.isEmpty ? 'One way / Pure' : type;
+  Future<void> _remove(int index) async {
+    if (_openingCheckout || _selections.length <= 1) return;
+    FocusScope.of(context).unfocus();
+    final entry = _selections[index];
+    if (entry.key.currentState!.draft.birds.any((bird) => !bird.isEmpty) &&
+        !await _confirmDiscard(
+            context, 'Removing this listing will discard its bird details.')) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selections.remove(entry);
+      _errors = {};
+    });
   }
 
-  String _getAge() {
-    final product = widget.productData;
-    final value = product?['age'] ??
-        product?['gamefowl_age'] ??
-        product?['fowl_age'];
-
-    final age = value?.toString().trim() ?? '';
-    return age.isEmpty ? '6 weeks' : age;
+  Future<void> _openCheckout() async {
+    if (_openingCheckout) return;
+    setState(() => _openingCheckout = true);
+    try {
+      if (widget.checkoutService == null && !await requireAuth(context)) return;
+      if (!mounted) return;
+      if (_farmId <= 0 ||
+          _selections
+              .any((entry) => entry.key.currentState!.draft.listingId <= 0)) {
+        _notice('Reopen this gamefowl from its farm to load a valid listing.');
+        return;
+      }
+      final recovery = await _service.loadRecovery();
+      if (!mounted) return;
+      var changed = false;
+      if (recovery == null) {
+        for (final entry in _selections) {
+          final result =
+              await entry.key.currentState!.synchronize(_service, _farmId);
+          if (!mounted) return;
+          if (result == null) return;
+          changed = changed || result;
+        }
+        setState(() => _errors = FarmBirdDetails.validateItems(_selections
+            .map((entry) => entry.key.currentState!.draft.birds)
+            .toList()));
+        if (_errors.isNotEmpty || changed) {
+          _notice(changed
+              ? 'The cart quantity changed. Review the details for each bird before continuing.'
+              : 'Complete the specific details for each bird before continuing.');
+          return;
+        }
+      }
+      final request = GamefowlRequestDraft(
+        farmId: _farmId,
+        items: List.unmodifiable(
+            _selections.map((entry) => entry.key.currentState!.draft)),
+      );
+      FocusScope.of(context).unfocus();
+      final errors = await Navigator.push<Map<String, String>>(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  GamefowlCheckoutScreen(request: request, service: _service)));
+      if (mounted && errors != null) setState(() => _errors = errors);
+    } catch (error) {
+      if (mounted) _notice(error.toString());
+    } finally {
+      if (mounted) setState(() => _openingCheckout = false);
+    }
   }
 
-  String _getGender() {
-    final product = widget.productData;
-    final value = product?['gender'] ??
-        product?['sex'] ??
-        product?['gamefowl_gender'];
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: AppColors.surfaceLight,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.maybePop(context),
+            icon: const Icon(Icons.arrow_back,
+                size: 24, color: AppColors.textSecondary),
+          ),
+          title: const Text('Order Request',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary)),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < _selections.length; i++)
+              _RequestItemForm(
+                key: _selections[i].key,
+                source: _selections[i].source,
+                itemIndex: i,
+                busy: _openingCheckout,
+                errors: _errors,
+                onEdited: () {
+                  if (_errors.isNotEmpty) setState(() => _errors = {});
+                },
+                onRemove: _selections.length > 1 ? () => _remove(i) : null,
+              ),
+            OutlinedButton.icon(
+                onPressed: _openingCheckout ? null : _addBird,
+                icon: const Icon(Icons.add),
+                label: const Text('Add another bird')),
+          ]),
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: CustomElevatedButton(
+                text: 'Proceed to Checkout',
+                width: double.infinity,
+                onPressed: _openingCheckout ? null : _openCheckout),
+          ),
+        ),
+      );
+}
 
-    final gender = value?.toString().trim() ?? '';
-    return gender.isEmpty ? 'Male' : gender;
+Future<bool> _confirmDiscard(BuildContext context, String message) async =>
+    await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: const Text('Remove bird details?'),
+              content: Text(message),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Keep details')),
+                TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Remove')),
+              ],
+            )) ==
+    true;
+
+class _RequestItemForm extends StatefulWidget {
+  const _RequestItemForm(
+      {super.key,
+      required this.source,
+      required this.itemIndex,
+      required this.busy,
+      required this.errors,
+      required this.onEdited,
+      this.onRemove});
+  final Map<String, dynamic> source;
+  final int itemIndex;
+  final bool busy;
+  final Map<String, String> errors;
+  final VoidCallback onEdited;
+  final VoidCallback? onRemove;
+  @override
+  State<_RequestItemForm> createState() => _RequestItemFormState();
+}
+
+class _RequestItemFormState extends State<_RequestItemForm> {
+  final _chosenController = TextEditingController();
+  bool get _openingCheckout => widget.busy;
+  Map<String, String> get _errors => widget.errors;
+  List<FarmBirdDetails> _birds = [];
+  int _quantity = 1;
+  bool _quantityEdited = false;
+  int? _serverBirdsPerUnit;
+  final Map<String, String> _colorSelections = {};
+  final Map<String, String> _customColors = {};
+  static const _featherColors = [
+    'Black',
+    'White',
+    'Red',
+    'Brown',
+    'Gray',
+    'Golden',
+    'Mixed',
+    'Other'
+  ];
+  static const _feetColors = [
+    'Yellow Legs',
+    'Green Legs',
+    'Blue Legs',
+    'Dirty White Legs',
+    'Other'
+  ];
+
+  int get _birdsPerUnit {
+    if (_serverBirdsPerUnit != null) return _serverBirdsPerUnit!;
+    final source = widget.source;
+    final explicit = farmInt(source['birds_per_unit'] ?? source['bird_count']);
+    if (explicit > 0) return explicit;
+    final unit = source['selling_unit']?.toString().toLowerCase().trim();
+    return const {
+          'per head': 1,
+          'per pair': 2,
+          'per trio': 3,
+          'per quadruplet': 4,
+          'per dozen': 12
+        }[unit] ??
+        1;
   }
 
-  double _getNumericPrice() {
-    final product = widget.productData;
-    final value = product?['item_price'] ??
-        product?['price'] ??
-        product?['selling_price'] ??
-        product?['product_price'] ??
-        product?['amount'];
-
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
+  Future<bool> _resizeBirds(int count) async {
+    if (count < _birds.length && _birds.skip(count).any((b) => !b.isEmpty)) {
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+                title: const Text('Remove bird details?'),
+                content: const Text(
+                    'Reducing the quantity will discard details for the removed birds.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Keep details')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Remove'))
+                ],
+              ));
+      if (confirmed != true || !mounted) return false;
+    }
+    setState(() {
+      _birds = List.generate(count,
+          (i) => i < _birds.length ? _birds[i] : const FarmBirdDetails());
+      widget.onEdited();
+      bool removed(String key) => farmInt(key.split('.')[0]) >= count;
+      _colorSelections.removeWhere((key, _) => removed(key));
+      _customColors.removeWhere((key, _) => removed(key));
+    });
+    return true;
   }
 
-  String _getPrice() {
-    final price = _getNumericPrice();
-    return price == price.roundToDouble()
-        ? '₱${price.toStringAsFixed(0)}'
-        : '₱${price.toStringAsFixed(2)}';
+  Future<void> _changeQuantity(int value) async {
+    if (_openingCheckout || value < 1 || value > 100000) return;
+    if (await _resizeBirds(value * _birdsPerUnit) && mounted) {
+      setState(() {
+        _quantity = value;
+        _quantityEdited = true;
+      });
+    }
+  }
+
+  GamefowlProductSummary get _product =>
+      GamefowlProductSummary.fromProduct(widget.source);
+
+  GamefowlRequestItem get draft => GamefowlRequestItem(
+        listingId: farmInt(widget.source['listing_id'] ??
+            ((farmInt(widget.source['farm_id'] ??
+                        farmMap(widget.source['farm'])['id']) >
+                    0)
+                ? widget.source['id']
+                : null)),
+        product: _product,
+        quantity: _quantity,
+        sellingUnit: widget.source['selling_unit']?.toString() ?? '',
+        birds: List.unmodifiable(_birds),
+      );
+
+  // null means the user cancelled discarding entered details.
+  Future<bool?> synchronize(FarmCheckoutService service, int farmId) async {
+    var item = await service.prepareCart(draft.listingId, farmId);
+    if (!mounted) return null;
+    if (item.farmId != farmId || item.listingId != draft.listingId) {
+      throw const FarmApiException('Select listings from the same farm.');
+    }
+    if (_quantityEdited && item.quantity != _quantity) {
+      item = await service.setQuantity(item, _quantity);
+      if (!mounted) return null;
+    }
+    if (item.farmId != farmId ||
+        item.listingId != draft.listingId ||
+        !item.available) {
+      throw const FarmApiException('This listing is no longer available.');
+    }
+    final changed =
+        item.birdCount != _birds.length || item.quantity != _quantity;
+    if (!await _resizeBirds(item.birdCount) || !mounted) return null;
+    setState(() {
+      if (item.birdCount % item.quantity == 0) {
+        _serverBirdsPerUnit = item.birdCount ~/ item.quantity;
+      }
+      _quantity = item.quantity;
+      _quantityEdited = false;
+    });
+    return changed;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _chosenController.text = _product.productName ?? '';
+    _birds = List.generate(_birdsPerUnit, (_) => const FarmBirdDetails());
   }
 
   @override
   void dispose() {
-    for (final entry in _gamefowls) {
-      entry.dispose();
-    }
+    _chosenController.dispose();
     super.dispose();
   }
 
-  void _showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _pickMedia() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'mp4',
-          'mov',
-          'pdf',
-        ],
-        allowMultiple: false,
+  BoxDecoration _borderedBox() => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderDefault),
       );
 
-      if (!mounted || result == null || result.files.isEmpty) {
-        return;
-      }
-
-      setState(() {
-        _selectedFile = result.files.single;
-      });
-    } catch (e) {
-      _showMessage('Unable to choose file: $e');
-    }
-  }
-
-  void _addGamefowl() {
-    setState(() {
-      _gamefowls.add(_GamefowlRequestEntry());
-    });
-  }
-
-  void _removeGamefowl(int index) {
-    if (_gamefowls.length == 1) return;
-
-    setState(() {
-      final removedEntry = _gamefowls.removeAt(index);
-      removedEntry.dispose();
-    });
-  }
-
-  int? _readPositiveInt(dynamic value) {
-    if (value is int && value > 0) return value;
-
-    if (value is num && value > 0 && value == value.toInt()) {
-      return value.toInt();
-    }
-
-    if (value is String) {
-      final parsed = int.tryParse(value.trim());
-      if (parsed != null && parsed > 0) return parsed;
-    }
-
-    return null;
-  }
-
-  Future<void> _proceedToCheckout() async {
-    if (_isProceeding) return;
-
-    for (var i = 0; i < _gamefowls.length; i++) {
-      if (_gamefowls[i].chosenController.text.trim().isEmpty) {
-        _showMessage(
-          'Please enter the chosen gamefowl for entry ${i + 1}.',
-        );
-        return;
-      }
-    }
-
-    final product = widget.productData;
-
-    if (product == null || product.isEmpty) {
-      _showMessage('Product information is missing.');
-      return;
-    }
-
-    final price = _getNumericPrice();
-
-    if (price <= 0) {
-      _showMessage(
-        'The product price is missing or invalid. Please check the product information.',
-      );
-      return;
-    }
-
-    // This is the product/item ID, NOT a cart-row ID.
-    final itemId = _readPositiveInt(product['item_id']) ??
-        _readPositiveInt(product['product_id']) ??
-        _readPositiveInt(product['id']);
-
-    final resolvedShopId =
-        widget.shopId ?? product['shop_id'];
-
-    final parsedShopId = _readPositiveInt(resolvedShopId);
-
-    if (itemId == null) {
-      _showMessage('The product item ID is missing or invalid.');
-      return;
-    }
-
-    if (parsedShopId == null) {
-      _showMessage('The shop ID is missing or invalid.');
-      return;
-    }
-
-    setState(() {
-      _isProceeding = true;
-    });
-
-    try {
-      final first = _gamefowls.first;
-
-      final requestData = <String, dynamic>{
-        'product_id': product['product_id'] ?? product['id'],
-        'item_id': itemId,
-        'shop_id': parsedShopId,
-        'shop_name': widget.shopName ??
-            product['shop_name']?.toString() ??
-            'Gamefarm',
-        'gamefowl_name': first.chosenController.text.trim(),
-        'wingband_no': first.wingbandController.text.trim(),
-        'feather_color': first.featherController.text.trim(),
-        'feet_color': first.feetController.text.trim(),
-        'gamefowls': _gamefowls
-            .map((entry) => entry.toMap())
-            .toList(),
-        // Local file information only. This does not upload the file.
-        'media_path': _selectedFile?.path,
-        'media_name': _selectedFile?.name,
-        'media_extension': _selectedFile?.extension,
-        'media_size': _selectedFile?.size,
-        'product_data': product,
-      };
-
-      final checkoutItem = <String, dynamic>{
-        ...product,
-
-        // Product ID only. Never invent a cart-row ID.
-        'id': itemId,
-        'item_id': itemId,
-        'shop_id': parsedShopId,
-        'shop_name': widget.shopName ??
-            product['shop_name']?.toString() ??
-            'Gamefarm',
-        'item_name': product['item_name'] ??
-            product['product_name'] ??
-            product['name'] ??
-            product['title'] ??
-            'Gamefowl',
-        'quantity': 1,
-        'price_at_purchase': price,
-        'is_direct_gamefowl_order': true,
-        'gamefowl_request': requestData,
-      };
-
-      if (!mounted) return;
-
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute<void>(
-          builder: (context) => CheckOutScreen(
-            selectedCartItems: [checkoutItem],
-          ),
-        ),
-      );
-    } catch (e) {
-      _showMessage('Unable to proceed to checkout: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProceeding = false;
-        });
-      }
-    }
-  }
+  Widget _label(String text) => Text(text,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ));
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: textColor,
-        elevation: 0,
-        centerTitle: false,
-        leadingWidth: 48,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 20,
-            color: Color(0xFF62656D),
-          ),
-        ),
-        title: const Text(
-          'Order Request',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Order Requested',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                      ),
-                    ),
-                    const Divider(height: 1, color: borderColor),
-                    const SizedBox(height: 14),
-                    _buildProductSummary(),
-                    const SizedBox(height: 16),
-                    ...List.generate(_gamefowls.length, (index) {
-                      final entry = _gamefowls[index];
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 14),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    _gamefowls.length > 1
-                                        ? 'Chosen Gamefowl ${index + 1}'
-                                        : 'Chosen Gamefowl',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: textColor,
-                                    ),
-                                  ),
-                                ),
-                                if (_gamefowls.length > 1)
-                                  IconButton(
-                                    onPressed: () =>
-                                        _removeGamefowl(index),
-                                    tooltip: 'Remove gamefowl',
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      color: Colors.redAccent,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInputField(
-                              controller: entry.chosenController,
-                              hint: 'Enter chosen gamefowl',
-                            ),
-                            const SizedBox(height: 18),
-                            const Text(
-                              'Gamefowl Specific Details',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: const Color(0xFFF0F0F2),
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildDetailInput(
-                                    label: 'Wingband No.',
-                                    controller: entry.wingbandController,
-                                    hint: 'Enter wingband number',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildDetailInput(
-                                    label: 'Feather Color:',
-                                    controller: entry.featherController,
-                                    hint: 'Enter feather color',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildDetailInput(
-                                    label: 'Feet Color:',
-                                    controller: entry.feetController,
-                                    hint: 'Enter feet color',
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Add Media',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: _pickMedia,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: borderColor),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: primaryBlue,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'Choose a file',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _selectedFile?.name ?? 'No file chosen',
-                                style: const TextStyle(
-                                  color: mutedColor,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (_selectedFile != null)
-                              IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedFile = null;
-                                  });
-                                },
-                                tooltip: 'Remove file',
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton.icon(
-                        onPressed: _addGamefowl,
-                        icon: const Icon(
-                          Icons.add_circle_outline_rounded,
-                          size: 20,
-                        ),
-                        label: const Text(
-                          'ADD MORE GAMEFOWL',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: primaryBlue,
-                          side: const BorderSide(color: primaryBlue),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(
-            color: backgroundColor,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: ElevatedButton(
-                  onPressed:
-                      _isProceeding ? null : _proceedToCheckout,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    disabledBackgroundColor:
-                        primaryBlue.withOpacity(0.6),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: _isProceeding
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Proceed to Checkout',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: _borderedBox(),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Expanded(child: _label('Order Requested')),
+            if (widget.onRemove != null)
+              TextButton(
+                  key: ValueKey('remove-listing-${draft.listingId}'),
+                  onPressed: _openingCheckout ? null : widget.onRemove,
+                  child: const Text('Remove')),
+          ]),
+          const SizedBox(height: 12),
+          _buildProductSummary(),
+          const SizedBox(height: 12),
+          _buildRequestFields(),
+          const SizedBox(height: 12),
+          Text(
+              'Selling unit: ${draft.sellingUnit.isEmpty ? 'per bird' : farmUnitLabel(draft.sellingUnit)}'),
+          Row(children: [
+            IconButton(
+                tooltip: 'Decrease quantity',
+                onPressed: _openingCheckout || _quantity <= 1
+                    ? null
+                    : () => _changeQuantity(_quantity - 1),
+                icon: const Icon(Icons.remove)),
+            Expanded(
+                child:
+                    Text('Quantity: $_quantity', textAlign: TextAlign.center)),
+            IconButton(
+                tooltip: 'Increase quantity',
+                onPressed: _openingCheckout || _quantity >= 100000
+                    ? null
+                    : () => _changeQuantity(_quantity + 1),
+                icon: const Icon(Icons.add)),
+          ]),
+          Text(farmBirdCount(_birds.length)),
+          if (_errors['items.${widget.itemIndex}'] != null)
+            Text(_errors['items.${widget.itemIndex}']!,
+                style: const TextStyle(color: Colors.red)),
+          ...List.generate(_birds.length, _birdForm),
+        ]),
+      );
 
   Widget _buildProductSummary() {
-    final product = widget.productData;
-    final rawImage = product?['item_images'] ??
-        product?['image_url'] ??
-        product?['image'] ??
-        product?['product_image'] ??
-        product?['item_image'];
-
-    String imageUrl = '';
-
-    if (rawImage is List && rawImage.isNotEmpty) {
-      final first = rawImage.first;
-      imageUrl = first is Map
-          ? (first['image_url'] ?? first['url'] ?? first['path'])
-                  ?.toString() ??
-              ''
-          : first.toString();
-    } else if (rawImage is Map) {
-      imageUrl =
-          (rawImage['image_url'] ?? rawImage['url'] ?? rawImage['path'])
-                  ?.toString() ??
-              '';
-    } else {
-      imageUrl = rawImage?.toString() ?? '';
-    }
-
+    final product = _product;
+    final imageUrl = product.imageUrl;
+    final traits = product.bloodline == null
+        ? product.traits
+        : [product.title, product.age, product.sex]
+            .whereType<String>()
+            .join(' | ');
+    const placeholder = Center(
+        child: Icon(Icons.image_outlined,
+            size: 24, color: AppColors.textSecondary));
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F5F9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(7),
-            child: Container(
-              width: 68,
-              height: 68,
-              color: const Color(0xFFD0D1D3),
-              child: imageUrl.startsWith('http')
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          _buildImagePlaceholder(),
-                    )
-                  : _buildImagePlaceholder(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getGamefowlType(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${widget.shopName ?? 'Golden Boy Sweater'} | '
-                  '${_getAge()} | ${_getGender()}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF287C43),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _getPrice(),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImagePlaceholder() {
-    return const Center(
-      child: Icon(
-        Icons.image_outlined,
-        color: Colors.white,
-        size: 28,
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return SizedBox(
-      height: 50,
-      child: TextField(
-        controller: controller,
-        style: const TextStyle(
-          fontSize: 15,
-          color: textColor,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            fontSize: 14,
-            color: mutedColor,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 12,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: borderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: borderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(
-              color: primaryBlue,
-              width: 1.5,
-            ),
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(8)),
+      child: Row(children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            width: 64,
+            height: 64,
+            color: AppColors.borderDefault,
+            child: imageUrl == null
+                ? placeholder
+                : Image.network(imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => placeholder),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailInput({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 112,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: mutedColor,
-            ),
-          ),
-        ),
+        const SizedBox(width: 12),
         Expanded(
-          child: SizedBox(
-            height: 42,
-            child: TextField(
-              controller: controller,
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _label((product.bloodline ?? product.title).toUpperCase()),
+          if (traits.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(traits,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.brandPrimary)),
+          ],
+          const SizedBox(height: 8),
+          Text(
+              product.price == null
+                  ? 'Price unavailable'
+                  : product.formattedPrice,
               style: const TextStyle(
-                fontSize: 14,
-                color: textColor,
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFFB8BAC0),
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 10,
-                ),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-        ),
-      ],
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary)),
+        ])),
+      ]),
     );
   }
-}
 
-class _GamefowlRequestEntry {
-  final TextEditingController chosenController =
-      TextEditingController();
-
-  final TextEditingController wingbandController =
-      TextEditingController();
-
-  final TextEditingController featherController =
-      TextEditingController();
-
-  final TextEditingController feetController =
-      TextEditingController();
-
-  Map<String, dynamic> toMap() {
-    return {
-      'gamefowl_name': chosenController.text.trim(),
-      'wingband_no': wingbandController.text.trim(),
-      'feather_color': featherController.text.trim(),
-      'feet_color': feetController.text.trim(),
-    };
+  Widget _buildRequestFields() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: _borderedBox(),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _label('Chosen Gamefowl'),
+          const SizedBox(height: 8),
+          TextField(
+            key: ValueKey(widget.itemIndex == 0
+                ? 'chosen-gamefowl'
+                : 'chosen-gamefowl-${draft.listingId}'),
+            controller: _chosenController,
+            readOnly: true,
+            textCapitalization: TextCapitalization.sentences,
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'No gamefowl selected',
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              contentPadding: const EdgeInsets.all(12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.borderDefault)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.borderDefault)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: const BorderSide(color: AppColors.brandPrimary)),
+            ),
+          ),
+        ]),
+      );
+  void _updateBird(int index, String field, String value) {
+    final bird = _birds[index];
+    _birds[index] = FarmBirdDetails(
+      wingband: field == 'wingband_no' ? value : bird.wingband,
+      feather: field == 'feather_color' ? value : bird.feather,
+      feet: field == 'feet_color' ? value : bird.feet,
+      markings: field == 'nose_feet_markings' ? value : bird.markings,
+    );
+    widget.onEdited();
   }
 
-  void dispose() {
-    chosenController.dispose();
-    wingbandController.dispose();
-    featherController.dispose();
-    feetController.dispose();
+  InputDecoration _detailDecoration(String path, {String? hint}) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+        border: InputBorder.none,
+        counterText: '',
+        errorText: _errors[path],
+        errorMaxLines: 3,
+      );
+
+  Widget _detailRow(String label, Widget field) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final caption = Text('$label:',
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary));
+        if (constraints.maxWidth < 300 ||
+            MediaQuery.textScalerOf(context).scale(12) > 18) {
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [caption, field]);
+        }
+        return Row(children: [
+          SizedBox(width: 148, child: caption),
+          Expanded(child: field)
+        ]);
+      });
+
+  Widget _colorField(int index, String label, String field, List<String> colors,
+      String value) {
+    final path = 'items.${widget.itemIndex}.birds.$index.$field';
+    final localKey = '$index.$field';
+    final selected = _colorSelections[localKey] ??
+        (value.isEmpty
+            ? null
+            : colors.contains(value)
+                ? value
+                : 'Other');
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _detailRow(
+          label,
+          Semantics(
+              label: 'Bird ${index + 1} $label',
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(path),
+                value: selected,
+                isExpanded: true,
+                menuMaxHeight: 300,
+                hint: const Text('Select color'),
+                style:
+                    const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    size: 24, color: AppColors.textSecondary),
+                decoration: _detailDecoration(path),
+                items: colors
+                    .map((color) => DropdownMenuItem(
+                        value: color,
+                        child: Text(color, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                onChanged: _openingCheckout
+                    ? null
+                    : (selection) {
+                        if (selection == null) return;
+                        setState(() {
+                          _colorSelections[localKey] = selection;
+                          _updateBird(
+                              index,
+                              field,
+                              selection == 'Other'
+                                  ? _customColors[localKey] ?? ''
+                                  : selection);
+                        });
+                      },
+              ))),
+      if (selected == 'Other')
+        Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextFormField(
+              key: ValueKey('custom-$path'),
+              initialValue: _customColors[localKey] ?? value,
+              readOnly: _openingCheckout,
+              maxLength: 100,
+              textCapitalization: TextCapitalization.sentences,
+              style:
+                  const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                  labelText: 'Custom ${label.toLowerCase()}',
+                  labelStyle: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
+                  contentPadding: const EdgeInsets.all(10),
+                  counterText: '',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                  errorText: _errors[path],
+                  errorMaxLines: 3),
+              onChanged: (text) => setState(() {
+                _customColors[localKey] = text;
+                _updateBird(index, field, text);
+              }),
+            )),
+    ]);
+  }
+
+  Widget _birdForm(int index) {
+    final bird = _birds[index];
+    final prefix = 'items.${widget.itemIndex}.birds.$index';
+    return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _label('Bird ${index + 1}: Specific Details'),
+          const SizedBox(height: 8),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: _borderedBox(),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_errors[prefix] != null)
+                      Text(_errors[prefix]!,
+                          style: const TextStyle(color: Colors.red)),
+                    _detailRow(
+                        'Wingband No.',
+                        Semantics(
+                            label: 'Bird ${index + 1} Wingband No.',
+                            child: TextFormField(
+                              key: ValueKey('$prefix.wingband_no'),
+                              initialValue: bird.wingband,
+                              readOnly: _openingCheckout,
+                              maxLength: 100,
+                              style: const TextStyle(
+                                  fontSize: 14, color: AppColors.textPrimary),
+                              decoration: _detailDecoration(
+                                  '$prefix.wingband_no',
+                                  hint: '\u2014'),
+                              onChanged: (value) => setState(() =>
+                                  _updateBird(index, 'wingband_no', value)),
+                            ))),
+                    _colorField(index, 'Feather Color', 'feather_color',
+                        _featherColors, bird.feather),
+                    _colorField(index, 'Feet Color', 'feet_color', _feetColors,
+                        bird.feet),
+                    _detailRow(
+                        'Nose and Feet Markings',
+                        Semantics(
+                            label: 'Bird ${index + 1} Nose and Feet Markings',
+                            child: TextFormField(
+                              key: ValueKey('$prefix.nose_feet_markings'),
+                              initialValue: bird.markings,
+                              readOnly: _openingCheckout,
+                              maxLength: 100,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(
+                                  fontSize: 14, color: AppColors.textPrimary),
+                              decoration: _detailDecoration(
+                                  '$prefix.nose_feet_markings',
+                                  hint: '\u2014'),
+                              onChanged: (value) => setState(() => _updateBird(
+                                  index, 'nose_feet_markings', value)),
+                            ))),
+                  ])),
+        ]));
   }
 }
