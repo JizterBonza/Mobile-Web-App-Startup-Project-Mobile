@@ -1,6 +1,6 @@
 import '../utils/media_url.dart';
 
-enum SearchResultType { product, shop, gamefowl }
+enum SearchResultType { product, shop, farm, gamefowl }
 
 /// One search summary. Its type and ID together identify its navigation target.
 class CatalogSearchHit {
@@ -30,6 +30,7 @@ class CatalogSearchHit {
     final idKey = switch (type) {
       SearchResultType.product => 'item_id',
       SearchResultType.shop => 'shop_id',
+      SearchResultType.farm => 'farm_id',
       SearchResultType.gamefowl => 'listing_id',
     };
     final rawId = json[idKey] ?? json['id'];
@@ -53,7 +54,7 @@ class CatalogSearchHit {
     }
     final image = resolveShopMediaUrl(rawImage);
     final rawPrice = json['price'] ?? json['item_price'];
-    final price = type == SearchResultType.shop
+    final price = type == SearchResultType.shop || type == SearchResultType.farm
         ? null
         : num.tryParse(rawPrice?.toString() ?? '');
     return CatalogSearchHit(
@@ -89,6 +90,7 @@ class CatalogSearchResponse {
     this.query = '',
     this.items = const [],
     this.shops = const [],
+    this.farms = const [],
     this.gamefowl = const [],
     this.count = const {},
   });
@@ -96,10 +98,12 @@ class CatalogSearchResponse {
   final String query;
   final List<CatalogSearchHit> items;
   final List<CatalogSearchHit> shops;
+  final List<CatalogSearchHit> farms;
   final List<CatalogSearchHit> gamefowl;
   final Map<String, int> count;
 
-  bool get isEmpty => items.isEmpty && shops.isEmpty && gamefowl.isEmpty;
+  bool get isEmpty =>
+      items.isEmpty && shops.isEmpty && farms.isEmpty && gamefowl.isEmpty;
   List<Map<String, dynamic>> get itemData =>
       items.map((hit) => hit.data).toList();
 
@@ -125,6 +129,7 @@ class CatalogSearchResponse {
     final items =
         read(grouped ? data['items'] : data, SearchResultType.product);
     final shops = read(grouped ? data['shops'] : null, SearchResultType.shop);
+    final farms = read(grouped ? data['farms'] : null, SearchResultType.farm);
     final gamefowl =
         read(grouped ? data['gamefowl'] : null, SearchResultType.gamefowl);
     final counts = json['count'];
@@ -137,10 +142,12 @@ class CatalogSearchResponse {
       query: json['query']?.toString() ?? query,
       items: items,
       shops: shops,
+      farms: farms,
       gamefowl: gamefowl,
       count: Map.unmodifiable({
         'items': countFor('items', items.length),
         'shops': countFor('shops', shops.length),
+        'farms': countFor('farms', farms.length),
         'gamefowl': countFor('gamefowl', gamefowl.length),
       }),
     );

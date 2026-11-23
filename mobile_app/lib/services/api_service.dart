@@ -36,6 +36,10 @@ class ApiService {
 
   static Completer<bool>? _refreshCompleter;
 
+  /// Called when a refresh response rejects the saved session.
+  /// A missing refresh token does not call this.
+  static Future<void> Function()? onSessionRejected;
+
   /// Register a new user
   static Future<Map<String, dynamic>> register({
     required String firstName,
@@ -561,7 +565,11 @@ class ApiService {
         return true;
       }
 
-      await _clearAuthSession();
+      if (onSessionRejected != null) {
+        await onSessionRejected!();
+      } else {
+        await _clearAuthSession();
+      }
       completer.complete(false);
       return false;
     } catch (e) {
@@ -954,6 +962,12 @@ class ApiService {
         'data': null,
       };
     }
+  }
+
+  /// Clears the saved session and cached records, keeping Remember me.
+  static Future<void> clearLocalSession() async {
+    await clearToken();
+    await _clearAllCache();
   }
 
   /// Clear all Hive cached data

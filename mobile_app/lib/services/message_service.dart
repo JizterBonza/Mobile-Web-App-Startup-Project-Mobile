@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/messageModel.dart';
 import '../utils/api_endpoints.dart';
+import '../utils/session_guard.dart';
 import 'api_service.dart';
 
 /// Customer messaging API: conversations, thread, and send (JSON or multipart).
@@ -291,6 +292,7 @@ class MessageService extends ApiService {
       final status = response.statusCode ?? 0;
       final responseData = _normalizeResponseData(response.data);
       _debugLog(label, status, responseData?.toString() ?? '');
+      if (status == 401) await SessionGuard.onBearerRejected();
 
       if (successCodes.contains(status) &&
           !(responseData is Map && responseData['success'] == false)) {
@@ -320,6 +322,7 @@ class MessageService extends ApiService {
         status,
         responseData?.toString() ?? e.message ?? '',
       );
+      if (status == 401) await SessionGuard.onBearerRejected();
       return {
         'success': false,
         'message': _errorMessageFrom(

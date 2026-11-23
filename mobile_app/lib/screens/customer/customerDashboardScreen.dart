@@ -1009,6 +1009,11 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
       case SearchResultType.shop:
         screen = ShopScreen(
             shopId: data['shop_id'] ?? data['id'], shopName: suggestion.title);
+      case SearchResultType.farm:
+        screen = FarmDetailsScreen(
+            farmId: data['farm_id'] ?? data['id'],
+            farmName: suggestion.title,
+            farmsService: _farmsService);
       case SearchResultType.gamefowl:
         screen = FarmGamefowlListingDetailScreen(
             listingId: data['listing_id'] ?? data['id'],
@@ -1490,6 +1495,7 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
             .where((item) => item['id'] != null || item['item_id'] != null)
             .map(SearchSuggestion.fromItem),
         ...results.shops.map(SearchSuggestion.fromHit),
+        ...results.farms.map(SearchSuggestion.fromHit),
         ...results.gamefowl.map(SearchSuggestion.fromHit),
       ],
       onDismissed: _dismissSuggestionSearch,
@@ -2601,11 +2607,14 @@ class _CustomerDashboardScreenState extends State<CustomerDashboardScreen> {
         if (products.isNotEmpty) _buildProductMatchesSection(),
         if (results.shops.isNotEmpty)
           _buildSearchHitSection(SearchResultType.shop, results.shops),
+        if (results.farms.isNotEmpty)
+          _buildSearchHitSection(SearchResultType.farm, results.farms),
         if (results.gamefowl.isNotEmpty)
           _buildSearchHitSection(SearchResultType.gamefowl, results.gamefowl),
         if (!_committingSearch &&
             products.isEmpty &&
             results.shops.isEmpty &&
+            results.farms.isEmpty &&
             results.gamefowl.isEmpty)
           Padding(
               padding: const EdgeInsets.all(16),

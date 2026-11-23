@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'constants/constants.dart';
+import 'services/api_service.dart';
+import 'services/session_client.dart';
+import 'utils/session_guard.dart';
 import 'screens/common/loginScreen.dart';
 import 'screens/customer/customerDashboardScreen.dart';
 import 'screens/vendor/vendorDashboardScreen.dart';
@@ -34,7 +38,9 @@ void main() async {
   // instantly on first render and never blank out during navigation.
   await _precacheNavIcons();
 
-  runApp(const MyApp());
+  SessionGuard.navigatorKey = navigatorKey;
+  ApiService.onSessionRejected = SessionGuard.forceLogout;
+  http.runWithClient(() => runApp(const MyApp()), () => SessionClient());
 }
 
 Future<void> _precacheNavIcons() async {

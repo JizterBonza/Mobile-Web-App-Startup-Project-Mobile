@@ -330,7 +330,14 @@ class _SearchSuggestionsState extends State<SearchSuggestions>
 String searchGroupLabel(SearchResultType type) => switch (type) {
       SearchResultType.product => 'Products',
       SearchResultType.shop => 'Shops',
+      SearchResultType.farm => 'Partner Gamefarms',
       SearchResultType.gamefowl => 'Gamefowl',
+    };
+
+IconData searchGroupIcon(SearchResultType type) => switch (type) {
+      SearchResultType.shop => Icons.storefront_outlined,
+      SearchResultType.farm => Icons.agriculture_outlined,
+      _ => Icons.image_outlined,
     };
 
 class SearchSuggestionTile extends StatelessWidget {
@@ -351,9 +358,7 @@ class SearchSuggestionTile extends StatelessWidget {
         width: 40,
         height: 40,
         child: suggestion.imageUrl == null
-            ? Icon(suggestion.type == SearchResultType.shop
-                ? Icons.storefront_outlined
-                : Icons.image_outlined)
+            ? Icon(searchGroupIcon(suggestion.type))
             : Image.network(suggestion.imageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined)),

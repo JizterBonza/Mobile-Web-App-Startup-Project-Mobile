@@ -117,8 +117,6 @@ class FarmOrderTracking extends StatelessWidget {
   }
 
   Widget _event(Map<String, dynamic> event, {required bool last}) {
-    final status = normalizeOrderStatus(farmText(event['status']));
-    final color = getStatusColor(status);
     final title = [event['title'], event['event'], event['status']]
         .map(farmText)
         .firstWhere((value) => value.isNotEmpty, orElse: () => 'Order update');
@@ -135,14 +133,14 @@ class FarmOrderTracking extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: AppColors.success.withOpacity(0.1),
                     shape: BoxShape.circle),
                 child: Center(
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration:
-                        BoxDecoration(color: color, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                        color: AppColors.success, shape: BoxShape.circle),
                   ),
                 ),
               ),
@@ -151,7 +149,7 @@ class FarmOrderTracking extends StatelessWidget {
                   child: Container(
                       width: 2,
                       margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: AppColors.borderDefault),
+                      color: AppColors.success),
                 ),
             ]),
           ),
